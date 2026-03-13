@@ -20,7 +20,7 @@ export const crawlBusinessFunction = inngest.createFunction(
   {
     id: 'crawl-business',
     retries: 2,
-    concurrency: { limit: 3 }, // max 3 crawls running in parallel
+    concurrency: { limit: 6 },
   },
   { event: 'crawl/business.scan' },
   async ({ event, step }) => {

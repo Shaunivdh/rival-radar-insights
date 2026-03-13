@@ -6,22 +6,33 @@ import { AppSidebar } from '@/components/AppSidebar';
 import { useRivalRadarStore } from '@/store/rivalradar';
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
-  const { user, project, isDemoMode } = useRivalRadarStore();
+  const { user, project, isDemoMode, deleteProject, initAuth } = useRivalRadarStore();
   const router = useRouter();
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
     setMounted(true);
-  }, []);
+    initAuth();
+  }, [initAuth]);
 
   useEffect(() => {
     if (!mounted) return;
+    // Real user stuck in demo mode — clear it and send to setup
+    if (user && isDemoMode) {
+      deleteProject();
+      router.replace('/setup');
+      return;
+    }
     if (!project && !isDemoMode) {
       router.replace(user ? '/setup' : '/');
     }
-  }, [mounted, project, isDemoMode, user, router]);
+  }, [mounted, user, project, isDemoMode, deleteProject, router]);
 
-  if (!mounted || (!project && !isDemoMode)) return null;
+  // Show nothing only before hydration — avoids flash of login page
+  if (!mounted) return null;
+
+  // Real user with no project — don't render app chrome, redirect is in flight
+  if (!project) return null;
 
   return (
     <div className="flex min-h-screen">

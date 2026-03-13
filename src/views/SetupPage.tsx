@@ -11,9 +11,10 @@ const SetupPage = () => {
   const router = useRouter();
 
   const [tab, setTab] = useState<'login' | 'signup'>('login');
-  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     if (user && project) router.replace('/dashboard');
@@ -27,16 +28,18 @@ const SetupPage = () => {
     router.push('/dashboard');
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     setError('');
-    if (!name.trim() || !password.trim()) return;
+    if (!email.trim() || !password.trim()) return;
+    setLoading(true);
 
-    if (tab === 'login') {
-      const ok = login(name.trim(), password);
-      if (!ok) setError('Invalid name or password.');
-    } else {
-      const ok = signup(name.trim(), password);
-      if (!ok) setError('That name is already taken.');
+    const result = tab === 'login'
+      ? await login(email.trim(), password)
+      : await signup(email.trim(), password);
+
+    if (!result.ok) {
+      setError(result.error ?? 'Something went wrong.');
+      setLoading(false);
     }
   };
 
@@ -51,7 +54,6 @@ const SetupPage = () => {
           <p className="text-sm text-muted-foreground mt-1">Track your competitors and stay ahead.</p>
         </div>
 
-        {/* Tabs */}
         <div className="flex bg-muted rounded-lg p-1">
           {(['login', 'signup'] as const).map((t) => (
             <button
@@ -68,13 +70,14 @@ const SetupPage = () => {
 
         <div className="card-surface space-y-4">
           <div>
-            <label className="text-xs font-medium text-muted-foreground mb-1 block">Name</label>
+            <label className="text-xs font-medium text-muted-foreground mb-1 block">Email</label>
             <input
-              value={name}
-              onChange={(e) => setName(e.target.value)}
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && handleSubmit()}
               className="w-full px-3 py-2 text-sm bg-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/30"
-              placeholder="Your name"
+              placeholder="you@example.com"
               autoFocus
             />
           </div>
@@ -92,18 +95,16 @@ const SetupPage = () => {
           {error && <p className="text-xs text-destructive">{error}</p>}
           <button
             onClick={handleSubmit}
-            disabled={!name || !password}
+            disabled={!email || !password || loading}
             className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 disabled:opacity-50"
           >
-            {tab === 'login' ? 'Log In' : 'Create Account'} <ArrowRight className="w-4 h-4" />
+            {loading ? 'Please wait…' : tab === 'login' ? 'Log In' : 'Create Account'}
+            {!loading && <ArrowRight className="w-4 h-4" />}
           </button>
         </div>
 
         <div className="text-center">
-          <button
-            onClick={handleDemo}
-            className="text-sm text-primary font-medium hover:underline"
-          >
+          <button onClick={handleDemo} className="text-sm text-primary font-medium hover:underline">
             Explore with demo data →
           </button>
         </div>

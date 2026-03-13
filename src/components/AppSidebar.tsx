@@ -18,8 +18,8 @@ export const AppSidebar = () => {
   const pathname = usePathname();
   const { user, isDemoMode, logout } = useRivalRadarStore();
 
-  const handleLogout = () => {
-    logout();
+  const handleLogout = async () => {
+    await logout();
     router.push('/');
   };
 
@@ -49,10 +49,10 @@ export const AppSidebar = () => {
         })}
       </nav>
       <div className="p-4 border-t border-border space-y-3">
-        {!isDemoMode && user && (
+        {user && (
           <div className="flex items-center justify-between">
             <p className="text-xs text-muted-foreground truncate">
-              <span className="font-medium text-foreground">{user.name}</span>
+              <span className="font-medium text-foreground">{user.email.split('@')[0]}</span>
             </p>
             <button
               onClick={handleLogout}

@@ -6,6 +6,7 @@ import { Logo } from '@/components/Logo';
 import { useEffect, useState } from 'react';
 import { ArrowRight, Plus, Trash2 } from 'lucide-react';
 import type { Business } from '@/types';
+import { createProject, triggerInitialScans } from '@/actions/projects';
 
 const emptyBusiness = (): Business => ({
   id: crypto.randomUUID(),
@@ -37,6 +38,8 @@ const BusinessSetupPage = () => {
   const [primaryService, setPrimaryService] = useState('');
   const [location, setLocation] = useState('');
   const [competitors, setCompetitors] = useState([emptyBusiness()]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
   useEffect(() => {
     if (!user) router.replace('/');
@@ -61,21 +64,30 @@ const BusinessSetupPage = () => {
   const removeCompetitor = (i: number) =>
     setCompetitors(competitors.filter((_, idx) => idx !== i));
 
-  const handleFinish = () => {
-    const ownFinal: Business = { ...own, domain: getDomain(own.url) };
-    const competitorsFinal = competitors
-      .filter((c) => c.name && c.url)
-      .map((c) => ({ ...c, domain: getDomain(c.url) }));
+  const handleFinish = async () => {
+    setLoading(true);
+    setError('');
+    try {
+      const ownFinal = { name: own.name, url: own.url, domain: getDomain(own.url) };
+      const competitorsFinal = competitors
+        .filter((c) => c.name && c.url)
+        .map((c) => ({ name: c.name, url: c.url, domain: getDomain(c.url) }));
 
-    setProject({
-      id: crypto.randomUUID(),
-      name: `${own.name} vs Competitors`,
-      createdAt: Date.now(),
-      ownBusiness: ownFinal,
-      competitors: competitorsFinal,
-    });
-    setSettings({ primaryService, location });
-    router.push('/dashboard');
+      const savedProject = await createProject(user!.id, {
+        name: `${ownFinal.name} vs Competitors`,
+        ownBusiness: ownFinal,
+        competitors: competitorsFinal,
+      });
+
+      setProject(savedProject);
+      setSettings({ primaryService, location });
+      await triggerInitialScans(savedProject.id);
+      router.push('/dashboard');
+    } catch (e) {
+      setError('Failed to create project. Please try again.');
+      setLoading(false);
+      console.error(e);
+    }
   };
 
   return (
@@ -189,14 +201,15 @@ const BusinessSetupPage = () => {
               </button>
               <button
                 onClick={handleFinish}
-                disabled={competitors.every((c) => !c.name || !c.url)}
+                disabled={competitors.every((c) => !c.name || !c.url) || loading}
                 className="flex-1 px-4 py-2.5 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 disabled:opacity-50"
               >
-                Start Scanning
+                {loading ? 'Setting up…' : 'Start Scanning'}
               </button>
             </div>
           </div>
         )}
+        {error && <p className="text-xs text-destructive text-center">{error}</p>}
       </div>
     </div>
   );

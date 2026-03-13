@@ -4,11 +4,13 @@ import { useRivalRadarStore } from '@/store/rivalradar';
 import { Settings as SettingsIcon, Trash2, RefreshCw } from 'lucide-react';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { rescanAll } from '@/actions/projects';
 
 const SettingsPage = () => {
-  const { settings, setSettings, deleteProject } = useRivalRadarStore();
+  const { settings, setSettings, deleteProject, project } = useRivalRadarStore();
   const router = useRouter();
   const [form, setForm] = useState(settings);
+  const [rescanning, setRescanning] = useState(false);
 
   const handleSave = () => {
     setSettings(form);
@@ -58,8 +60,19 @@ const SettingsPage = () => {
       <div className="card-surface space-y-3">
         <h2 className="text-sm font-semibold text-foreground">Actions</h2>
         <div className="flex gap-3">
-          <button className="flex items-center gap-2 px-4 py-2 rounded-lg bg-muted text-foreground text-sm font-medium hover:bg-muted/80">
-            <RefreshCw className="w-4 h-4" /> Re-scan All
+          <button
+            onClick={async () => {
+              if (!project) return;
+              setRescanning(true);
+              await rescanAll(project.id);
+              setRescanning(false);
+              router.push('/dashboard');
+            }}
+            disabled={rescanning || !project}
+            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-muted text-foreground text-sm font-medium hover:bg-muted/80 disabled:opacity-50"
+          >
+            <RefreshCw className={`w-4 h-4 ${rescanning ? 'animate-spin' : ''}`} />
+            {rescanning ? 'Starting…' : 'Re-scan All'}
           </button>
           <button
             onClick={handleDelete}

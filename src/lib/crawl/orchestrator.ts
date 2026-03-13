@@ -7,32 +7,10 @@ interface CrawlCredentials {
   apiToken: string;
 }
 
-async function getCredentialsForBusiness(businessId: string): Promise<CrawlCredentials> {
-  const { data, error } = await supabaseAdmin
-    .from('businesses')
-    .select('projects(user_id)')
-    .eq('id', businessId)
-    .single();
-
-  if (error || !data) throw new Error(`Cannot resolve user for business ${businessId}`);
-
-  const projects = data.projects as unknown as { user_id: string } | null;
-  const userId = projects?.user_id;
-  if (!userId) throw new Error(`No user_id found for business ${businessId}`);
-
-  const { data: settings, error: settingsError } = await supabaseAdmin
-    .from('app_settings')
-    .select('cf_account_id, cf_api_token')
-    .eq('user_id', userId)
-    .single();
-
-  if (settingsError || !settings) throw new Error(`No app_settings for user ${userId}`);
-
-  const accountId = settings.cf_account_id as string;
-  const apiToken = settings.cf_api_token as string;
-
-  if (!accountId || !apiToken) throw new Error('CF credentials not configured in app_settings');
-
+function getCredentials(): CrawlCredentials {
+  const accountId = process.env.CF_ACCOUNT_ID;
+  const apiToken = process.env.CF_API_TOKEN;
+  if (!accountId || !apiToken) throw new Error('CF_ACCOUNT_ID or CF_API_TOKEN not set in environment');
   return { accountId, apiToken };
 }
 
@@ -49,7 +27,7 @@ export async function startBusinessCrawl(
 
   if (error || !business) throw new Error(`Business not found: ${businessId}`);
 
-  const credentials = await getCredentialsForBusiness(businessId);
+  const credentials = getCredentials();
   const isIncremental = mode === 'incremental' && !!business.last_crawled_at;
 
   const jobId = isIncremental
@@ -61,8 +39,8 @@ export async function startBusinessCrawl(
     : await startCrawl(
         business.url as string,
         {
-          maxDepth: 3,
-          maxPages: 30,
+          maxDepth: 2,
+          maxPages: 15,
           outputFormats: ['json', 'markdown'],
           jsonOptions: {
             prompt:
@@ -82,7 +60,7 @@ export async function startBusinessCrawl(
 
 /** Poll the crawl status for a given job. */
 export async function checkCrawlStatus(businessId: string, jobId: string): Promise<string> {
-  const credentials = await getCredentialsForBusiness(businessId);
+  const credentials = getCredentials();
   const result = await pollCrawlStatus(jobId, credentials);
   return result.status;
 }
@@ -92,7 +70,7 @@ export async function extractAndPersistSignals(
   businessId: string,
   jobId: string
 ): Promise<void> {
-  const credentials = await getCredentialsForBusiness(businessId);
+  const credentials = getCredentials();
   const rawResult = await getCrawlResults(jobId, credentials);
   const signals = await extractSignals(rawResult);
 

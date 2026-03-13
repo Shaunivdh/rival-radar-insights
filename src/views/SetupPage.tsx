@@ -7,10 +7,12 @@ import { useEffect, useState } from 'react';
 import { ArrowRight, Plus, Trash2 } from 'lucide-react';
 
 const SetupPage = () => {
-  const { project, loadMockData } = useRivalRadarStore();
+  const { project, loadMockData, setUser } = useRivalRadarStore();
   const router = useRouter();
 
-  const [step, setStep] = useState(1);
+  const [step, setStep] = useState(0);
+  const [userName, setUserName] = useState('');
+  const [password, setPassword] = useState('');
   const [businessName, setBusinessName] = useState('');
   const [businessUrl, setBusinessUrl] = useState('');
   const [primaryService, setPrimaryService] = useState('');
@@ -51,13 +53,45 @@ const SetupPage = () => {
 
         {/* Step indicator */}
         <div className="flex items-center justify-center gap-2">
-          {[1, 2].map((s) => (
+          {[0, 1, 2].map((s) => (
             <div
               key={s}
               className={`w-8 h-1 rounded-full ${step >= s ? 'bg-primary' : 'bg-border'}`}
             />
           ))}
         </div>
+
+        {step === 0 && (
+          <div className="card-surface space-y-4">
+            <h2 className="text-sm font-semibold text-foreground">Create your account</h2>
+            <div>
+              <label className="text-xs font-medium text-muted-foreground mb-1 block">Name</label>
+              <input
+                value={userName}
+                onChange={(e) => setUserName(e.target.value)}
+                className="w-full px-3 py-2 text-sm bg-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/30"
+                placeholder="Your name"
+              />
+            </div>
+            <div>
+              <label className="text-xs font-medium text-muted-foreground mb-1 block">Password</label>
+              <input
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="w-full px-3 py-2 text-sm bg-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/30"
+                placeholder="••••••••"
+              />
+            </div>
+            <button
+              onClick={() => { setUser({ name: userName, password }); setStep(1); }}
+              disabled={!userName || !password}
+              className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 disabled:opacity-50"
+            >
+              Continue <ArrowRight className="w-4 h-4" />
+            </button>
+          </div>
+        )}
 
         {step === 1 && (
           <div className="card-surface space-y-4">
@@ -98,13 +132,21 @@ const SetupPage = () => {
                 placeholder="e.g. Manchester"
               />
             </div>
-            <button
-              onClick={() => setStep(2)}
-              disabled={!businessName || !businessUrl}
-              className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 disabled:opacity-50"
-            >
-              Next <ArrowRight className="w-4 h-4" />
-            </button>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setStep(0)}
+                className="px-4 py-2.5 rounded-lg bg-muted text-foreground text-sm font-medium hover:bg-muted/80"
+              >
+                Back
+              </button>
+              <button
+                onClick={() => setStep(2)}
+                disabled={!businessName || !businessUrl}
+                className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 disabled:opacity-50"
+              >
+                Next <ArrowRight className="w-4 h-4" />
+              </button>
+            </div>
           </div>
         )}
 

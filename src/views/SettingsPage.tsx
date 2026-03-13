@@ -22,11 +22,6 @@ const SettingsPage = () => {
   };
 
   const fields = [
-    { key: 'cfAccountId', label: 'Cloudflare Account ID', type: 'text' },
-    { key: 'cfApiToken', label: 'Cloudflare API Token', type: 'password' },
-    { key: 'googlePlacesApiKey', label: 'Google Places API Key', type: 'password' },
-    { key: 'serpApiKey', label: 'SerpApi API Key', type: 'password' },
-    { key: 'anthropicApiKey', label: 'Anthropic API Key', type: 'password' },
     { key: 'primaryService', label: 'Primary Service', type: 'text' },
     { key: 'location', label: 'Location', type: 'text' },
   ] as const;
@@ -39,8 +34,7 @@ const SettingsPage = () => {
       </h1>
 
       <div className="card-surface space-y-4">
-        <h2 className="text-sm font-semibold text-foreground">API Keys</h2>
-        <p className="text-xs text-muted-foreground">Keys are stored locally in your browser. Never sent to our servers.</p>
+        <h2 className="text-sm font-semibold text-foreground">Project Settings</h2>
         {fields.map((field) => (
           <div key={field.key}>
             <label className="text-xs font-medium text-muted-foreground mb-1 block">{field.label}</label>

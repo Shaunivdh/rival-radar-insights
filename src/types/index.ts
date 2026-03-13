@@ -229,11 +229,11 @@ export interface ChangeSummary {
 }
 
 export interface AppSettings {
-  cfAccountId: string;
-  cfApiToken: string;
-  googlePlacesApiKey: string;
-  serpApiKey: string;
-  anthropicApiKey: string;
   primaryService: string;
   location: string;
+}
+
+export interface User {
+  name: string;
+  password: string;
 }

@@ -1,14 +1,16 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import type { Project, Business, AppSettings, PriorityAction } from '@/types';
+import type { Project, Business, AppSettings, PriorityAction, User } from '@/types';
 import { mockOwnBusiness, mockCompetitors, mockPriorityActions } from '@/mock/data';
 
 interface RivalRadarState {
+  user: User | null;
   project: Project | null;
   settings: AppSettings;
   priorityActions: PriorityAction[];
   isDemoMode: boolean;
   demoBannerDismissed: boolean;
+  setUser: (user: User) => void;
   setProject: (project: Project) => void;
   setSettings: (settings: Partial<AppSettings>) => void;
   setPriorityActions: (actions: PriorityAction[]) => void;
@@ -21,13 +23,9 @@ interface RivalRadarState {
 export const useRivalRadarStore = create<RivalRadarState>()(
   persist(
     (set, get) => ({
+      user: null,
       project: null,
       settings: {
-        cfAccountId: '',
-        cfApiToken: '',
-        googlePlacesApiKey: '',
-        serpApiKey: '',
-        anthropicApiKey: '',
         primaryService: '',
         location: '',
       },
@@ -35,12 +33,13 @@ export const useRivalRadarStore = create<RivalRadarState>()(
       isDemoMode: true,
       demoBannerDismissed: false,
 
+      setUser: (user) => set({ user }),
+
       setProject: (project) => set({ project }),
 
       setSettings: (newSettings) =>
         set((state) => ({
           settings: { ...state.settings, ...newSettings },
-          isDemoMode: !newSettings.cfApiToken && !state.settings.cfApiToken,
         })),
 
       setPriorityActions: (actions) => set({ priorityActions: actions }),
@@ -61,11 +60,6 @@ export const useRivalRadarStore = create<RivalRadarState>()(
           priorityActions: mockPriorityActions,
           isDemoMode: true,
           settings: {
-            cfAccountId: '',
-            cfApiToken: '',
-            googlePlacesApiKey: '',
-            serpApiKey: '',
-            anthropicApiKey: '',
             primaryService: 'building contractor',
             location: 'Manchester',
           },

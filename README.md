@@ -1,73 +1,79 @@
-# Welcome to your Lovable project
+# RivalRadar
 
-## Project info
+Competitor intelligence SaaS — crawl competitor websites, extract signals, and surface actionable insights.
 
-**URL**: https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID
+## Stack
 
-## How can I edit this code?
+- Next.js 15 (App Router) + TypeScript
+- Tailwind CSS + shadcn/ui
+- Supabase (database + auth)
+- Cloudflare Browser Rendering (crawling)
+- Inngest (background job queue)
+- Anthropic API (AI scoring)
+- Google Places API + SerpApi (reputation & SERP data)
 
-There are several ways of editing your application.
+## Getting started
 
-**Use Lovable**
-
-Simply visit the [Lovable Project](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and start prompting.
-
-Changes made via Lovable will be committed automatically to this repo.
-
-**Use your preferred IDE**
-
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
-
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
-
-Follow these steps:
+### 1. Install dependencies
 
 ```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
-
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
-
-# Step 3: Install the necessary dependencies.
-npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
-npm run dev
+npm install
 ```
 
-**Edit a file directly in GitHub**
+### 2. Configure environment variables
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+Copy `.env.example` to `.env.local` and fill in all values:
 
-**Use GitHub Codespaces**
+```sh
+cp .env.example .env.local
+```
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+| Variable | Where to get it |
+|---|---|
+| `NEXT_PUBLIC_SUPABASE_URL` | Supabase dashboard → Project Settings |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase dashboard → Project Settings |
+| `SUPABASE_SERVICE_ROLE_KEY` | Supabase dashboard → Project Settings |
+| `CF_ACCOUNT_ID` | Cloudflare dashboard → account menu |
+| `CF_API_TOKEN` | Cloudflare → My Profile → API Tokens |
+| `ANTHROPIC_API_KEY` | console.anthropic.com |
+| `GOOGLE_PLACES_API_KEY` | Google Cloud Console |
+| `SERP_API_KEY` | serpapi.com |
+| `INNGEST_EVENT_KEY` | Inngest dashboard → your app |
+| `INNGEST_SIGNING_KEY` | Inngest dashboard → your app |
 
-## What technologies are used for this project?
+### 3. Supabase: seed CF credentials
 
-This project is built with:
+Cloudflare credentials are stored per-user in the `app_settings` table:
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+```sql
+insert into app_settings (user_id, cf_account_id, cf_api_token)
+values ('<your-user-id>', '<cf-account-id>', '<cf-api-token>');
+```
 
-## How can I deploy this project?
+### 4. Run locally
 
-Simply open [Lovable](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and click on Share -> Publish.
+```sh
+npm run dev:all
+```
 
-## Can I connect a custom domain to my Lovable project?
+This starts Next.js and the Inngest dev server together in one terminal.
 
-Yes, you can!
+## How crawling works
 
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
+1. A user clicks **Re-scan** on a competitor — calls `POST /api/crawl`
+2. Inngest picks up the `crawl/business.scan` event and runs the crawl worker
+3. The worker starts a Cloudflare crawl job, polls until complete, extracts signals, and saves to Supabase
+4. A scheduled cron (`weeklyIncrementalCrawl`) runs every Monday 08:00 UTC to re-crawl all businesses automatically
 
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+Crawl limits:
+- Initial: `maxDepth: 3`, `maxPages: 30`
+- Incremental: `maxDepth: 2`, `maxPages: 10`
+
+## Scripts
+
+| Command | Description |
+|---|---|
+| `npm run dev:all` | Start Next.js + Inngest dev server |
+| `npm run dev` | Start Next.js only |
+| `npm run build` | Production build |
+| `npm run lint` | Run ESLint |

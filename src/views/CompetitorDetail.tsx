@@ -24,6 +24,22 @@ const CompetitorDetail = () => {
   const router = useRouter();
   const { getBusinessById } = useRivalRadarStore();
   const [activeTab, setActiveTab] = useState('seo');
+  const [scanning, setScanning] = useState(false);
+
+  const handleScan = async () => {
+    if (!biz || scanning) return;
+    setScanning(true);
+    try {
+      const mode = biz.lastCrawledAt ? 'incremental' : 'initial';
+      await fetch('/api/crawl', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ businessId: biz.id, mode }),
+      });
+    } finally {
+      setScanning(false);
+    }
+  };
 
   const biz = getBusinessById(id || '');
   if (!biz) return <div className="p-8 text-center text-muted-foreground">Business not found</div>;
@@ -51,8 +67,13 @@ const CompetitorDetail = () => {
             <p className="metric-label">Score</p>
             <p className="metric-value">{biz.aiScore?.overallScore ?? '—'}</p>
           </div>
-          <button className="flex items-center gap-2 px-3 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:opacity-90">
-            <RefreshCw className="w-4 h-4" /> Re-scan
+          <button
+            onClick={handleScan}
+            disabled={scanning}
+            className="flex items-center gap-2 px-3 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 disabled:opacity-50"
+          >
+            <RefreshCw className={`w-4 h-4 ${scanning ? 'animate-spin' : ''}`} />
+            {scanning ? 'Scanning…' : 'Re-scan'}
           </button>
         </div>
       </div>

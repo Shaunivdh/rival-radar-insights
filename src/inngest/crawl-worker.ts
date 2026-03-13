@@ -5,6 +5,7 @@ import {
   extractAndPersistSignals,
   markCrawlFailed,
 } from '@/lib/crawl/orchestrator';
+import { supabaseAdmin } from '@/lib/supabase/server';
 
 const MAX_POLL_ATTEMPTS = 60;
 const POLL_INTERVAL = '5s';
@@ -56,5 +57,33 @@ export const crawlBusinessFunction = inngest.createFunction(
     );
 
     return { businessId, jobId, status: 'complete' };
+  }
+);
+
+/** Weekly incremental crawl for all businesses that have been crawled before */
+export const weeklyIncrementalCrawl = inngest.createFunction(
+  { id: 'weekly-incremental-crawl' },
+  { cron: '0 8 * * 1' }, // Every Monday at 08:00 UTC
+  async ({ step }) => {
+    const { data: businesses } = await step.run('fetch-businesses', () =>
+      supabaseAdmin
+        .from('businesses')
+        .select('id')
+        .not('last_crawled_at', 'is', null)
+        .then((r) => r)
+    );
+
+    if (!businesses?.length) return { sent: 0 };
+
+    await step.run('enqueue-crawls', () =>
+      inngest.send(
+        businesses.map((b) => ({
+          name: 'crawl/business.scan' as const,
+          data: { businessId: b.id, mode: 'incremental' as const },
+        }))
+      )
+    );
+
+    return { sent: businesses.length };
   }
 );

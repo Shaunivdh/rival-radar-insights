@@ -205,10 +205,10 @@ export interface CrawlOptions {
 }
 
 export interface RawCrawlResult {
-  status: 'running' | 'completed' | 'errored' | 'cancelled_due_to_timeout' | 'cancelled_due_to_limits';
+  status: 'running' | 'completed' | 'errored' | 'cancelled_due_to_timeout' | 'cancelled_due_to_limits' | 'cancelled_by_user';
   pages: Array<{
     url: string;
-    json?: string;
+    json?: Record<string, unknown>;
     markdown?: string;
     html?: string;
   }>;

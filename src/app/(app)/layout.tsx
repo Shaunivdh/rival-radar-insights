@@ -6,7 +6,7 @@ import { AppSidebar } from '@/components/AppSidebar';
 import { useRivalRadarStore } from '@/store/rivalradar';
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
-  const { project } = useRivalRadarStore();
+  const { user, project, isDemoMode } = useRivalRadarStore();
   const router = useRouter();
   const [mounted, setMounted] = useState(false);
 
@@ -15,12 +15,13 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   }, []);
 
   useEffect(() => {
-    if (mounted && !project) {
-      router.replace('/');
+    if (!mounted) return;
+    if (!project && !isDemoMode) {
+      router.replace(user ? '/setup' : '/');
     }
-  }, [mounted, project, router]);
+  }, [mounted, project, isDemoMode, user, router]);
 
-  if (!mounted || !project) return null;
+  if (!mounted || (!project && !isDemoMode)) return null;
 
   return (
     <div className="flex min-h-screen">

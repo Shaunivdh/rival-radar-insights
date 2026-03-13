@@ -1,9 +1,10 @@
 'use client';
 
 import { useRouter, usePathname } from 'next/navigation';
-import { LayoutDashboard, Users, Bell, Settings, Zap } from 'lucide-react';
+import { LayoutDashboard, Users, Bell, Settings, Zap, LogOut } from 'lucide-react';
 import { Logo } from '@/components/Logo';
 import { cn } from '@/lib/utils';
+import { useRivalRadarStore } from '@/store/rivalradar';
 
 const navItems = [
   { label: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
@@ -15,6 +16,12 @@ const navItems = [
 export const AppSidebar = () => {
   const router = useRouter();
   const pathname = usePathname();
+  const { user, isDemoMode, logout } = useRivalRadarStore();
+
+  const handleLogout = () => {
+    logout();
+    router.push('/');
+  };
 
   return (
     <aside className="w-60 shrink-0 bg-card border-r border-border flex flex-col h-screen sticky top-0">
@@ -41,7 +48,21 @@ export const AppSidebar = () => {
           );
         })}
       </nav>
-      <div className="p-4 border-t border-border">
+      <div className="p-4 border-t border-border space-y-3">
+        {!isDemoMode && user && (
+          <div className="flex items-center justify-between">
+            <p className="text-xs text-muted-foreground truncate">
+              <span className="font-medium text-foreground">{user.name}</span>
+            </p>
+            <button
+              onClick={handleLogout}
+              className="text-muted-foreground hover:text-destructive transition-colors"
+              title="Log out"
+            >
+              <LogOut className="w-4 h-4" />
+            </button>
+          </div>
+        )}
         <div className="card-surface bg-primary/5 border-primary/10 flex items-start gap-3 p-3">
           <Zap className="w-4 h-4 text-primary mt-0.5 shrink-0" />
           <div>

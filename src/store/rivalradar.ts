@@ -5,11 +5,15 @@ import { mockOwnBusiness, mockCompetitors, mockPriorityActions } from '@/mock/da
 
 interface RivalRadarState {
   user: User | null;
+  registeredUsers: User[];
   project: Project | null;
   settings: AppSettings;
   priorityActions: PriorityAction[];
   isDemoMode: boolean;
   demoBannerDismissed: boolean;
+  signup: (name: string, password: string) => boolean;
+  login: (name: string, password: string) => boolean;
+  logout: () => void;
   setUser: (user: User) => void;
   setProject: (project: Project) => void;
   setSettings: (settings: Partial<AppSettings>) => void;
@@ -24,18 +28,40 @@ export const useRivalRadarStore = create<RivalRadarState>()(
   persist(
     (set, get) => ({
       user: null,
+      registeredUsers: [],
       project: null,
       settings: {
         primaryService: '',
         location: '',
       },
       priorityActions: [],
-      isDemoMode: true,
+      isDemoMode: false,
       demoBannerDismissed: false,
+
+      signup: (name, password) => {
+        const { registeredUsers } = get();
+        if (registeredUsers.find((u) => u.name.toLowerCase() === name.toLowerCase())) return false;
+        const newUser: User = { name, password };
+        set({ registeredUsers: [...registeredUsers, newUser], user: newUser });
+        return true;
+      },
+
+      login: (name, password) => {
+        const { registeredUsers } = get();
+        const found = registeredUsers.find(
+          (u) => u.name.toLowerCase() === name.toLowerCase() && u.password === password
+        );
+        if (!found) return false;
+        set({ user: found });
+        return true;
+      },
+
+      logout: () =>
+        set({ user: null, project: null, priorityActions: [], isDemoMode: false, demoBannerDismissed: false }),
 
       setUser: (user) => set({ user }),
 
-      setProject: (project) => set({ project }),
+      setProject: (project) => set({ project, isDemoMode: false }),
 
       setSettings: (newSettings) =>
         set((state) => ({
@@ -46,7 +72,7 @@ export const useRivalRadarStore = create<RivalRadarState>()(
 
       dismissDemoBanner: () => set({ demoBannerDismissed: true }),
 
-      deleteProject: () => set({ project: null, priorityActions: [], demoBannerDismissed: false }),
+      deleteProject: () => set({ project: null, priorityActions: [], demoBannerDismissed: false, isDemoMode: false }),
 
       loadMockData: () => {
         set({
@@ -59,6 +85,7 @@ export const useRivalRadarStore = create<RivalRadarState>()(
           },
           priorityActions: mockPriorityActions,
           isDemoMode: true,
+          demoBannerDismissed: false,
           settings: {
             primaryService: 'building contractor',
             location: 'Manchester',

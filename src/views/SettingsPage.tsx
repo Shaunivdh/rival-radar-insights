@@ -43,7 +43,7 @@ const SettingsPage = () => {
               value={form[field.key]}
               onChange={(e) => setForm({ ...form, [field.key]: e.target.value })}
               className="w-full px-3 py-2 text-sm bg-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/30"
-              placeholder={field.type === 'password' ? '••••••••' : ''}
+              placeholder=""
             />
           </div>
         ))}

@@ -1,13 +1,3 @@
-import { Outlet } from 'react-router-dom';
-import { AppSidebar } from '@/components/AppSidebar';
-
-const AppLayout = () => (
-  <div className="flex min-h-screen">
-    <AppSidebar />
-    <main className="flex-1 p-6 overflow-auto">
-      <Outlet />
-    </main>
-  </div>
-);
-
-export default AppLayout;
+// This file is superseded by app/(app)/layout.tsx in the Next.js App Router.
+// Kept for reference only.
+export {};

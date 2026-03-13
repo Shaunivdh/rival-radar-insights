@@ -1,4 +1,6 @@
-import { useNavigate } from 'react-router-dom';
+'use client';
+
+import { useRouter } from 'next/navigation';
 import { useRivalRadarStore } from '@/store/rivalradar';
 import { ScoreChip } from '@/components/ScoreChip';
 import { StarRating } from '@/components/StarRating';
@@ -16,7 +18,7 @@ function timeAgo(ts: number | null): string {
 }
 
 const Row = ({ biz, isOwn }: { biz: Business; isOwn?: boolean }) => {
-  const navigate = useNavigate();
+  const router = useRouter();
   const lastChange = biz.changeEvents.length
     ? biz.changeEvents.reduce((a, b) => (a.detectedAt > b.detectedAt ? a : b))
     : null;
@@ -24,7 +26,7 @@ const Row = ({ biz, isOwn }: { biz: Business; isOwn?: boolean }) => {
   return (
     <tr
       className="border-b border-border hover:bg-muted/30 cursor-pointer transition-colors"
-      onClick={() => navigate(`/competitors/${biz.id}`)}
+      onClick={() => router.push(`/competitors/${biz.id}`)}
     >
       <td className="px-4 py-3">
         <div className="flex items-center gap-2">

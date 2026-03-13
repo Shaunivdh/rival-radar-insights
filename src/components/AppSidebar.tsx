@@ -1,4 +1,6 @@
-import { useNavigate, useLocation } from 'react-router-dom';
+'use client';
+
+import { useRouter, usePathname } from 'next/navigation';
 import { LayoutDashboard, Users, Bell, Settings, Zap } from 'lucide-react';
 import { Logo } from '@/components/Logo';
 import { cn } from '@/lib/utils';
@@ -11,8 +13,8 @@ const navItems = [
 ];
 
 export const AppSidebar = () => {
-  const navigate = useNavigate();
-  const location = useLocation();
+  const router = useRouter();
+  const pathname = usePathname();
 
   return (
     <aside className="w-60 shrink-0 bg-card border-r border-border flex flex-col h-screen sticky top-0">
@@ -21,11 +23,11 @@ export const AppSidebar = () => {
       </div>
       <nav className="flex-1 p-3 space-y-1">
         {navItems.map((item) => {
-          const active = location.pathname.startsWith(item.path);
+          const active = pathname?.startsWith(item.path);
           return (
             <button
               key={item.path}
-              onClick={() => navigate(item.path)}
+              onClick={() => router.push(item.path)}
               className={cn(
                 'w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors',
                 active

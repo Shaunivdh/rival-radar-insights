@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Logo } from '@/components/Logo';
 import { useEffect, useState } from 'react';
 import { ArrowRight, Plus, Trash2 } from 'lucide-react';
-import type { Business } from '@/types';
+import type { Business, Project } from '@/types';
 import { createProject, triggerInitialScans } from '@/actions/projects';
 
 const emptyBusiness = (): Business => ({
@@ -25,6 +25,28 @@ const emptyBusiness = (): Business => ({
   changeEvents: [],
 });
 
+const STATUS_STYLES: Record<string, string> = {
+  idle: 'text-muted-foreground',
+  pending: 'text-yellow-500',
+  running: 'text-blue-500',
+  complete: 'text-green-500',
+  failed: 'text-destructive',
+};
+
+const STATUS_LABELS: Record<string, string> = {
+  idle: 'Idle',
+  pending: 'Pending',
+  running: 'Running…',
+  complete: 'Complete',
+  failed: 'Failed',
+};
+
+const StatusBadge = ({ status }: { status: string }) => (
+  <span className={`text-xs font-medium ${STATUS_STYLES[status] ?? 'text-muted-foreground'}`}>
+    {STATUS_LABELS[status] ?? status}
+  </span>
+);
+
 const getDomain = (url: string) => {
   try { return new URL(url).hostname; } catch { return url; }
 };
@@ -40,11 +62,43 @@ const BusinessSetupPage = () => {
   const [competitors, setCompetitors] = useState([emptyBusiness()]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [projectId, setProjectId] = useState<string | null>(null);
+  const [bizStatuses, setBizStatuses] = useState<Array<{ id: string; name: string; crawl_status: string }>>([]);
+  const [savedProjectRef, setSavedProjectRef] = useState<Project | null>(null);
 
   useEffect(() => {
     if (!user) router.replace('/');
     else if (project) router.replace('/dashboard');
   }, [user, project, router]);
+
+  useEffect(() => {
+    if (step !== 2 || !projectId) return;
+    const interval = setInterval(async () => {
+      try {
+        const res = await fetch(`/api/crawl?projectId=${projectId}`);
+        const data = await res.json();
+        setBizStatuses(data.businesses ?? []);
+        const allDone = (data.businesses ?? []).every(
+          (b: { crawl_status: string }) => b.crawl_status === 'complete' || b.crawl_status === 'failed'
+        );
+        if (allDone) {
+          clearInterval(interval);
+          const anyFailed = (data.businesses ?? []).some(
+            (b: { crawl_status: string }) => b.crawl_status === 'failed'
+          );
+          if (anyFailed) {
+            setError('Some scans failed. You can retry from the dashboard.');
+          }
+          // Commit project to store now — doing it earlier would unmount this component
+          if (savedProjectRef) setProject(savedProjectRef);
+          router.push('/dashboard');
+        }
+      } catch {
+        // network error — keep polling
+      }
+    }, 3000);
+    return () => clearInterval(interval);
+  }, [step, projectId, router, savedProjectRef, setProject]);
 
   if (!user || project) return null;
 
@@ -79,10 +133,18 @@ const BusinessSetupPage = () => {
         competitorsFinal,
       );
 
-      setProject(savedProject);
+      // Don't call setProject yet — it would trigger the redirect guard and unmount this component.
+      // We set it right before router.push in the polling effect instead.
       setSettings({ primaryService, location });
+
+      const allBiz = [savedProject.ownBusiness, ...savedProject.competitors];
+      setBizStatuses(allBiz.map((b) => ({ id: b.id, name: b.name, crawl_status: 'pending' })));
+      setProjectId(savedProject.id);
+      // Store the project to commit to store when done
+      setSavedProjectRef(savedProject);
       await triggerInitialScans(savedProject.id);
-      router.push('/dashboard');
+      setLoading(false);
+      setStep(2);
     } catch (e) {
       setError('Failed to create project. Please try again.');
       setLoading(false);
@@ -206,6 +268,20 @@ const BusinessSetupPage = () => {
               >
                 {loading ? 'Setting up…' : 'Start Scanning'}
               </button>
+            </div>
+          </div>
+        )}
+        {step === 2 && (
+          <div className="card-surface space-y-4">
+            <h2 className="text-sm font-semibold text-foreground">Scanning your businesses…</h2>
+            <p className="text-xs text-muted-foreground">This may take a minute. You'll be redirected when complete.</p>
+            <div className="space-y-2">
+              {bizStatuses.map((b) => (
+                <div key={b.id} className="flex items-center justify-between py-1.5">
+                  <span className="text-sm text-foreground truncate">{b.name}</span>
+                  <StatusBadge status={b.crawl_status} />
+                </div>
+              ))}
             </div>
           </div>
         )}

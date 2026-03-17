@@ -6,6 +6,11 @@ import {
   markCrawlFailed,
 } from '@/lib/crawl/orchestrator';
 import { supabaseAdmin } from '@/lib/supabase/server';
+import { fetchGoogleData, fetchSerpData, fetchTrustpilotData } from '@/actions/enrichment';
+import { generateHealthScore, generatePriorityActions, generateChangeSummary } from '@/services/ai';
+import { diffSignals } from '@/services/diff';
+import { updateBusiness, saveChangeEvent } from '@/actions/projects';
+import type { ExtractedSignals, Business, ChangeEvent } from '@/types';
 
 const MAX_POLL_ATTEMPTS = 60;
 const POLL_INTERVAL = '5s';
@@ -13,8 +18,6 @@ const POLL_INTERVAL = '5s';
 /**
  * Event: crawl/business.scan
  * Payload: { businessId: string; mode: 'initial' | 'incremental' }
- *
- * Trigger via: inngest.send({ name: 'crawl/business.scan', data: { businessId, mode } })
  */
 export const crawlBusinessFunction = inngest.createFunction(
   {
@@ -55,6 +58,184 @@ export const crawlBusinessFunction = inngest.createFunction(
     await step.run('persist-signals', () =>
       extractAndPersistSignals(businessId, jobId)
     );
+
+    // Step 4: Fetch business + project metadata (name, url, domain, settings)
+    const meta = await step.run('fetch-meta', async () => {
+      const { data: biz } = await supabaseAdmin
+        .from('businesses')
+        .select('name, url, domain, project_id')
+        .eq('id', businessId)
+        .single();
+      if (!biz) throw new Error('Business not found');
+
+      const { data: proj } = await supabaseAdmin
+        .from('projects')
+        .select('user_id')
+        .eq('id', biz.project_id)
+        .single();
+      if (!proj) throw new Error('Project not found');
+
+      const { data: settings } = await supabaseAdmin
+        .from('app_settings')
+        .select('primary_service, location')
+        .eq('user_id', proj.user_id)
+        .maybeSingle();
+
+      return {
+        name: biz.name as string,
+        url: biz.url as string,
+        domain: biz.domain as string,
+        projectId: biz.project_id as string,
+        primaryService: (settings?.primary_service as string) ?? '',
+        location: (settings?.location as string) ?? '',
+      };
+    });
+
+    // Step 5: Enrichment (sequential)
+    await step.run('enrich-google', async () => {
+      try { await fetchGoogleData(businessId, meta.name, meta.url); } catch { /* non-fatal */ }
+    });
+
+    await step.run('enrich-serp', async () => {
+      try { await fetchSerpData(businessId, meta.name, meta.domain, meta.primaryService, meta.location); } catch { /* non-fatal */ }
+    });
+
+    await step.run('enrich-trustpilot', async () => {
+      try { await fetchTrustpilotData(businessId, meta.url); } catch { /* non-fatal */ }
+    });
+
+    // Step 6: If incremental, diff signals and generate change summary
+    if (mode === 'incremental') {
+      await step.run('diff-and-summarize', async () => {
+        const { data: rows } = await supabaseAdmin
+          .from('extracted_signals')
+          .select('signals, crawled_at')
+          .eq('business_id', businessId)
+          .order('crawled_at', { ascending: false })
+          .limit(2);
+
+        if (!rows || rows.length < 2) return;
+
+        const current = rows[0].signals as ExtractedSignals;
+        const previous = rows[1].signals as ExtractedSignals;
+        const diff = diffSignals(previous, current);
+
+        if (!diff.hasChanges) return;
+
+        const summary = await generateChangeSummary(meta.name, previous, current);
+        if (!summary.hasSignificantChanges) return;
+
+        const event: ChangeEvent = {
+          id: crypto.randomUUID(),
+          detectedAt: Date.now(),
+          severity: summary.severity,
+          summary: summary.summary,
+          changes: summary.changes,
+        };
+
+        await saveChangeEvent(businessId, event);
+      });
+    }
+
+    // Step 7: Generate and save health score
+    await step.run('health-score', async () => {
+      const { data: sig } = await supabaseAdmin
+        .from('extracted_signals')
+        .select('signals')
+        .eq('business_id', businessId)
+        .order('crawled_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (!sig?.signals) return;
+
+      try {
+        const aiScore = await generateHealthScore(sig.signals as ExtractedSignals);
+        await updateBusiness(businessId, { aiScore });
+      } catch { /* non-fatal */ }
+    });
+
+    // Step 8: If all businesses in project are done, generate priority actions
+    await step.run('priority-actions', async () => {
+      const { data: allBiz } = await supabaseAdmin
+        .from('businesses')
+        .select('id, name, crawl_status, is_own_business')
+        .eq('project_id', meta.projectId);
+
+      if (!allBiz?.length) return;
+
+      const allDone = allBiz.every(
+        (b) => b.crawl_status === 'complete' || b.crawl_status === 'failed'
+      );
+      if (!allDone) return;
+
+      // Guard against race: skip if priority actions already exist for this project
+      const { count } = await supabaseAdmin
+        .from('priority_actions')
+        .select('id', { count: 'exact', head: true })
+        .eq('project_id', meta.projectId);
+      if (count && count > 0) return;
+
+      const withSignals = await Promise.all(
+        allBiz.map(async (b) => {
+          const { data: sig } = await supabaseAdmin
+            .from('extracted_signals')
+            .select('signals')
+            .eq('business_id', b.id)
+            .order('crawled_at', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+          return {
+            id: b.id as string,
+            name: b.name as string,
+            isOwn: b.is_own_business as boolean,
+            signals: (sig?.signals as ExtractedSignals) ?? null,
+          };
+        })
+      );
+
+      const ownRaw = withSignals.find((b) => b.isOwn);
+      if (!ownRaw) return;
+
+      const toPartialBiz = (b: { id: string; name: string; signals: ExtractedSignals | null }): Business => ({
+        id: b.id,
+        name: b.name,
+        url: '',
+        domain: '',
+        lastCrawledAt: null,
+        crawlJobId: null,
+        crawlStatus: 'complete',
+        signals: b.signals,
+        googleData: null,
+        serpData: null,
+        trustpilotData: null,
+        aiScore: null,
+        previousSignals: null,
+        changeEvents: [],
+      });
+
+      try {
+        const actions = await generatePriorityActions(
+          toPartialBiz(ownRaw),
+          withSignals.filter((b) => !b.isOwn).map((b) => toPartialBiz(b))
+        );
+
+        if (!actions.length) return;
+
+        await supabaseAdmin.from('priority_actions').insert(
+          actions.map((a) => ({
+            project_id: meta.projectId,
+            priority: a.priority,
+            category: a.category,
+            action: a.action,
+            reason: a.reason,
+            competitor_reference: a.competitorReference ?? null,
+            estimated_impact: a.estimatedImpact,
+            timeframe: a.timeframe,
+          }))
+        );
+      } catch { /* non-fatal */ }
+    });
 
     return { businessId, jobId, status: 'complete' };
   }

@@ -73,11 +73,11 @@ const BusinessSetupPage = () => {
         .filter((c) => c.name && c.url)
         .map((c) => ({ name: c.name, url: c.url, domain: getDomain(c.url) }));
 
-      const savedProject = await createProject(user!.id, {
-        name: `${ownFinal.name} vs Competitors`,
-        ownBusiness: ownFinal,
-        competitors: competitorsFinal,
-      });
+      const savedProject = await createProject(
+        `${ownFinal.name} vs Competitors`,
+        ownFinal,
+        competitorsFinal,
+      );
 
       setProject(savedProject);
       setSettings({ primaryService, location });

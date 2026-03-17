@@ -3,6 +3,7 @@ import { persist } from 'zustand/middleware';
 import type { Project, Business, AppSettings, PriorityAction, User } from '@/types';
 import { mockOwnBusiness, mockCompetitors, mockPriorityActions } from '@/mock/data';
 import { supabase } from '@/lib/supabase/client';
+import { getProject } from '@/actions/projects';
 
 interface SyncedBusiness {
   id: string;
@@ -71,6 +72,12 @@ export const useRivalRadarStore = create<RivalRadarState>()(
           set((state) => ({
             user: state.user?.id === u.id ? state.user : { id: u.id, email: u.email! },
           }));
+          try {
+            const project = await getProject(u.id);
+            if (project) set({ project, isDemoMode: false });
+          } catch {
+            // Supabase unavailable — keep persisted localStorage state as demo fallback
+          }
         } else {
           set({ user: null, isDemoMode: false });
         }

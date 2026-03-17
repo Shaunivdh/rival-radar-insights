@@ -52,7 +52,7 @@ export const AppSidebar = () => {
         {user && (
           <div className="flex items-center justify-between">
             <p className="text-xs text-muted-foreground truncate">
-              <span className="font-medium text-foreground">{user.email.split('@')[0]}</span>
+              <span className="font-medium text-foreground">{user.email?.split('@')[0]}</span>
             </p>
             <button
               onClick={handleLogout}

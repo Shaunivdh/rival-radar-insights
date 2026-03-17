@@ -62,6 +62,7 @@ export const useRivalRadarStore = create<RivalRadarState>()(
 
       logout: async () => {
         await supabase.auth.signOut();
+        document.cookie = 'rr-demo=; path=/; max-age=0';
         set({ user: null, project: null, priorityActions: [], isDemoMode: false, demoBannerDismissed: false });
       },
 
@@ -89,9 +90,13 @@ export const useRivalRadarStore = create<RivalRadarState>()(
       setPriorityActions: (actions) => set({ priorityActions: actions }),
       dismissDemoBanner: () => set({ demoBannerDismissed: true }),
 
-      deleteProject: () => set({ project: null, priorityActions: [], demoBannerDismissed: false, isDemoMode: false }),
+      deleteProject: () => {
+        document.cookie = 'rr-demo=; path=/; max-age=0';
+        set({ project: null, priorityActions: [], demoBannerDismissed: false, isDemoMode: false });
+      },
 
       loadMockData: () => {
+        document.cookie = 'rr-demo=1; path=/; max-age=86400';
         set({
           project: {
             id: 'demo-project',

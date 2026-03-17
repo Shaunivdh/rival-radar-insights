@@ -9,14 +9,15 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const { user, project, isDemoMode, deleteProject, initAuth } = useRivalRadarStore();
   const router = useRouter();
   const [mounted, setMounted] = useState(false);
+  const [authReady, setAuthReady] = useState(false);
 
   useEffect(() => {
     setMounted(true);
-    initAuth();
+    initAuth().finally(() => setAuthReady(true));
   }, [initAuth]);
 
   useEffect(() => {
-    if (!mounted) return;
+    if (!mounted || !authReady) return;
     // Real user stuck in demo mode — clear it and send to setup
     if (user && isDemoMode) {
       deleteProject();
@@ -26,12 +27,20 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     if (!project && !isDemoMode) {
       router.replace(user ? '/setup' : '/');
     }
-  }, [mounted, user, project, isDemoMode, deleteProject, router]);
+  }, [mounted, authReady, user, project, isDemoMode, deleteProject, router]);
 
-  // Show nothing only before hydration — avoids flash of login page
   if (!mounted) return null;
 
-  // Real user with no project — don't render app chrome, redirect is in flight
+  // Show spinner while auth + project fetch is in flight
+  if (!authReady) {
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <div className="w-6 h-6 rounded-full border-2 border-primary border-t-transparent animate-spin" />
+      </div>
+    );
+  }
+
+  // Redirect is in flight
   if (!project) return null;
 
   return (

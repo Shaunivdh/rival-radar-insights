@@ -7,7 +7,7 @@ import { useEffect, useState } from 'react';
 import { ArrowRight } from 'lucide-react';
 
 const SetupPage = () => {
-  const { user, project, login, signup, loadMockData } = useRivalRadarStore();
+  const { user, project, login, signup, loadMockData, initAuth } = useRivalRadarStore();
   const router = useRouter();
 
   const [tab, setTab] = useState<'login' | 'signup'>('login');
@@ -18,7 +18,6 @@ const SetupPage = () => {
 
   useEffect(() => {
     if (user && project) router.replace('/dashboard');
-    else if (user && !project) router.replace('/setup');
   }, [user, project, router]);
 
   if (user) return null;
@@ -40,7 +39,13 @@ const SetupPage = () => {
     if (!result.ok) {
       setError(result.error ?? 'Something went wrong.');
       setLoading(false);
+      return;
     }
+
+    // Fetch project from Supabase before deciding where to send the user
+    await initAuth();
+    const { project: fetched } = useRivalRadarStore.getState();
+    router.push(fetched ? '/dashboard' : '/setup');
   };
 
   return (

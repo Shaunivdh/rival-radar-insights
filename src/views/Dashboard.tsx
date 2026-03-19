@@ -8,7 +8,9 @@ import { BenchmarkTable } from '@/components/BenchmarkTable';
 import { PriorityActionsPanel } from '@/components/PriorityActionsPanel';
 import { ChangeEventCard } from '@/components/Badges';
 import { ScoreChip } from '@/components/ScoreChip';
-import { Bell, TrendingUp, Loader2, CheckCircle2, XCircle, Clock } from 'lucide-react';
+import { Bell, TrendingUp, Loader2, CheckCircle2, XCircle, Clock, RefreshCw } from 'lucide-react';
+import { triggerInitialScans } from '@/actions/projects';
+import { useState } from 'react';
 import type { ChangeEvent as CE } from '@/types';
 
 const STATUS_ICON: Record<string, React.ReactNode> = {
@@ -21,11 +23,20 @@ const STATUS_ICON: Record<string, React.ReactNode> = {
 
 const Dashboard = () => {
   const { project, isDemoMode, syncBusinesses, setPriorityActions } = useRivalRadarStore();
+  const [rescanning, setRescanning] = useState(false);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const allBusinesses = project ? [project.ownBusiness, ...project.competitors] : [];
   const isScanning = allBusinesses.some((b) => b.crawlStatus === 'pending' || b.crawlStatus === 'running');
   const noneScanned = allBusinesses.every((b) => b.crawlStatus === 'idle');
+  const anyFailed = allBusinesses.some((b) => b.crawlStatus === 'failed');
+
+  const handleRescan = async () => {
+    if (!project) return;
+    setRescanning(true);
+    await triggerInitialScans(project.id);
+    setRescanning(false);
+  };
 
   useEffect(() => {
     if (!project || isDemoMode || !isScanning) return;
@@ -53,15 +64,27 @@ const Dashboard = () => {
       <DemoBanner />
 
       {/* Scan status panel */}
-      {!isDemoMode && (isScanning || noneScanned) && (
+      {!isDemoMode && (isScanning || noneScanned || anyFailed) && (
         <div className="card-surface border-primary/20 bg-primary/5 space-y-3">
-          <div className="flex items-center gap-2">
-            {isScanning && <Loader2 className="w-4 h-4 text-primary animate-spin shrink-0" />}
-            <p className="text-sm font-semibold text-foreground">
-              {isScanning ? 'Scanning in progress…' : 'Scans not started'}
-            </p>
-            {isScanning && (
-              <p className="text-xs text-muted-foreground">Initial scan takes 2–8 min per site. This page auto-refreshes.</p>
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              {isScanning && <Loader2 className="w-4 h-4 text-primary animate-spin shrink-0" />}
+              <p className="text-sm font-semibold text-foreground">
+                {isScanning ? 'Scanning in progress…' : anyFailed ? 'Some scans failed' : 'Scans not started'}
+              </p>
+              {isScanning && (
+                <p className="text-xs text-muted-foreground">Initial scan takes 2–8 min per site. This page auto-refreshes.</p>
+              )}
+            </div>
+            {(anyFailed || noneScanned || isScanning) && (
+              <button
+                onClick={handleRescan}
+                disabled={rescanning}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-medium hover:opacity-90 disabled:opacity-50"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${rescanning ? 'animate-spin' : ''}`} />
+                {rescanning ? 'Starting…' : 'Retry Scan'}
+              </button>
             )}
           </div>
           <div className="grid grid-cols-2 gap-x-6 gap-y-1.5">

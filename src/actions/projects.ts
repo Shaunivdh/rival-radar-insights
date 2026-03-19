@@ -14,7 +14,13 @@ async function getSessionUserId(): Promise<string> {
     c => c.name.startsWith('sb-') && c.name.endsWith('-auth-token')
   );
   if (!authCookie?.value) throw new Error('Not authenticated');
-  const parsed = JSON.parse(authCookie.value);
+
+  let raw = authCookie.value;
+
+  if (raw.startsWith('base64-')) {
+    raw = Buffer.from(raw.slice(7), 'base64').toString('utf-8');
+  }
+  const parsed = JSON.parse(raw);
   const session = Array.isArray(parsed) ? parsed[0] : parsed;
   if (!session?.access_token) throw new Error('Not authenticated');
   const { data } = await supabaseAdmin.auth.getUser(session.access_token);
@@ -194,9 +200,10 @@ export async function triggerInitialScans(projectId: string): Promise<void> {
     .eq('project_id', projectId);
 
   await inngest.send(
-    businesses.map(b => ({
+    businesses.map((b, i) => ({
       name: 'crawl/business.scan' as const,
       data: { businessId: b.id as string, mode: 'initial' as const },
+      ts: Date.now() + i * 15000, // stagger by 15s each
     }))
   );
 }

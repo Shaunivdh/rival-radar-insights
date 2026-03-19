@@ -197,9 +197,6 @@ export interface Change {
 }
 
 export interface CrawlOptions {
-  maxDepth: number;
-  maxPages: number;
-  outputFormats: string[];
   jsonOptions?: { prompt: string };
   modifiedSince?: number;
 }

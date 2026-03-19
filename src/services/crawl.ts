@@ -23,9 +23,6 @@ export async function startCrawl(
     headers: cfHeaders(credentials.apiToken),
     body: JSON.stringify({
       url,
-      maxDepth: options.maxDepth,
-      maxPages: options.maxPages,
-      outputFormats: options.outputFormats,
       ...(options.jsonOptions ? { jsonOptions: options.jsonOptions } : {}),
       ...(options.modifiedSince ? { modifiedSince: options.modifiedSince } : {}),
     }),

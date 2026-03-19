@@ -56,7 +56,7 @@ values ('<your-user-id>', '<cf-account-id>', '<cf-api-token>');
 bun run dev:all
 ```
 
-This starts Next.js and the Inngest dev server together in one terminal.
+Use `bun run dev` if you're not working on Inngest functions. Use `bun run dev:all` to also start the Inngest dev server (required for background jobs and crawl functions).
 
 ## How crawling works
 
@@ -73,7 +73,7 @@ Crawl limits:
 
 | Command | Description |
 |---|---|
-| `bun run dev:all` | Start Next.js + Inngest dev server |
-| `bun run dev` | Start Next.js only |
+| `bun run dev` | Start Next.js only — use when not working on Inngest functions |
+| `bun run dev:all` | Start Next.js + Inngest dev server — use when working on background jobs/crawl functions |
 | `bun run build` | Production build |
 | `bun run lint` | Run ESLint |

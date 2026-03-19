@@ -17,7 +17,7 @@ Competitor intelligence SaaS — crawl competitor websites, extract signals, and
 ### 1. Install dependencies
 
 ```sh
-npm install
+bun install
 ```
 
 ### 2. Configure environment variables
@@ -53,7 +53,7 @@ values ('<your-user-id>', '<cf-account-id>', '<cf-api-token>');
 ### 4. Run locally
 
 ```sh
-npm run dev:all
+bun run dev:all
 ```
 
 This starts Next.js and the Inngest dev server together in one terminal.
@@ -61,8 +61,7 @@ This starts Next.js and the Inngest dev server together in one terminal.
 ## How crawling works
 
 1. A user clicks **Re-scan** on a competitor — calls `POST /api/crawl`
-2. Inngest picks up the `crawl/
-siness.scan` event and runs the crawl worker
+2. Inngest picks up the `crawl/business.scan` event and runs the crawl worker
 3. The worker starts a Cloudflare crawl job, polls until complete, extracts signals, and saves to Supabase
 4. A scheduled cron (`weeklyIncrementalCrawl`) runs every Monday 08:00 UTC to re-crawl all businesses automatically
 
@@ -74,7 +73,7 @@ Crawl limits:
 
 | Command | Description |
 |---|---|
-| `npm run dev:all` | Start Next.js + Inngest dev server |
-| `npm run dev` | Start Next.js only |
-| `npm run build` | Production build |
-| `npm run lint` | Run ESLint |
+| `bun run dev:all` | Start Next.js + Inngest dev server |
+| `bun run dev` | Start Next.js only |
+| `bun run build` | Production build |
+| `bun run lint` | Run ESLint |

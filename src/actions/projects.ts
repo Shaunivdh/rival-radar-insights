@@ -181,21 +181,31 @@ export async function saveChangeEvent(businessId: string, event: ChangeEvent): P
   if (error) throw new Error(error.message);
 }
 
+const CRAWL_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
+
+function isStale(lastCrawledAt: string | null): boolean {
+  if (!lastCrawledAt) return true;
+  return Date.now() - new Date(lastCrawledAt).getTime() > CRAWL_TTL_MS;
+}
+
 export async function triggerInitialScans(projectId: string): Promise<void> {
   const { data: businesses } = await supabaseAdmin
     .from('businesses')
-    .select('id')
+    .select('id, last_crawled_at')
     .eq('project_id', projectId);
 
   if (!businesses?.length) return;
 
+  const stale = businesses.filter(b => isStale(b.last_crawled_at as string | null));
+  if (!stale.length) return;
+
   await supabaseAdmin
     .from('businesses')
     .update({ crawl_status: 'pending' })
-    .eq('project_id', projectId);
+    .in('id', stale.map(b => b.id));
 
   await inngest.send(
-    businesses.map((b, i) => ({
+    stale.map((b, i) => ({
       name: 'crawl/business.scan' as const,
       data: { businessId: b.id as string, mode: 'initial' as const },
       ts: Date.now() + i * 15000, // stagger by 15s each
@@ -289,18 +299,21 @@ export async function triggerSingleScan(businessId: string): Promise<void> {
 export async function rescanAll(projectId: string): Promise<void> {
   const { data: businesses } = await supabaseAdmin
     .from('businesses')
-    .select('id')
+    .select('id, last_crawled_at')
     .eq('project_id', projectId);
 
   if (!businesses?.length) return;
 
+  const stale = businesses.filter(b => isStale(b.last_crawled_at as string | null));
+  if (!stale.length) return;
+
   await supabaseAdmin
     .from('businesses')
     .update({ crawl_status: 'pending' })
-    .eq('project_id', projectId);
+    .in('id', stale.map(b => b.id));
 
   await inngest.send(
-    businesses.map(b => ({
+    stale.map(b => ({
       name: 'crawl/business.scan' as const,
       data: { businessId: b.id as string, mode: 'incremental' as const },
     }))

@@ -1,5 +1,8 @@
 import type { CrawlOptions, RawCrawlResult } from '@/types';
 
+const USE_MOCK = process.env.USE_MOCK_CRAWL === 'true';
+const mock = USE_MOCK ? (require('@/services/crawl.mock') as typeof import('@/services/crawl.mock')) : null;
+
 interface CrawlCredentials {
   accountId: string;
   apiToken: string;
@@ -18,11 +21,16 @@ export async function startCrawl(
   options: CrawlOptions,
   credentials: CrawlCredentials
 ): Promise<string> {
+  if (USE_MOCK) return mock!.startCrawl(url, options, credentials);
+
   const res = await fetch(`${cfBase(credentials.accountId)}/crawl`, {
     method: 'POST',
     headers: cfHeaders(credentials.apiToken),
     body: JSON.stringify({
       url,
+      render: options.render ?? false,
+      limit: options.maxPages ?? 20,
+      maxDepth: options.maxDepth ?? 2,
       ...(options.jsonOptions ? { jsonOptions: options.jsonOptions } : {}),
       ...(options.modifiedSince ? { modifiedSince: options.modifiedSince } : {}),
     }),
@@ -39,6 +47,8 @@ export async function pollCrawlStatus(
   jobId: string,
   credentials: CrawlCredentials
 ): Promise<{ status: string }> {
+  if (USE_MOCK) return mock!.pollCrawlStatus(jobId, credentials);
+
   const res = await fetch(`${cfBase(credentials.accountId)}/crawl/${jobId}?limit=1`, {
     headers: cfHeaders(credentials.apiToken),
   });
@@ -53,6 +63,8 @@ export async function getCrawlResults(
   jobId: string,
   credentials: CrawlCredentials
 ): Promise<RawCrawlResult> {
+  if (USE_MOCK) return mock!.getCrawlResults(jobId, credentials);
+
   const res = await fetch(`${cfBase(credentials.accountId)}/crawl/${jobId}`, {
     headers: cfHeaders(credentials.apiToken),
   });
@@ -83,6 +95,7 @@ export async function startIncrementalCrawl(
     {
       maxDepth: 2,
       maxPages: 10,
+      render: false,
       outputFormats: ['json', 'markdown'],
       modifiedSince,
     },

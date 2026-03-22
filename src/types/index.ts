@@ -197,6 +197,10 @@ export interface Change {
 }
 
 export interface CrawlOptions {
+  maxDepth?: number;
+  maxPages?: number;
+  outputFormats?: string[];
+  render?: boolean;
   jsonOptions?: { prompt: string };
   modifiedSince?: number;
 }

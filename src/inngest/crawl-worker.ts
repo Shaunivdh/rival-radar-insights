@@ -42,11 +42,13 @@ export const crawlBusinessFunction = inngest.createFunction(
     let attempts = 0;
 
     while (crawlStatus === 'running' && attempts < MAX_POLL_ATTEMPTS) {
-      await step.sleep(`poll-wait-${attempts}`, POLL_INTERVAL);
       crawlStatus = await step.run(`poll-status-${attempts}`, () =>
         checkCrawlStatus(businessId, jobId)
       );
       attempts++;
+      if (crawlStatus === 'running') {
+        await step.sleep(`poll-wait-${attempts}`, POLL_INTERVAL);
+      }
     }
 
     if (crawlStatus !== 'completed') {
@@ -246,13 +248,13 @@ export const weeklyIncrementalCrawl = inngest.createFunction(
   { id: 'weekly-incremental-crawl' },
   { cron: '0 8 * * 1' }, // Every Monday at 08:00 UTC
   async ({ step }) => {
-    const { data: businesses } = await step.run('fetch-businesses', () =>
-      supabaseAdmin
+    const businesses = await step.run('fetch-businesses', async () => {
+      const { data } = await supabaseAdmin
         .from('businesses')
         .select('id')
-        .not('last_crawled_at', 'is', null)
-        .then((r) => r)
-    );
+        .not('last_crawled_at', 'is', null);
+      return data;
+    });
 
     if (!businesses?.length) return { sent: 0 };
 

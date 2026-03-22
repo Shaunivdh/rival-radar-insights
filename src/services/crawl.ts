@@ -30,7 +30,6 @@ export async function startCrawl(
       url,
       render: options.render ?? false,
       limit: options.maxPages ?? 20,
-      maxDepth: options.maxDepth ?? 2,
       ...(options.jsonOptions ? { jsonOptions: options.jsonOptions } : {}),
       ...(options.modifiedSince ? { modifiedSince: options.modifiedSince } : {}),
     }),

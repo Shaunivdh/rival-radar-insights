@@ -22,8 +22,8 @@ const POLL_INTERVAL = '5s';
 export const crawlBusinessFunction = inngest.createFunction(
   {
     id: 'crawl-business',
-    retries: 2,
-    concurrency: { limit: 6 },
+    retries: 0,
+    concurrency: { limit: 1 },
   },
   { event: 'crawl/business.scan' },
   async ({ event, step }) => {

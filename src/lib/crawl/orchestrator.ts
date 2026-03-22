@@ -15,11 +15,29 @@ function getCredentials(): CrawlCredentials {
   return { accountId, apiToken };
 }
 
+const MAX_DAILY_CRAWLS = parseInt(process.env.MAX_DAILY_CRAWLS ?? '10', 10);
+
+async function checkDailyLimit(): Promise<void> {
+  const startOfDay = new Date();
+  startOfDay.setUTCHours(0, 0, 0, 0);
+
+  const { count } = await supabaseAdmin
+    .from('crawl_jobs')
+    .select('id', { count: 'exact', head: true })
+    .gte('started_at', startOfDay.toISOString());
+
+  if ((count ?? 0) >= MAX_DAILY_CRAWLS) {
+    throw new Error(`Daily crawl limit reached (${MAX_DAILY_CRAWLS}). Resets at UTC midnight.`);
+  }
+}
+
 /** Begin a crawl for a business. Updates crawl_status to 'running'. Returns the CF job ID. */
 export async function startBusinessCrawl(
   businessId: string,
   mode: 'initial' | 'incremental'
 ): Promise<string> {
+  await checkDailyLimit();
+
   const { data: business, error } = await supabaseAdmin
     .from('businesses')
     .select('url, last_crawled_at')
@@ -56,11 +74,18 @@ export async function startBusinessCrawl(
     .update({ crawl_status: 'running', crawl_job_id: jobId })
     .eq('id', businessId);
 
+  await supabaseAdmin.from('crawl_jobs').insert({
+    business_id: businessId,
+    mode,
+    status: 'running',
+    started_at: new Date().toISOString(),
+  });
+
   return jobId;
 }
 
 /** Poll the crawl status for a given job. */
-export async function checkCrawlStatus(businessId: string, jobId: string): Promise<string> {
+export async function checkCrawlStatus(_businessId: string, jobId: string): Promise<string> {
   const credentials = getCredentials();
   const result = await pollCrawlStatus(jobId, credentials);
   return result.status;

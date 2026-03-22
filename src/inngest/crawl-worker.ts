@@ -23,7 +23,7 @@ export const crawlBusinessFunction = inngest.createFunction(
   {
     id: 'crawl-business',
     retries: 0,
-    concurrency: { limit: 1 },
+    concurrency: { limit: 3 },
   },
   { event: 'crawl/business.scan' },
   async ({ event, step }) => {
@@ -111,15 +111,18 @@ export const crawlBusinessFunction = inngest.createFunction(
       await step.run('diff-and-summarize', async () => {
         const { data: rows } = await supabaseAdmin
           .from('extracted_signals')
-          .select('signals, crawled_at')
+          .select('seo, pricing, trust, content, engagement, features')
           .eq('business_id', businessId)
           .order('crawled_at', { ascending: false })
           .limit(2);
 
         if (!rows || rows.length < 2) return;
 
-        const current = rows[0].signals as ExtractedSignals;
-        const previous = rows[1].signals as ExtractedSignals;
+        const toSignals = (r: Record<string, unknown>): ExtractedSignals =>
+          ({ seo: r.seo, pricing: r.pricing, trust: r.trust, content: r.content, engagement: r.engagement, features: r.features } as ExtractedSignals);
+
+        const current = toSignals(rows[0]);
+        const previous = toSignals(rows[1]);
         const diff = diffSignals(previous, current);
 
         if (!diff.hasChanges) return;
@@ -143,16 +146,18 @@ export const crawlBusinessFunction = inngest.createFunction(
     await step.run('health-score', async () => {
       const { data: sig } = await supabaseAdmin
         .from('extracted_signals')
-        .select('signals')
+        .select('seo, pricing, trust, content, engagement, features')
         .eq('business_id', businessId)
         .order('crawled_at', { ascending: false })
         .limit(1)
         .maybeSingle();
 
-      if (!sig?.signals) return;
+      if (!sig?.seo) return;
+
+      const sigData = { seo: sig.seo, pricing: sig.pricing, trust: sig.trust, content: sig.content, engagement: sig.engagement, features: sig.features } as ExtractedSignals;
 
       try {
-        const aiScore = await generateHealthScore(sig.signals as ExtractedSignals);
+        const aiScore = await generateHealthScore(sigData);
         await updateBusiness(businessId, { aiScore });
       } catch { /* non-fatal */ }
     });
@@ -182,16 +187,19 @@ export const crawlBusinessFunction = inngest.createFunction(
         allBiz.map(async (b) => {
           const { data: sig } = await supabaseAdmin
             .from('extracted_signals')
-            .select('signals')
+            .select('seo, pricing, trust, content, engagement, features')
             .eq('business_id', b.id)
             .order('crawled_at', { ascending: false })
             .limit(1)
             .maybeSingle();
+          const signals = sig?.seo
+            ? ({ seo: sig.seo, pricing: sig.pricing, trust: sig.trust, content: sig.content, engagement: sig.engagement, features: sig.features } as ExtractedSignals)
+            : null;
           return {
             id: b.id as string,
             name: b.name as string,
             isOwn: b.is_own_business as boolean,
-            signals: (sig?.signals as ExtractedSignals) ?? null,
+            signals,
           };
         })
       );

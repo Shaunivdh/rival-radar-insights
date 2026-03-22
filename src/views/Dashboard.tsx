@@ -9,7 +9,7 @@ import { PriorityActionsPanel } from '@/components/PriorityActionsPanel';
 import { ChangeEventCard } from '@/components/Badges';
 import { ScoreChip } from '@/components/ScoreChip';
 import { Bell, TrendingUp, Loader2, CheckCircle2, XCircle, Clock, RefreshCw } from 'lucide-react';
-import { triggerInitialScans } from '@/actions/projects';
+import { triggerInitialScans, triggerSingleScan } from '@/actions/projects';
 import { useState } from 'react';
 import type { ChangeEvent as CE } from '@/types';
 
@@ -24,6 +24,7 @@ const STATUS_ICON: Record<string, React.ReactNode> = {
 const Dashboard = () => {
   const { project, isDemoMode, syncBusinesses, setPriorityActions } = useRivalRadarStore();
   const [rescanning, setRescanning] = useState(false);
+  const [rescanningId, setRescanningId] = useState<string | null>(null);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const allBusinesses = project ? [project.ownBusiness, ...project.competitors] : [];
@@ -35,7 +36,15 @@ const Dashboard = () => {
     if (!project) return;
     setRescanning(true);
     await triggerInitialScans(project.id);
+    syncBusinesses(allBusinesses.map((b) => ({ id: b.id, crawlStatus: 'pending', signals: b.signals, aiScore: b.aiScore })));
     setRescanning(false);
+  };
+
+  const handleRescanOne = async (businessId: string) => {
+    setRescanningId(businessId);
+    await triggerSingleScan(businessId);
+    syncBusinesses([{ id: businessId, crawlStatus: 'pending', signals: null, aiScore: null }]);
+    setRescanningId(null);
   };
 
   useEffect(() => {
@@ -48,7 +57,7 @@ const Dashboard = () => {
     };
 
     poll();
-    intervalRef.current = setInterval(poll, 15000);
+    intervalRef.current = setInterval(poll, 5000);
     return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
   }, [isScanning, project?.id, isDemoMode]);
 
@@ -93,6 +102,16 @@ const Dashboard = () => {
                 {STATUS_ICON[b.crawlStatus]}
                 <span className="font-medium text-foreground truncate">{b.name}</span>
                 <span className="text-muted-foreground capitalize">{b.crawlStatus}</span>
+                {b.crawlStatus === 'failed' && (
+                  <button
+                    onClick={() => handleRescanOne(b.id)}
+                    disabled={rescanningId === b.id}
+                    className="ml-auto flex items-center gap-1 px-2 py-0.5 rounded bg-destructive/10 text-destructive hover:bg-destructive/20 disabled:opacity-50"
+                  >
+                    <RefreshCw className={`w-3 h-3 ${rescanningId === b.id ? 'animate-spin' : ''}`} />
+                    Retry
+                  </button>
+                )}
               </div>
             ))}
           </div>

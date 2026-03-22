@@ -15,7 +15,7 @@ function getCredentials(): CrawlCredentials {
   return { accountId, apiToken };
 }
 
-const MAX_DAILY_CRAWLS = parseInt(process.env.MAX_DAILY_CRAWLS ?? '10', 10);
+const MAX_DAILY_CRAWLS = parseInt(process.env.MAX_DAILY_CRAWLS ?? '20', 10);
 
 async function checkDailyLimit(): Promise<void> {
   const startOfDay = new Date();
@@ -63,16 +63,17 @@ export async function startBusinessCrawl(
           outputFormats: ['json', 'markdown'],
           jsonOptions: {
             prompt:
-              'Extract: SEO signals (title, meta, h1, schema types), pricing mentions and packages, trust signals (accreditations, certifications, testimonials), content signals (services, blog, portfolio), engagement signals (chat, forms, CTAs), and feature changes (new services, announcements).',
+              'Return a JSON object with these exact keys: title (page title), metaDescription (meta description), h1Tags (array of h1 text), hasSitemap (bool), hasRobotsTxt (bool), internalLinkCount (number), blogPostCount (number), lastBlogDate (string or null), schemaMarkupTypes (string array), canonicalTagsPresent (bool), altTagCoverage ("full"|"partial"|"none"), hasPricingPage (bool), pricingMentions (array of {text,amount}), hasPackages (bool), packageDetails (array of {name,price}), hasFreeQuote (bool), hasFreeTrial (bool), priceTransparencyScore ("high"|"medium"|"low"|"none"), accreditations (string array), certifications (string array), awardsAndMemberships (string array), namedClientsOrPartners (string array), caseStudyCount (number), testimonialCount (number), videoTestimonials (bool), reviewPlatformsLinked (string array), trustBadges (string array), yearsInBusiness (number or null), teamPageExists (bool), namedTeamMemberCount (number), insuranceMentioned (bool), guaranteesMentioned (string array), servicesListed (string array), serviceAreasMentioned (string array), hasBlog (bool), hasVideo (bool), hasPortfolio (bool), portfolioItemCount (number), hasFAQ (bool), faqCount (number), hasNewsFeed (bool), hasChatWidget (bool), chatProvider (string or null), hasContactForm (bool), hasBookingSystem (bool), bookingProvider (string or null), hasCallToAction (bool), ctaText (string array), hasNewsletterSignup (bool), socialLinksPresent (string array), hasPhoneNumberProminent (bool), hasEmergencyContact (bool), newServicesDetected (string array), removedServicesDetected (string array), newTechIntegrations (string array), recentAnnouncementsOrNews (array of {title,date,summary}), recentHiringSignals (string array), newLocationsOrExpansion (string array).',
           },
         },
         credentials
       );
 
-  await supabaseAdmin
+  const { error: statusError } = await supabaseAdmin
     .from('businesses')
     .update({ crawl_status: 'running', crawl_job_id: jobId })
     .eq('id', businessId);
+  if (statusError) throw new Error(`Failed to update crawl status: ${statusError.message}`);
 
   await supabaseAdmin.from('crawl_jobs').insert({
     business_id: businessId,
@@ -118,7 +119,7 @@ export async function extractAndPersistSignals(
     .eq('is_current', true);
 
   // Insert new signals
-  await supabaseAdmin.from('extracted_signals').insert({
+  const { error: insertError } = await supabaseAdmin.from('extracted_signals').insert({
     business_id: businessId,
     is_current: true,
     seo: signals.seo,
@@ -128,11 +129,13 @@ export async function extractAndPersistSignals(
     engagement: signals.engagement,
     features: signals.features,
   });
+  if (insertError) throw new Error(`Failed to insert signals: ${insertError.message}`);
 
-  await supabaseAdmin
+  const { error: updateError } = await supabaseAdmin
     .from('businesses')
     .update({ crawl_status: 'complete', last_crawled_at: new Date().toISOString() })
     .eq('id', businessId);
+  if (updateError) throw new Error(`Failed to mark business complete: ${updateError.message}`);
 }
 
 /** Mark a business crawl as failed. */

@@ -115,7 +115,7 @@ export async function getProject(userId: string): Promise<Project | null> {
       const [{ data: sig }, { data: events }] = await Promise.all([
         supabaseAdmin
           .from('extracted_signals')
-          .select('signals')
+          .select('seo, pricing, trust, content, engagement, features')
           .eq('business_id', b.id)
           .order('crawled_at', { ascending: false })
           .limit(1)
@@ -127,7 +127,9 @@ export async function getProject(userId: string): Promise<Project | null> {
           .order('detected_at', { ascending: false }),
       ]);
 
-      const signals = (sig?.signals as ExtractedSignals) ?? null;
+      const signals = sig?.seo
+        ? ({ seo: sig.seo, pricing: sig.pricing, trust: sig.trust, content: sig.content, engagement: sig.engagement, features: sig.features } as ExtractedSignals)
+        : null;
       const changeEvents: ChangeEvent[] = (events ?? []).map(e => ({
         id: e.id as string,
         detectedAt: new Date(e.detected_at as string).getTime(),
@@ -164,13 +166,6 @@ export async function updateBusiness(
   if (partial.trustpilotData !== undefined) row.trustpilot_data = partial.trustpilotData;
 
   const { error } = await supabaseAdmin.from('businesses').update(row).eq('id', businessId);
-  if (error) throw new Error(error.message);
-}
-
-export async function saveSignals(businessId: string, signals: ExtractedSignals): Promise<void> {
-  const { error } = await supabaseAdmin
-    .from('extracted_signals')
-    .insert({ business_id: businessId, signals });
   if (error) throw new Error(error.message);
 }
 
@@ -227,14 +222,14 @@ export async function syncProject(projectId: string): Promise<{
       if (b.crawl_status === 'complete') {
         const { data: sig } = await supabaseAdmin
           .from('extracted_signals')
-          .select('signals')
+          .select('seo, pricing, trust, content, engagement, features')
           .eq('business_id', b.id)
           .order('crawled_at', { ascending: false })
           .limit(1)
           .maybeSingle();
 
-        if (sig?.signals) {
-          signals = sig.signals as ExtractedSignals;
+        if (sig?.seo) {
+          signals = { seo: sig.seo, pricing: sig.pricing, trust: sig.trust, content: sig.content, engagement: sig.engagement, features: sig.features } as ExtractedSignals;
 
           if (!aiScore) {
             try {
@@ -277,6 +272,18 @@ export async function syncProject(projectId: string): Promise<{
   }
 
   return { businesses, priorityActions };
+}
+
+export async function triggerSingleScan(businessId: string): Promise<void> {
+  await supabaseAdmin
+    .from('businesses')
+    .update({ crawl_status: 'pending' })
+    .eq('id', businessId);
+
+  await inngest.send({
+    name: 'crawl/business.scan',
+    data: { businessId, mode: 'initial' as const },
+  });
 }
 
 export async function rescanAll(projectId: string): Promise<void> {

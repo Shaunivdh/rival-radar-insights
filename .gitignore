@@ -29,6 +29,9 @@ tsconfig.tsbuildinfo
 package-lock.json
 yarn.lock
 
+# Local crawl cache
+.crawl-cache/
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

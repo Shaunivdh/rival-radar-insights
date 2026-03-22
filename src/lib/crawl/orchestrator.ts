@@ -1,5 +1,6 @@
 import { supabaseAdmin } from '@/lib/supabase/server';
 import { startCrawl, startIncrementalCrawl, pollCrawlStatus, getCrawlResults } from '@/services/crawl';
+import { saveToCache, loadFromCache } from '@/services/crawl.cache';
 import { extractSignals } from '@/services/extract';
 
 interface CrawlCredentials {
@@ -71,7 +72,17 @@ export async function extractAndPersistSignals(
   jobId: string
 ): Promise<void> {
   const credentials = getCredentials();
-  const rawResult = await getCrawlResults(jobId, credentials);
+
+  const { data: business } = await supabaseAdmin
+    .from('businesses')
+    .select('url')
+    .eq('id', businessId)
+    .single();
+
+  const url = business?.url as string | undefined;
+  const cached = url ? loadFromCache(url) : null;
+  const rawResult = cached ?? await getCrawlResults(jobId, credentials);
+  if (!cached && url) saveToCache(url, rawResult);
   const signals = await extractSignals(rawResult);
 
   // Archive previous signals

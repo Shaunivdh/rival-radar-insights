@@ -60,6 +60,7 @@ export async function startBusinessCrawl(
         {
           maxDepth: 2,
           maxPages: 15,
+          render: true,
           outputFormats: ['json', 'markdown'],
           jsonOptions: {
             prompt:

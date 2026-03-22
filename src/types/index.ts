@@ -6,6 +6,12 @@ export interface Project {
   competitors: Business[];
 }
 
+export interface AIVisibility {
+  mentioned: boolean;
+  excerpt: string | null;
+  tested_at: string;
+}
+
 export interface Business {
   id: string;
   name: string;
@@ -19,6 +25,7 @@ export interface Business {
   serpData: SerpData | null;
   trustpilotData: TrustpilotData | null;
   aiScore: AIHealthScore | null;
+  aiVisibility: AIVisibility | null;
   previousSignals: ExtractedSignals | null;
   changeEvents: ChangeEvent[];
 }
@@ -149,6 +156,7 @@ export interface SerpData {
   knowledgePanelPresent: boolean;
   sitelinks: boolean;
   adsAboveResults: number;
+  searchTerm: string | null;
 }
 
 export interface TrustpilotData {
@@ -164,12 +172,17 @@ export interface TrustpilotData {
 
 export interface AIHealthScore {
   overallScore: number;
-  seoScore: number;
-  trustScore: number;
-  contentScore: number;
-  engagementScore: number;
-  pricingTransparencyScore: number;
-  summary: string;
+  // Deterministic component scores (weighted contributions that sum to overallScore)
+  googleRatingScore: number;
+  reviewCountScore: number;
+  localPackScore: number;
+  aiVisibilityScore: number;
+  // Legacy fields kept for display compatibility
+  seoScore?: number;
+  trustScore?: number;
+  contentScore?: number;
+  summary?: string;
+  calculation_method?: string;
 }
 
 export interface PriorityAction {
@@ -232,6 +245,7 @@ export interface ChangeSummary {
 export interface AppSettings {
   primaryService: string;
   location: string;
+  postcode?: string;
 }
 
 export interface User {

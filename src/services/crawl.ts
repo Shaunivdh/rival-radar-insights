@@ -31,7 +31,7 @@ export async function startCrawl(
       render: options.render ?? false,
       limit: options.maxPages ?? 20,
       ...(options.jsonOptions ? { jsonOptions: options.jsonOptions } : {}),
-      ...(options.modifiedSince ? { modifiedSince: options.modifiedSince } : {}),
+      ...(options.modifiedSince ? { modifiedSince: Math.floor(options.modifiedSince / 1000) } : {}),
     }),
   });
 

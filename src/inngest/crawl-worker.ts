@@ -6,8 +6,9 @@ import {
   markCrawlFailed,
 } from '@/lib/crawl/orchestrator';
 import { supabaseAdmin } from '@/lib/supabase/server';
-import { fetchGoogleData, fetchSerpData, fetchTrustpilotData } from '@/actions/enrichment';
-import { generateHealthScore, generatePriorityActions, generateChangeSummary } from '@/services/ai';
+import { fetchGoogleData, fetchSerpData } from '@/actions/enrichment';
+import { generatePriorityActions, generateChangeSummary, checkAIVisibility } from '@/services/ai';
+import { calculateScores } from '@/services/scores';
 import { diffSignals } from '@/services/diff';
 import { updateBusiness, saveChangeEvent } from '@/actions/projects';
 import type { ExtractedSignals, Business, ChangeEvent } from '@/types';
@@ -79,7 +80,7 @@ export const crawlBusinessFunction = inngest.createFunction(
 
       const { data: settings } = await supabaseAdmin
         .from('app_settings')
-        .select('primary_service, location')
+        .select('primary_service, location, postcode')
         .eq('user_id', proj.user_id)
         .maybeSingle();
 
@@ -90,30 +91,51 @@ export const crawlBusinessFunction = inngest.createFunction(
         projectId: biz.project_id as string,
         primaryService: (settings?.primary_service as string) ?? '',
         location: (settings?.location as string) ?? '',
+        postcode: (settings?.postcode as string) ?? '',
       };
     });
 
     // Step 5: Enrichment (sequential)
     await step.run('enrich-google', async () => {
-      try { await fetchGoogleData(businessId, meta.name, meta.url); } catch { /* non-fatal */ }
+      try {
+        await fetchGoogleData(businessId, meta.name, meta.url);
+      } catch (e) {
+        console.error(`[enrich-google] Failed for business ${businessId}:`, e);
+      }
     });
 
     await step.run('enrich-serp', async () => {
-      try { await fetchSerpData(businessId, meta.name, meta.domain, meta.primaryService, meta.location); } catch { /* non-fatal */ }
+      try {
+        await fetchSerpData(businessId, meta.name, meta.domain, meta.primaryService, meta.location, meta.postcode);
+      } catch (e) {
+        console.error(`[enrich-serp] Failed for business ${businessId}:`, e);
+      }
     });
 
-    await step.run('enrich-trustpilot', async () => {
-      try { await fetchTrustpilotData(businessId, meta.url); } catch { /* non-fatal */ }
+    // Step 6: AI search visibility check
+    await step.run('ai-visibility', async () => {
+      if (!meta.primaryService || !meta.location) return;
+      try {
+        const visibility = await checkAIVisibility(meta.primaryService, meta.location, meta.name, meta.domain);
+        const { error } = await supabaseAdmin.from('businesses').update({ ai_visibility: visibility }).eq('id', businessId);
+        if (error) {
+          console.error(`[ai-visibility] DB write failed for business ${businessId}:`, error);
+        } else {
+          console.log(`[ai-visibility] ai_visibility saved for business ${businessId}`);
+        }
+      } catch (e) {
+        console.error(`[ai-visibility] Failed for business ${businessId}:`, e);
+      }
     });
 
-    // Step 6: If incremental, diff signals and generate change summary
+    // Step 7: If incremental, diff signals and generate change summary
     if (mode === 'incremental') {
       await step.run('diff-and-summarize', async () => {
         const { data: rows } = await supabaseAdmin
           .from('extracted_signals')
           .select('seo, pricing, trust, content, engagement, features')
           .eq('business_id', businessId)
-          .order('crawled_at', { ascending: false })
+          .order('scanned_at', { ascending: false })
           .limit(2);
 
         if (!rows || rows.length < 2) return;
@@ -142,24 +164,25 @@ export const crawlBusinessFunction = inngest.createFunction(
       });
     }
 
-    // Step 7: Generate and save health score
+    // Step 7: Calculate deterministic health score
     await step.run('health-score', async () => {
-      const { data: sig } = await supabaseAdmin
-        .from('extracted_signals')
-        .select('seo, pricing, trust, content, engagement, features')
-        .eq('business_id', businessId)
-        .order('crawled_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
+      const { data: biz } = await supabaseAdmin
+        .from('businesses')
+        .select('google_data, serp_data, ai_visibility')
+        .eq('id', businessId)
+        .single();
 
-      if (!sig?.seo) return;
+      if (!biz) return;
 
-      const sigData = { seo: sig.seo, pricing: sig.pricing, trust: sig.trust, content: sig.content, engagement: sig.engagement, features: sig.features } as ExtractedSignals;
+      console.log(`[health-score] business ${businessId} — google_data:`, biz.google_data != null, '| serp_data:', biz.serp_data != null, '| ai_visibility:', biz.ai_visibility != null);
 
-      try {
-        const aiScore = await generateHealthScore(sigData);
-        await updateBusiness(businessId, { aiScore });
-      } catch { /* non-fatal */ }
+      const aiScore = calculateScores(
+        biz.google_data as Parameters<typeof calculateScores>[0],
+        biz.serp_data as Parameters<typeof calculateScores>[1],
+        biz.ai_visibility as Parameters<typeof calculateScores>[2]
+      );
+      await updateBusiness(businessId, { aiScore });
+      console.log(`[health-score] ai_score saved for business ${businessId}:`, JSON.stringify(aiScore));
     });
 
     // Step 8: If all businesses in project are done, generate priority actions
@@ -176,12 +199,18 @@ export const crawlBusinessFunction = inngest.createFunction(
       );
       if (!allDone) return;
 
-      // Guard against race: skip if priority actions already exist for this project
-      const { count } = await supabaseAdmin
+      // Skip regeneration only if actions were generated within the last 24 hours
+      const { data: latestAction } = await supabaseAdmin
         .from('priority_actions')
-        .select('id', { count: 'exact', head: true })
-        .eq('project_id', meta.projectId);
-      if (count && count > 0) return;
+        .select('generated_at')
+        .eq('project_id', meta.projectId)
+        .order('generated_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (latestAction?.generated_at) {
+        const ageMs = Date.now() - new Date(latestAction.generated_at).getTime();
+        if (ageMs < 24 * 60 * 60 * 1000) return;
+      }
 
       const withSignals = await Promise.all(
         allBiz.map(async (b) => {
@@ -189,7 +218,7 @@ export const crawlBusinessFunction = inngest.createFunction(
             .from('extracted_signals')
             .select('seo, pricing, trust, content, engagement, features')
             .eq('business_id', b.id)
-            .order('crawled_at', { ascending: false })
+            .order('scanned_at', { ascending: false })
             .limit(1)
             .maybeSingle();
           const signals = sig?.seo

@@ -9,7 +9,7 @@ import { PriorityActionsPanel } from '@/components/PriorityActionsPanel';
 import { ChangeEventCard } from '@/components/Badges';
 import { ScoreChip } from '@/components/ScoreChip';
 import { Bell, TrendingUp, Loader2, CheckCircle2, XCircle, Clock, RefreshCw } from 'lucide-react';
-import { triggerInitialScans, triggerSingleScan } from '@/actions/projects';
+import { triggerInitialScans, triggerSingleScan, rescanAll } from '@/actions/projects';
 import { useState } from 'react';
 import type { ChangeEvent as CE } from '@/types';
 
@@ -20,6 +20,8 @@ const STATUS_ICON: Record<string, React.ReactNode> = {
   complete: <CheckCircle2 className="w-3.5 h-3.5 text-green-500" />,
   failed: <XCircle className="w-3.5 h-3.5 text-destructive" />,
 };
+
+const isDev = process.env.NODE_ENV === 'development';
 
 const Dashboard = () => {
   const { project, isDemoMode, syncBusinesses, setPriorityActions } = useRivalRadarStore();
@@ -35,7 +37,7 @@ const Dashboard = () => {
   const handleRescan = async () => {
     if (!project) return;
     setRescanning(true);
-    await triggerInitialScans(project.id);
+    await rescanAll(project.id);
     syncBusinesses(allBusinesses.map((b) => ({ id: b.id, crawlStatus: 'pending', signals: b.signals, aiScore: b.aiScore })));
     setRescanning(false);
   };
@@ -85,7 +87,7 @@ const Dashboard = () => {
                 <p className="text-xs text-muted-foreground">Initial scan takes 2–8 min per site. This page auto-refreshes.</p>
               )}
             </div>
-            {(anyFailed || noneScanned || isScanning) && (
+            {isDev && (anyFailed || noneScanned || isScanning) && (
               <button
                 onClick={handleRescan}
                 disabled={rescanning}
@@ -102,7 +104,7 @@ const Dashboard = () => {
                 {STATUS_ICON[b.crawlStatus]}
                 <span className="font-medium text-foreground truncate">{b.name}</span>
                 <span className="text-muted-foreground capitalize">{b.crawlStatus}</span>
-                {b.crawlStatus === 'failed' && (
+                {isDev && b.crawlStatus === 'failed' && (
                   <button
                     onClick={() => handleRescanOne(b.id)}
                     disabled={rescanningId === b.id}
@@ -126,7 +128,7 @@ const Dashboard = () => {
             <p className="text-sm text-muted-foreground mt-0.5">{own.url}</p>
           </div>
           <div className="flex items-start gap-3">
-            {!isDemoMode && !isScanning && (
+            {isDev && !isDemoMode && !isScanning && (
               <button
                 onClick={handleRescan}
                 disabled={rescanning}
@@ -144,15 +146,11 @@ const Dashboard = () => {
         </div>
         {own.aiScore && (
           <div className="flex flex-wrap gap-2 mt-4">
-            <ScoreChip label="SEO" score={own.aiScore.seoScore} size="md" />
-            <ScoreChip label="Trust" score={own.aiScore.trustScore} size="md" />
-            <ScoreChip label="Content" score={own.aiScore.contentScore} size="md" />
-            <ScoreChip label="Engagement" score={own.aiScore.engagementScore} size="md" />
-            <ScoreChip label="Pricing" score={own.aiScore.pricingTransparencyScore} size="md" />
+            <ScoreChip label="SEO" score={Math.round((own.aiScore.googleRatingScore / 30) * 100)} size="md" />
+            <ScoreChip label="Reviews" score={Math.round((own.aiScore.reviewCountScore / 20) * 100)} size="md" />
+            <ScoreChip label="Local Pack" score={Math.round((own.aiScore.localPackScore / 30) * 100)} size="md" />
+            <ScoreChip label="AI Visibility" score={Math.round((own.aiScore.aiVisibilityScore / 20) * 100)} size="md" />
           </div>
-        )}
-        {own.aiScore?.summary && (
-          <p className="text-sm text-muted-foreground mt-3 border-t border-border pt-3">{own.aiScore.summary}</p>
         )}
       </div>
 

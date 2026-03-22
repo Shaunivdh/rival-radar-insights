@@ -24,14 +24,17 @@ export async function getRankingData(
   primaryService: string,
   location: string,
   apiKey: string,
-  domain: string
+  domain: string,
+  ll?: { lat: number; lng: number }
 ): Promise<SerpData> {
   const base = 'https://serpapi.com/search.json';
   const common = `&api_key=${apiKey}&gl=gb&hl=en`;
+  const llParam = ll ? `&ll=@${ll.lat},${ll.lng},14z` : '';
+  const searchTerm = `${primaryService} ${location}`;
 
   const [organicRes, localRes] = await Promise.all([
     fetch(`${base}?q=${encodeURIComponent(`${businessName} ${primaryService} ${location}`)}${common}`),
-    fetch(`${base}?q=${encodeURIComponent(`${primaryService} near ${location}`)}${common}`),
+    fetch(`${base}?q=${encodeURIComponent(searchTerm)}${common}${llParam}`),
   ]);
 
   const [organicJson, localJson] = await Promise.all([
@@ -72,5 +75,6 @@ export async function getRankingData(
     knowledgePanelPresent,
     sitelinks,
     adsAboveResults,
+    searchTerm,
   };
 }

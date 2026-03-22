@@ -161,7 +161,7 @@ const BusinessSetupPage = () => {
           </div>
           <h1 className="text-2xl font-semibold text-foreground">Set up your competitive radar</h1>
           <p className="text-sm text-muted-foreground mt-1">
-            Welcome, <span className="font-medium text-foreground">{user.name}</span>
+            Welcome, <span className="font-medium text-foreground">{user.email}</span>
           </p>
         </div>
 

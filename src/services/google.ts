@@ -2,6 +2,19 @@ import type { GoogleData } from '@/types';
 
 const PLACES_BASE = 'https://maps.googleapis.com/maps/api/place';
 
+export async function postcodeToLatLng(
+  postcode: string,
+  apiKey: string
+): Promise<{ lat: number; lng: number } | null> {
+  const res = await fetch(
+    `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(postcode)}&key=${encodeURIComponent(apiKey)}`
+  );
+  const json = await res.json();
+  const loc = json.results?.[0]?.geometry?.location;
+  if (!loc) return null;
+  return { lat: loc.lat as number, lng: loc.lng as number };
+}
+
 export async function getPlaceData(
   name: string,
   _url: string,

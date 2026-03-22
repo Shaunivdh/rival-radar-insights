@@ -86,7 +86,19 @@ export const useRivalRadarStore = create<RivalRadarState>()(
 
       setUser: (user) => set({ user }),
       setProject: (project) => set({ project, isDemoMode: false }),
-      setSettings: (newSettings) => set((state) => ({ settings: { ...state.settings, ...newSettings } })),
+      setSettings: (newSettings) => {
+        set((state) => ({ settings: { ...state.settings, ...newSettings } }));
+        const { user, settings } = get();
+        if (user?.id) {
+          supabase.from('app_settings').upsert({
+            user_id: user.id,
+            primary_service: settings.primaryService,
+            location: settings.location,
+            postcode: settings.postcode ?? null,
+            updated_at: new Date().toISOString(),
+          }, { onConflict: 'user_id' }).then(() => {});
+        }
+      },
       setPriorityActions: (actions) => set({ priorityActions: actions }),
       dismissDemoBanner: () => set({ demoBannerDismissed: true }),
 

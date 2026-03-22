@@ -4,15 +4,14 @@ import { useParams, useRouter } from 'next/navigation';
 import { useRivalRadarStore } from '@/store/rivalradar';
 import { ScoreChip } from '@/components/ScoreChip';
 import { StarRating } from '@/components/StarRating';
-import { TransparencyBadge, SeverityBadge, ChangeEventCard } from '@/components/Badges';
-import { ArrowLeft, ExternalLink, RefreshCw, Shield, FileText, MessageSquare, DollarSign, Search, Bell } from 'lucide-react';
+import { SeverityBadge, ChangeEventCard } from '@/components/Badges';
+import { ArrowLeft, ExternalLink, RefreshCw, Shield, FileText, Search, Bell } from 'lucide-react';
 import { useState } from 'react';
 import { cn } from '@/lib/utils';
 
 const tabs = [
   { id: 'seo', label: 'SEO', icon: Search },
   { id: 'reputation', label: 'Reputation', icon: Shield },
-  { id: 'pricing', label: 'Pricing', icon: DollarSign },
   { id: 'trust', label: 'Trust & Credibility', icon: Shield },
   { id: 'content', label: 'Content & Engagement', icon: FileText },
   { id: 'changes', label: 'Changes', icon: Bell },
@@ -81,11 +80,10 @@ const CompetitorDetail = () => {
       {/* Score chips */}
       {biz.aiScore && (
         <div className="flex flex-wrap gap-2">
-          <ScoreChip label="SEO" score={biz.aiScore.seoScore} size="md" />
-          <ScoreChip label="Trust" score={biz.aiScore.trustScore} size="md" />
-          <ScoreChip label="Content" score={biz.aiScore.contentScore} size="md" />
-          <ScoreChip label="Engagement" score={biz.aiScore.engagementScore} size="md" />
-          <ScoreChip label="Pricing" score={biz.aiScore.pricingTransparencyScore} size="md" />
+          <ScoreChip label="SEO" score={Math.round((biz.aiScore.googleRatingScore / 30) * 100)} size="md" />
+          <ScoreChip label="Reviews" score={Math.round((biz.aiScore.reviewCountScore / 20) * 100)} size="md" />
+          <ScoreChip label="Local Pack" score={Math.round((biz.aiScore.localPackScore / 30) * 100)} size="md" />
+          <ScoreChip label="AI Visibility" score={Math.round((biz.aiScore.aiVisibilityScore / 20) * 100)} size="md" />
         </div>
       )}
 
@@ -169,71 +167,6 @@ const CompetitorDetail = () => {
                 </div>
               </div>
             )}
-            {biz.trustpilotData?.trustpilotRating && (
-              <div>
-                <h3 className="metric-label mb-3">Trustpilot</h3>
-                <div className="flex items-center gap-3 mb-4">
-                  <span className="text-lg font-bold">{biz.trustpilotData.trustpilotRating}</span>
-                  <span className="score-chip bg-success/10 text-[hsl(142,71%,35%)]">{biz.trustpilotData.trustpilotTrustScore}</span>
-                  <span className="text-sm text-muted-foreground">({biz.trustpilotData.trustpilotReviewCount} reviews)</span>
-                </div>
-                <div className="space-y-2">
-                  {biz.trustpilotData.recentTrustpilotReviews.map((r, i) => (
-                    <div key={i} className="bg-muted/30 rounded-lg p-3 flex justify-between">
-                      <span className="text-sm">{r.title}</span>
-                      <span className="text-xs text-muted-foreground">{r.date}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-
-        {activeTab === 'pricing' && s && (
-          <div className="space-y-4">
-            <div className="flex items-center gap-3">
-              <span className="metric-label">Transparency:</span>
-              <TransparencyBadge level={s.pricing.priceTransparencyScore} />
-            </div>
-            {s.pricing.pricingMentions.length > 0 && (
-              <div>
-                <h3 className="metric-label mb-2">Price Mentions</h3>
-                <div className="space-y-2">
-                  {s.pricing.pricingMentions.map((p, i) => (
-                    <div key={i} className="bg-muted/30 rounded-lg p-3">
-                      <div className="flex justify-between">
-                        <span className="text-sm font-medium">{p.service}</span>
-                        <span className="text-sm font-bold text-primary">{p.price}</span>
-                      </div>
-                      <p className="text-xs text-muted-foreground mt-1">{p.context}</p>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-            {s.pricing.packageDetails.length > 0 && (
-              <div>
-                <h3 className="metric-label mb-2">Packages</h3>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                  {s.pricing.packageDetails.map((pkg, i) => (
-                    <div key={i} className="bg-muted/30 rounded-lg p-4">
-                      <h4 className="text-sm font-semibold">{pkg.name}</h4>
-                      <p className="text-lg font-bold text-primary mt-1">{pkg.price}</p>
-                      <ul className="mt-2 space-y-1">
-                        {pkg.includes.map((inc, j) => (
-                          <li key={j} className="text-xs text-muted-foreground">• {inc}</li>
-                        ))}
-                      </ul>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-            <div className="flex gap-4">
-              <span className="text-sm">{s.pricing.hasFreeQuote ? '✓ Free Quote' : '✗ No Free Quote'}</span>
-              <span className="text-sm">{s.pricing.hasFreeTrial ? '✓ Free Trial' : '✗ No Free Trial'}</span>
-            </div>
           </div>
         )}
 

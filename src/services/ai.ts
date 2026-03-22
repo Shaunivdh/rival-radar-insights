@@ -1,5 +1,5 @@
 import Anthropic from '@anthropic-ai/sdk';
-import type { ExtractedSignals, AIHealthScore, PriorityAction, ChangeSummary, Business } from '@/types';
+import type { ExtractedSignals, PriorityAction, ChangeSummary, Business, AIVisibility } from '@/types';
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
@@ -14,20 +14,41 @@ async function askClaude<T>(prompt: string): Promise<T> {
   return JSON.parse(json) as T;
 }
 
-export async function generateHealthScore(signals: ExtractedSignals): Promise<AIHealthScore> {
-  const prompt = `Score this business website. Return JSON only, no explanation.
-Schema: {"overallScore":number,"seoScore":number,"trustScore":number,"contentScore":number,"engagementScore":number,"pricingTransparencyScore":number,"summary":"string"}
-All scores 0-100. Summary max 15 words.
-Signals: ${JSON.stringify(signals)}`;
-  return askClaude<AIHealthScore>(prompt);
-}
-
 export async function generatePriorityActions(own: Business, competitors: Business[]): Promise<PriorityAction[]> {
   const prompt = `Compare this business against competitors and return 3-5 priority actions as JSON array only.
 Schema per item: {"priority":1|2|3,"category":"string","action":"string","reason":"string","competitorReference":"string","estimatedImpact":"high"|"medium"|"low","timeframe":"string"}
 Own: ${JSON.stringify({ name: own.name, signals: own.signals })}
 Competitors: ${JSON.stringify(competitors.map((c) => ({ name: c.name, signals: c.signals })))}`;
   return askClaude<PriorityAction[]>(prompt);
+}
+
+export async function checkAIVisibility(
+  primaryService: string,
+  location: string,
+  businessName: string,
+  domain: string
+): Promise<AIVisibility> {
+  const prompt = `Can you recommend a ${primaryService} in ${location}? I'm looking for someone reliable and well-reviewed.`;
+  const msg = await client.messages.create({
+    model: 'claude-sonnet-4-20250514',
+    max_tokens: 300,
+    messages: [{ role: 'user', content: prompt }],
+  });
+  const text = (msg.content[0] as { type: string; text: string }).text;
+  const lower = text.toLowerCase();
+  const mentioned =
+    lower.includes(businessName.toLowerCase()) || lower.includes(domain.toLowerCase());
+
+  let excerpt: string | null = null;
+  if (mentioned) {
+    const idx =
+      lower.indexOf(businessName.toLowerCase()) !== -1
+        ? lower.indexOf(businessName.toLowerCase())
+        : lower.indexOf(domain.toLowerCase());
+    excerpt = text.slice(Math.max(0, idx - 50), idx + 150).trim();
+  }
+
+  return { mentioned, excerpt, tested_at: new Date().toISOString() };
 }
 
 export async function generateChangeSummary(

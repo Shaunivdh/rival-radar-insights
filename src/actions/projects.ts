@@ -3,8 +3,8 @@
 import { cookies } from 'next/headers';
 import { supabaseAdmin } from '@/lib/supabase/server';
 import { inngest } from '@/inngest/client';
-import { generateHealthScore } from '@/services/ai';
-import type { Project, Business, ExtractedSignals, AIHealthScore, PriorityAction, ChangeEvent } from '@/types';
+import { calculateScores } from '@/services/scores';
+import type { Project, Business, ExtractedSignals, AIHealthScore, PriorityAction, ChangeEvent, AIVisibility } from '@/types';
 
 // ── Auth helper ───────────────────────────────────────────────────────────────
 
@@ -48,6 +48,7 @@ function mapBusiness(
     serpData: (b.serp_data as Business['serpData']) ?? null,
     trustpilotData: (b.trustpilot_data as Business['trustpilotData']) ?? null,
     aiScore: (b.ai_score as AIHealthScore) ?? null,
+    aiVisibility: (b.ai_visibility as AIVisibility) ?? null,
     previousSignals: null,
     changeEvents,
   };
@@ -117,7 +118,7 @@ export async function getProject(userId: string): Promise<Project | null> {
           .from('extracted_signals')
           .select('seo, pricing, trust, content, engagement, features')
           .eq('business_id', b.id)
-          .order('crawled_at', { ascending: false })
+          .order('scanned_at', { ascending: false })
           .limit(1)
           .maybeSingle(),
         supabaseAdmin
@@ -153,7 +154,7 @@ export async function getProject(userId: string): Promise<Project | null> {
 
 export async function updateBusiness(
   businessId: string,
-  partial: Partial<Pick<Business, 'crawlStatus' | 'crawlJobId' | 'lastCrawledAt' | 'aiScore' | 'googleData' | 'serpData' | 'trustpilotData'>>
+  partial: Partial<Pick<Business, 'crawlStatus' | 'crawlJobId' | 'lastCrawledAt' | 'aiScore' | 'googleData' | 'serpData' | 'trustpilotData' | 'aiVisibility'>>
 ): Promise<void> {
   const row: Record<string, unknown> = {};
   if (partial.crawlStatus !== undefined) row.crawl_status = partial.crawlStatus;
@@ -164,6 +165,7 @@ export async function updateBusiness(
   if (partial.googleData !== undefined) row.google_data = partial.googleData;
   if (partial.serpData !== undefined) row.serp_data = partial.serpData;
   if (partial.trustpilotData !== undefined) row.trustpilot_data = partial.trustpilotData;
+  if (partial.aiVisibility !== undefined) row.ai_visibility = partial.aiVisibility;
 
   const { error } = await supabaseAdmin.from('businesses').update(row).eq('id', businessId);
   if (error) throw new Error(error.message);
@@ -219,7 +221,7 @@ export async function syncProject(projectId: string): Promise<{
 }> {
   const { data: rows } = await supabaseAdmin
     .from('businesses')
-    .select('id, crawl_status, ai_score')
+    .select('id, crawl_status, ai_score, google_data, serp_data, ai_visibility')
     .eq('project_id', projectId);
 
   if (!rows?.length) return { businesses: [], priorityActions: [] };
@@ -234,22 +236,22 @@ export async function syncProject(projectId: string): Promise<{
           .from('extracted_signals')
           .select('seo, pricing, trust, content, engagement, features')
           .eq('business_id', b.id)
-          .order('crawled_at', { ascending: false })
+          .order('scanned_at', { ascending: false })
           .limit(1)
           .maybeSingle();
 
         if (sig?.seo) {
           signals = { seo: sig.seo, pricing: sig.pricing, trust: sig.trust, content: sig.content, engagement: sig.engagement, features: sig.features } as ExtractedSignals;
+        }
 
-          if (!aiScore) {
-            try {
-              aiScore = await generateHealthScore(signals);
-              await supabaseAdmin
-                .from('businesses')
-                .update({ ai_score: aiScore })
-                .eq('id', b.id);
-            } catch { /* leave null */ }
-          }
+        // Recalculate if missing or was AI-generated (not deterministic)
+        if (!aiScore || aiScore.calculation_method !== 'deterministic') {
+          aiScore = calculateScores(
+            b.google_data as Parameters<typeof calculateScores>[0],
+            b.serp_data as Parameters<typeof calculateScores>[1],
+            b.ai_visibility as Parameters<typeof calculateScores>[2]
+          );
+          await supabaseAdmin.from('businesses').update({ ai_score: aiScore }).eq('id', b.id);
         }
       }
 
@@ -299,23 +301,21 @@ export async function triggerSingleScan(businessId: string): Promise<void> {
 export async function rescanAll(projectId: string): Promise<void> {
   const { data: businesses } = await supabaseAdmin
     .from('businesses')
-    .select('id, last_crawled_at')
+    .select('id')
     .eq('project_id', projectId);
 
   if (!businesses?.length) return;
 
-  const stale = businesses.filter(b => isStale(b.last_crawled_at as string | null));
-  if (!stale.length) return;
-
   await supabaseAdmin
     .from('businesses')
     .update({ crawl_status: 'pending' })
-    .in('id', stale.map(b => b.id));
+    .in('id', businesses.map(b => b.id));
 
   await inngest.send(
-    stale.map(b => ({
+    businesses.map((b, i) => ({
       name: 'crawl/business.scan' as const,
       data: { businessId: b.id as string, mode: 'incremental' as const },
+      ts: Date.now() + i * 15000,
     }))
   );
 }

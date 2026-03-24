@@ -1,56 +1,81 @@
 import type { GoogleData } from '@/types';
 
-const PLACES_BASE = 'https://maps.googleapis.com/maps/api/place';
+const NEW_PLACES_BASE = 'https://places.googleapis.com/v1/places';
 
 export async function postcodeToLatLng(
   postcode: string,
   apiKey: string
 ): Promise<{ lat: number; lng: number } | null> {
-  const res = await fetch(
-    `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(postcode)}&key=${encodeURIComponent(apiKey)}`
-  );
+  const res = await fetch(`${NEW_PLACES_BASE}:searchText`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-Goog-Api-Key': apiKey,
+      'X-Goog-FieldMask': 'places.location',
+    },
+    body: JSON.stringify({ textQuery: postcode }),
+  });
   const json = await res.json();
-  const loc = json.results?.[0]?.geometry?.location;
+  const loc = json.places?.[0]?.location;
   if (!loc) return null;
-  return { lat: loc.lat as number, lng: loc.lng as number };
+  return { lat: loc.latitude as number, lng: loc.longitude as number };
 }
 
 export async function getPlaceData(
   name: string,
-  _url: string,
-  apiKey: string
+  url: string,
+  apiKey: string,
+  postcode?: string
 ): Promise<GoogleData | null> {
-  // 1. Find place_id
-  const findRes = await fetch(
-    `${PLACES_BASE}/findplacefromtext/json?input=${encodeURIComponent(name)}&inputtype=textquery&fields=place_id&key=${encodeURIComponent(apiKey)}`
-  );
-  const findJson = await findRes.json();
-  const placeId: string | undefined = findJson.candidates?.[0]?.place_id;
-  if (!placeId) return null;
+  let locationBias: object | undefined;
+  if (postcode) {
+    const coords = await postcodeToLatLng(postcode, apiKey);
+    if (coords) {
+      locationBias = {
+        circle: {
+          center: { latitude: coords.lat, longitude: coords.lng },
+          radius: 50000,
+        },
+      };
+    }
+  }
 
-  // 2. Fetch place details
-  const fields = 'name,rating,user_ratings_total,formatted_address,formatted_phone_number,opening_hours,reviews,photos,price_level,types';
-  const detailRes = await fetch(
-    `${PLACES_BASE}/details/json?place_id=${placeId}&fields=${fields}&key=${encodeURIComponent(apiKey)}`
-  );
-  const { result } = await detailRes.json();
-  if (!result) return null;
+  let domain = '';
+  try {
+    domain = new URL(url).hostname;
+  } catch {
+    // ignore invalid url
+  }
+  const textQuery = domain ? `${name} ${domain}` : name;
+
+  const res = await fetch(`${NEW_PLACES_BASE}:searchText`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-Goog-Api-Key': apiKey,
+      'X-Goog-FieldMask': 'places.id,places.displayName,places.rating,places.userRatingCount,places.formattedAddress,places.nationalPhoneNumber,places.regularOpeningHours,places.reviews,places.priceLevel,places.types,places.photos,places.location',
+    },
+    body: JSON.stringify({ textQuery, ...(locationBias ? { locationBias } : {}) }),
+  });
+  const json = await res.json();
+  const place = json.places?.[0];
+  if (!place) return null;
 
   return {
-    placeId,
-    googleRating: result.rating ?? 0,
-    reviewCount: result.user_ratings_total ?? 0,
-    businessCategory: result.types?.[0] ?? '',
-    address: result.formatted_address ?? '',
-    phoneNumber: result.formatted_phone_number ?? '',
-    openingHours: result.opening_hours?.weekday_text ?? [],
-    recentReviews: (result.reviews ?? []).slice(0, 3).map((r: Record<string, unknown>) => ({
+    placeId: place.id ?? '',
+    googleRating: place.rating ?? 0,
+    reviewCount: place.userRatingCount ?? 0,
+    businessCategory: place.types?.[0] ?? '',
+    address: place.formattedAddress ?? '',
+    phoneNumber: place.nationalPhoneNumber ?? '',
+    openingHours: place.regularOpeningHours?.weekdayDescriptions ?? [],
+    recentReviews: (place.reviews ?? []).slice(0, 3).map((r: Record<string, unknown>) => ({
       rating: r.rating as number,
-      text: r.text as string,
-      time: r.time as number,
-      authorName: r.author_name as string,
+      text: (r.text as Record<string, unknown>)?.text as string ?? '',
+      time: r.publishTime ? new Date(r.publishTime as string).getTime() / 1000 : 0,
+      authorName: (r.authorAttribution as Record<string, unknown>)?.displayName as string ?? '',
     })),
-    photos: result.photos?.length ?? 0,
-    priceLevel: result.price_level ?? null,
+    photos: place.photos?.length ?? 0,
+    priceLevel: place.priceLevel ?? null,
   };
 }

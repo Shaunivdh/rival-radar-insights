@@ -26,6 +26,7 @@ export interface Business {
   trustpilotData: TrustpilotData | null;
   aiScore: AIHealthScore | null;
   aiVisibility: AIVisibility | null;
+  enrichmentErrors: { google?: string; serp?: string } | null;
   previousSignals: ExtractedSignals | null;
   changeEvents: ChangeEvent[];
 }

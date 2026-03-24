@@ -136,6 +136,7 @@ export const mockOwnBusiness: Business = {
     aiVisibilityScore: 0,
     calculation_method: 'deterministic',
   },
+  enrichmentErrors: null,
   previousSignals: null,
   changeEvents: [],
 };
@@ -268,7 +269,8 @@ export const mockCompetitors: Business[] = [
       aiVisibilityScore: 20,
       calculation_method: 'deterministic',
     },
-    previousSignals: null,
+    enrichmentErrors: null,
+  previousSignals: null,
     changeEvents: [
       {
         id: 'ce-1',
@@ -414,7 +416,8 @@ export const mockCompetitors: Business[] = [
       aiVisibilityScore: 0,
       calculation_method: 'deterministic',
     },
-    previousSignals: null,
+    enrichmentErrors: null,
+  previousSignals: null,
     changeEvents: [
       {
         id: 'ce-2',
@@ -559,7 +562,8 @@ export const mockCompetitors: Business[] = [
       aiVisibilityScore: 0,
       calculation_method: 'deterministic',
     },
-    previousSignals: null,
+    enrichmentErrors: null,
+  previousSignals: null,
     changeEvents: [
       {
         id: 'ce-3',
@@ -702,7 +706,8 @@ export const mockCompetitors: Business[] = [
       aiVisibilityScore: 0,
       calculation_method: 'deterministic',
     },
-    previousSignals: null,
+    enrichmentErrors: null,
+  previousSignals: null,
     changeEvents: [
       {
         id: 'ce-4',

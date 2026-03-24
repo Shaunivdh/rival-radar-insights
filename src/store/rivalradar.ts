@@ -10,6 +10,7 @@ interface SyncedBusiness {
   crawlStatus: Business['crawlStatus'];
   signals: Business['signals'];
   aiScore: Business['aiScore'];
+  enrichmentErrors?: Business['enrichmentErrors'];
 }
 
 interface RivalRadarState {
@@ -32,6 +33,7 @@ interface RivalRadarState {
   loadMockData: () => void;
   syncBusinesses: (updates: SyncedBusiness[]) => void;
   getBusinessById: (id: string) => Business | undefined;
+  addCompetitorToStore: (business: Business) => void;
 }
 
 export const useRivalRadarStore = create<RivalRadarState>()(
@@ -130,7 +132,7 @@ export const useRivalRadarStore = create<RivalRadarState>()(
         const apply = (b: Business): Business => {
           const u = updates.find((x) => x.id === b.id);
           if (!u) return b;
-          return { ...b, crawlStatus: u.crawlStatus, signals: u.signals ?? b.signals, aiScore: u.aiScore ?? b.aiScore };
+          return { ...b, crawlStatus: u.crawlStatus, signals: u.signals ?? b.signals, aiScore: u.aiScore ?? b.aiScore, enrichmentErrors: u.enrichmentErrors !== undefined ? u.enrichmentErrors : b.enrichmentErrors };
         };
         set({
           project: {
@@ -146,6 +148,13 @@ export const useRivalRadarStore = create<RivalRadarState>()(
         if (!state.project) return undefined;
         if (state.project.ownBusiness.id === id) return state.project.ownBusiness;
         return state.project.competitors.find((c) => c.id === id);
+      },
+
+      addCompetitorToStore: (business) => {
+        set((state) => {
+          if (!state.project) return state;
+          return { project: { ...state.project, competitors: [...state.project.competitors, business] } };
+        });
       },
     }),
     { name: 'rivalradar-store' }

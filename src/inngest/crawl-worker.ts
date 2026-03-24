@@ -25,6 +25,11 @@ export const crawlBusinessFunction = inngest.createFunction(
     id: 'crawl-business',
     retries: 0,
     concurrency: { limit: 3 },
+    onFailure: async ({ error, event, step }) => {
+      const { businessId } = event.data.event.data as { businessId: string };
+      console.error(`[crawl-business] Unexpected failure for business ${businessId}:`, error.message);
+      await step.run('mark-failed-on-error', () => markCrawlFailed(businessId));
+    },
   },
   { event: 'crawl/business.scan' },
   async ({ event, step }) => {
@@ -53,7 +58,7 @@ export const crawlBusinessFunction = inngest.createFunction(
     }
 
     if (crawlStatus !== 'completed') {
-      await step.run('mark-failed', () => markCrawlFailed(businessId));
+      await step.run('mark-failed', () => markCrawlFailed(businessId, jobId));
       throw new Error(`Crawl ended with status: ${crawlStatus} after ${attempts} attempts`);
     }
 
@@ -98,9 +103,13 @@ export const crawlBusinessFunction = inngest.createFunction(
     // Step 5: Enrichment (sequential)
     await step.run('enrich-google', async () => {
       try {
-        await fetchGoogleData(businessId, meta.name, meta.url);
+        await fetchGoogleData(businessId, meta.name, meta.url, meta.postcode);
       } catch (e) {
-        console.error(`[enrich-google] Failed for business ${businessId}:`, e);
+        const msg = e instanceof Error ? e.message : 'unknown error';
+        console.error(`[enrich-google] Failed for business ${businessId}:`, msg);
+        const { data: biz } = await supabaseAdmin.from('businesses').select('enrichment_errors').eq('id', businessId).single();
+        const errors = { ...(biz?.enrichment_errors as object ?? {}), google: 'unavailable' };
+        await supabaseAdmin.from('businesses').update({ enrichment_errors: errors }).eq('id', businessId);
       }
     });
 
@@ -108,7 +117,11 @@ export const crawlBusinessFunction = inngest.createFunction(
       try {
         await fetchSerpData(businessId, meta.name, meta.domain, meta.primaryService, meta.location, meta.postcode);
       } catch (e) {
-        console.error(`[enrich-serp] Failed for business ${businessId}:`, e);
+        const msg = e instanceof Error ? e.message : 'unknown error';
+        console.error(`[enrich-serp] Failed for business ${businessId}:`, msg);
+        const { data: biz } = await supabaseAdmin.from('businesses').select('enrichment_errors').eq('id', businessId).single();
+        const errors = { ...(biz?.enrichment_errors as object ?? {}), serp: 'unavailable' };
+        await supabaseAdmin.from('businesses').update({ enrichment_errors: errors }).eq('id', businessId);
       }
     });
 
@@ -249,6 +262,8 @@ export const crawlBusinessFunction = inngest.createFunction(
         serpData: null,
         trustpilotData: null,
         aiScore: null,
+        aiVisibility: null,
+        enrichmentErrors: null,
         previousSignals: null,
         changeEvents: [],
       });

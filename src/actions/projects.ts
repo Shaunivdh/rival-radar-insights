@@ -49,6 +49,7 @@ function mapBusiness(
     trustpilotData: (b.trustpilot_data as Business['trustpilotData']) ?? null,
     aiScore: (b.ai_score as AIHealthScore) ?? null,
     aiVisibility: (b.ai_visibility as AIVisibility) ?? null,
+    enrichmentErrors: (b.enrichment_errors as Business['enrichmentErrors']) ?? null,
     previousSignals: null,
     changeEvents,
   };
@@ -216,12 +217,12 @@ export async function triggerInitialScans(projectId: string): Promise<void> {
 }
 
 export async function syncProject(projectId: string): Promise<{
-  businesses: { id: string; crawlStatus: Business['crawlStatus']; signals: ExtractedSignals | null; aiScore: AIHealthScore | null }[];
+  businesses: { id: string; crawlStatus: Business['crawlStatus']; signals: ExtractedSignals | null; aiScore: AIHealthScore | null; enrichmentErrors: Business['enrichmentErrors'] }[];
   priorityActions: PriorityAction[];
 }> {
   const { data: rows } = await supabaseAdmin
     .from('businesses')
-    .select('id, crawl_status, ai_score, google_data, serp_data, ai_visibility')
+    .select('id, crawl_status, ai_score, google_data, serp_data, ai_visibility, enrichment_errors')
     .eq('project_id', projectId);
 
   if (!rows?.length) return { businesses: [], priorityActions: [] };
@@ -255,7 +256,7 @@ export async function syncProject(projectId: string): Promise<{
         }
       }
 
-      return { id: b.id as string, crawlStatus: b.crawl_status as Business['crawlStatus'], signals, aiScore };
+      return { id: b.id as string, crawlStatus: b.crawl_status as Business['crawlStatus'], signals, aiScore, enrichmentErrors: (b.enrichment_errors as Business['enrichmentErrors']) ?? null };
     })
   );
 
@@ -318,6 +319,38 @@ export async function rescanAll(projectId: string): Promise<void> {
       ts: Date.now() + i * 15000,
     }))
   );
+}
+
+export async function addCompetitor(
+  projectId: string,
+  competitor: Pick<Business, 'name' | 'url' | 'domain'>
+): Promise<Business> {
+  await getSessionUserId();
+
+  const { data: existing } = await supabaseAdmin
+    .from('businesses')
+    .select('id')
+    .eq('project_id', projectId)
+    .eq('is_own_business', false);
+
+  if ((existing?.length ?? 0) >= 5) throw new Error('Maximum of 5 competitors allowed');
+
+  const { data: row, error } = await supabaseAdmin
+    .from('businesses')
+    .insert({ project_id: projectId, ...competitor, is_own_business: false })
+    .select()
+    .single();
+
+  if (error) throw new Error(error.message);
+
+  await supabaseAdmin.from('businesses').update({ crawl_status: 'pending' }).eq('id', row.id);
+
+  await inngest.send({
+    name: 'crawl/business.scan',
+    data: { businessId: row.id as string, mode: 'initial' as const },
+  });
+
+  return mapBusiness({ ...row, crawl_status: 'pending' });
 }
 
 export async function listProjects(userId: string): Promise<Project[]> {

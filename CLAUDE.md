@@ -59,7 +59,7 @@ Crawl limits:
 Initial scan
 
 * maxDepth: 3
-* maxPages: 30
+* maxPages: controlled by `CRAWL_MAX_PAGES` env var (default 15)
 
 Incremental scan
 
@@ -68,6 +68,24 @@ Incremental scan
 * use modifiedSince timestamp
 
 Always design crawl orchestration to be queue-based.
+
+Crawl implementation rules:
+
+* `CrawlCredentials` is exported from `@/services/crawl` — do not redeclare it elsewhere.
+* `startCrawl` serializes `maxDepth`, `outputFormats`, `modifiedSince`, and `jsonOptions` to the CF API body — always pass them via `CrawlOptions`.
+* `crawl_jobs` rows must include `cf_job_id` (the CF job ID returned by `startCrawl`).
+* Daily crawl limit (`MAX_DAILY_CRAWLS`) counts only `status IN ('running', 'completed')` rows — not failed/cancelled.
+* Cache (`saveToCache`) is written after priority page enrichment, not before — so cached results always include multi-page data.
+
+Multi-page enrichment (post-crawl):
+
+* `extractPriorityLinks` and `crawlSinglePage` are exported from `@/services/crawl` — use them for sub-page crawling.
+* After the root CF crawl completes, extract internal links from `pages[0].html` using `extractPriorityLinks`.
+* Prioritise URLs containing: `services`, `blog`, `pricing`, `about`, `treatments`, `contact`.
+* Crawl up to `CRAWL_PRIORITY_PAGES` additional pages (default 5) via `crawlSinglePage`, capped so total pages ≤ `CRAWL_MAX_PAGES` (default 15).
+* `crawlSinglePage` launches a separate CF job per URL and polls up to 60s — running 5 in parallel is the expected usage.
+* If `pages[0].html` is empty, log a warning — the multi-page step will silently skip and only root signals are extracted.
+* Merged pages are passed to `extractSignals` as a single `RawCrawlResult` — signals are always merged across all pages into one `extracted_signals` row.
 
 ## AI Usage Rules
 

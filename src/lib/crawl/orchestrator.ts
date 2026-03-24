@@ -1,12 +1,14 @@
 import { supabaseAdmin } from '@/lib/supabase/server';
-import { startCrawl, startIncrementalCrawl, pollCrawlStatus, getCrawlResults } from '@/services/crawl';
+import { startCrawl, startIncrementalCrawl, pollCrawlStatus, getCrawlResults, extractPriorityLinks, crawlSinglePage, type CrawlCredentials } from '@/services/crawl';
 import { saveToCache, loadFromCache } from '@/services/crawl.cache';
 import { extractSignals } from '@/services/extract';
+import type { RawCrawlResult } from '@/types';
 
-interface CrawlCredentials {
-  accountId: string;
-  apiToken: string;
-}
+const MAX_PRIORITY_PAGES = parseInt(process.env.CRAWL_PRIORITY_PAGES ?? '5', 10);
+const MAX_TOTAL_PAGES = parseInt(process.env.CRAWL_MAX_PAGES ?? '15', 10);
+
+const EXTRACTION_PROMPT =
+  'Return a JSON object with these exact keys: title (page title), metaDescription (meta description), h1Tags (array of h1 text), hasSitemap (bool), hasRobotsTxt (bool), internalLinkCount (number), blogPostCount (number), lastBlogDate (string or null), schemaMarkupTypes (string array), canonicalTagsPresent (bool), altTagCoverage ("full"|"partial"|"none"), hasPricingPage (bool), pricingMentions (array of {text,amount}), hasPackages (bool), packageDetails (array of {name,price}), hasFreeQuote (bool), hasFreeTrial (bool), priceTransparencyScore ("high"|"medium"|"low"|"none"), accreditations (string array), certifications (string array), awardsAndMemberships (string array), namedClientsOrPartners (string array), caseStudyCount (number), testimonialCount (number), videoTestimonials (bool), reviewPlatformsLinked (string array), trustBadges (string array), yearsInBusiness (number or null), teamPageExists (bool), namedTeamMemberCount (number), insuranceMentioned (bool), guaranteesMentioned (string array), servicesListed (string array), serviceAreasMentioned (string array), hasBlog (bool), hasVideo (bool), hasPortfolio (bool), portfolioItemCount (number), hasFAQ (bool), faqCount (number), hasNewsFeed (bool), hasChatWidget (bool), chatProvider (string or null), hasContactForm (bool), hasBookingSystem (bool), bookingProvider (string or null), hasCallToAction (bool), ctaText (string array), hasNewsletterSignup (bool), socialLinksPresent (string array), hasPhoneNumberProminent (bool), hasEmergencyContact (bool), newServicesDetected (string array), removedServicesDetected (string array), newTechIntegrations (string array), recentAnnouncementsOrNews (array of {title,date,summary}), recentHiringSignals (string array), newLocationsOrExpansion (string array).';
 
 function getCredentials(): CrawlCredentials {
   const accountId = process.env.CF_ACCOUNT_ID;
@@ -24,7 +26,8 @@ async function checkDailyLimit(): Promise<void> {
   const { count } = await supabaseAdmin
     .from('crawl_jobs')
     .select('id', { count: 'exact', head: true })
-    .gte('started_at', startOfDay.toISOString());
+    .gte('started_at', startOfDay.toISOString())
+    .in('status', ['running', 'completed']);
 
   if ((count ?? 0) >= MAX_DAILY_CRAWLS) {
     throw new Error(`Daily crawl limit reached (${MAX_DAILY_CRAWLS}). Resets at UTC midnight.`);
@@ -58,14 +61,11 @@ export async function startBusinessCrawl(
     : await startCrawl(
         business.url as string,
         {
-          maxDepth: 2,
-          maxPages: 15,
+          maxDepth: 3,
+          maxPages: MAX_TOTAL_PAGES,
           render: true,
-          outputFormats: ['json', 'markdown'],
-          jsonOptions: {
-            prompt:
-              'Return a JSON object with these exact keys: title (page title), metaDescription (meta description), h1Tags (array of h1 text), hasSitemap (bool), hasRobotsTxt (bool), internalLinkCount (number), blogPostCount (number), lastBlogDate (string or null), schemaMarkupTypes (string array), canonicalTagsPresent (bool), altTagCoverage ("full"|"partial"|"none"), hasPricingPage (bool), pricingMentions (array of {text,amount}), hasPackages (bool), packageDetails (array of {name,price}), hasFreeQuote (bool), hasFreeTrial (bool), priceTransparencyScore ("high"|"medium"|"low"|"none"), accreditations (string array), certifications (string array), awardsAndMemberships (string array), namedClientsOrPartners (string array), caseStudyCount (number), testimonialCount (number), videoTestimonials (bool), reviewPlatformsLinked (string array), trustBadges (string array), yearsInBusiness (number or null), teamPageExists (bool), namedTeamMemberCount (number), insuranceMentioned (bool), guaranteesMentioned (string array), servicesListed (string array), serviceAreasMentioned (string array), hasBlog (bool), hasVideo (bool), hasPortfolio (bool), portfolioItemCount (number), hasFAQ (bool), faqCount (number), hasNewsFeed (bool), hasChatWidget (bool), chatProvider (string or null), hasContactForm (bool), hasBookingSystem (bool), bookingProvider (string or null), hasCallToAction (bool), ctaText (string array), hasNewsletterSignup (bool), socialLinksPresent (string array), hasPhoneNumberProminent (bool), hasEmergencyContact (bool), newServicesDetected (string array), removedServicesDetected (string array), newTechIntegrations (string array), recentAnnouncementsOrNews (array of {title,date,summary}), recentHiringSignals (string array), newLocationsOrExpansion (string array).',
-          },
+          outputFormats: ['json', 'markdown', 'html'],
+          jsonOptions: { prompt: EXTRACTION_PROMPT },
         },
         credentials
       );
@@ -78,6 +78,7 @@ export async function startBusinessCrawl(
 
   await supabaseAdmin.from('crawl_jobs').insert({
     business_id: businessId,
+    cf_job_id: jobId,
     mode,
     status: 'running',
     started_at: new Date().toISOString(),
@@ -108,8 +109,37 @@ export async function extractAndPersistSignals(
 
   const url = business?.url as string | undefined;
   const cached = url ? loadFromCache(url) : null;
-  const rawResult = cached ?? await getCrawlResults(jobId, credentials);
-  if (!cached && url) saveToCache(url, rawResult);
+  const rootResult = cached ?? await getCrawlResults(jobId, credentials);
+
+  // Multi-page: extract priority links from root HTML and crawl them in parallel
+  let rawResult: RawCrawlResult = rootResult;
+  if (!cached && url && rootResult.pages.length > 0) {
+    const rootHtml = rootResult.pages[0]?.html ?? '';
+    if (!rootHtml) {
+      console.warn(`[crawl] Root page HTML is empty for job ${jobId} — multi-page enrichment will be skipped`);
+    }
+    const extraLimit = Math.min(MAX_PRIORITY_PAGES, MAX_TOTAL_PAGES - rootResult.pages.length);
+
+    if (rootHtml && extraLimit > 0) {
+      const priorityLinks = extractPriorityLinks(rootHtml, url, extraLimit);
+      console.log(`[crawl] Found ${priorityLinks.length} priority pages to crawl:`, priorityLinks);
+
+      if (priorityLinks.length > 0) {
+        const extraPages = await Promise.all(
+          priorityLinks.map(link => crawlSinglePage(link, EXTRACTION_PROMPT, credentials))
+        );
+        const validPages = extraPages.filter((p): p is RawCrawlResult['pages'][0] => p !== null);
+
+        if (validPages.length > 0) {
+          rawResult = { status: 'completed', pages: [...rootResult.pages, ...validPages] };
+          console.log(`[crawl] Merged ${validPages.length} extra pages. Total: ${rawResult.pages.length}`);
+        }
+      }
+    }
+
+    if (url) saveToCache(url, rawResult);
+  }
+
   const signals = await extractSignals(rawResult);
 
   // Archive previous signals
@@ -137,12 +167,24 @@ export async function extractAndPersistSignals(
     .update({ crawl_status: 'complete', last_crawled_at: new Date().toISOString() })
     .eq('id', businessId);
   if (updateError) throw new Error(`Failed to mark business complete: ${updateError.message}`);
+
+  await supabaseAdmin
+    .from('crawl_jobs')
+    .update({ status: 'completed', completed_at: new Date().toISOString() })
+    .eq('cf_job_id', jobId);
 }
 
 /** Mark a business crawl as failed. */
-export async function markCrawlFailed(businessId: string): Promise<void> {
+export async function markCrawlFailed(businessId: string, jobId?: string): Promise<void> {
   await supabaseAdmin
     .from('businesses')
     .update({ crawl_status: 'failed' })
     .eq('id', businessId);
+
+  if (jobId) {
+    await supabaseAdmin
+      .from('crawl_jobs')
+      .update({ status: 'failed', completed_at: new Date().toISOString() })
+      .eq('cf_job_id', jobId);
+  }
 }

@@ -11,10 +11,14 @@ function pickStr(pages: PageJson[], key: string, fallback = ''): string {
 }
 
 function pickBool(pages: PageJson[], key: string, fallback = false): boolean {
+  let found = false;
   for (const p of pages) {
-    if (typeof p[key] === 'boolean') return p[key] as boolean;
+    if (typeof p[key] === 'boolean') {
+      if (p[key] === true) return true;
+      found = true;
+    }
   }
-  return fallback;
+  return found ? false : fallback;
 }
 
 function pickNum(pages: PageJson[], key: string, fallback: number | null = null): number | null {

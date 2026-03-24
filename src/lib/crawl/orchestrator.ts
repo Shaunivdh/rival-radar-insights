@@ -62,7 +62,7 @@ export async function startBusinessCrawl(
         business.url as string,
         {
           maxDepth: 3,
-          maxPages: MAX_TOTAL_PAGES,
+          maxPages: Math.max(1, MAX_TOTAL_PAGES - MAX_PRIORITY_PAGES),
           render: true,
           outputFormats: ['json', 'markdown', 'html'],
           jsonOptions: { prompt: EXTRACTION_PROMPT },
@@ -118,7 +118,7 @@ export async function extractAndPersistSignals(
     if (!rootHtml) {
       console.warn(`[crawl] Root page HTML is empty for job ${jobId} — multi-page enrichment will be skipped`);
     }
-    const extraLimit = Math.min(MAX_PRIORITY_PAGES, MAX_TOTAL_PAGES - rootResult.pages.length);
+    const extraLimit = Math.min(MAX_PRIORITY_PAGES, Math.max(MAX_PRIORITY_PAGES, MAX_TOTAL_PAGES - rootResult.pages.length));
 
     if (rootHtml && extraLimit > 0) {
       const priorityLinks = extractPriorityLinks(rootHtml, url, extraLimit);
@@ -138,6 +138,19 @@ export async function extractAndPersistSignals(
     }
 
     if (url) saveToCache(url, rawResult);
+  }
+
+  // Deduplicate pages by URL (single-page sites can produce duplicates via priority crawls)
+  const seenUrls = new Set<string>();
+  const dedupedPages = rawResult.pages.filter(p => {
+    const key = p.url ? new URL(p.url).origin + new URL(p.url).pathname.replace(/\/$/, '') : '';
+    if (seenUrls.has(key)) return false;
+    seenUrls.add(key);
+    return true;
+  });
+  if (dedupedPages.length < rawResult.pages.length) {
+    console.log(`[crawl] Deduped ${rawResult.pages.length - dedupedPages.length} duplicate pages`);
+    rawResult = { ...rawResult, pages: dedupedPages };
   }
 
   const signals = await extractSignals(rawResult);

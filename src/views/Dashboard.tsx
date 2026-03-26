@@ -7,7 +7,7 @@ import { DemoBanner } from '@/components/DemoBanner';
 import { BenchmarkTable } from '@/components/BenchmarkTable';
 import { PriorityActionsPanel } from '@/components/PriorityActionsPanel';
 import { ChangeEventCard } from '@/components/Badges';
-import { ScoreChip } from '@/components/ScoreChip';
+import { MetricsGrid } from '@/components/MetricsGrid';
 import { Bell, TrendingUp, Loader2, CheckCircle2, XCircle, Clock, RefreshCw, Plus, X } from 'lucide-react';
 import { triggerInitialScans, triggerSingleScan, rescanAll, addCompetitor } from '@/actions/projects';
 import { useState } from 'react';
@@ -181,10 +181,8 @@ const Dashboard = () => {
           </div>
         </div>
         {own.aiScore && (
-          <div className="flex flex-wrap gap-2 mt-4">
-            <ScoreChip label="Reputation" score={own.aiScore.reputationScore} size="md" />
-            <ScoreChip label="Local Visibility" score={own.aiScore.localVisibilityScore} size="md" />
-            <ScoreChip label="AI Presence" score={own.aiScore.aiPresenceScore} size="md" />
+          <div className="mt-4">
+            <MetricsGrid business={own} />
           </div>
         )}
       </div>

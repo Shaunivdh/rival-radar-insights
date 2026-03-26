@@ -266,4 +266,6 @@ export interface AppSettings {
 }
 
 export interface User {
-  id: 
+  id: string;
+  email: string;
+}

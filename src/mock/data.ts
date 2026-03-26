@@ -769,3 +769,4 @@ export const mockPriorityActions: PriorityAction[] = [
     estimatedImpact: 'medium',
     timeframe: '90 days',
   },
+];

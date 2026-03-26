@@ -182,10 +182,9 @@ const Dashboard = () => {
         </div>
         {own.aiScore && (
           <div className="flex flex-wrap gap-2 mt-4">
-            <ScoreChip label="SEO" score={Math.round((own.aiScore.googleRatingScore / 30) * 100)} size="md" />
-            <ScoreChip label="Reviews" score={Math.round((own.aiScore.reviewCountScore / 20) * 100)} size="md" />
-            <ScoreChip label="Local Pack" score={Math.round((own.aiScore.localPackScore / 30) * 100)} size="md" />
-            <ScoreChip label="AI Visibility" score={Math.round((own.aiScore.aiVisibilityScore / 20) * 100)} size="md" />
+            <ScoreChip label="Reputation" score={own.aiScore.reputationScore} size="md" />
+            <ScoreChip label="Local Visibility" score={own.aiScore.localVisibilityScore} size="md" />
+            <ScoreChip label="AI Presence" score={own.aiScore.aiPresenceScore} size="md" />
           </div>
         )}
       </div>
@@ -207,6 +206,7 @@ const Dashboard = () => {
           )}
         </div>
         <BenchmarkTable />
+        <p className="text-xs text-gray-400 mt-2">↑↓ weekly change vs 7 days ago</p>
       </div>
 
       <PriorityActionsPanel />

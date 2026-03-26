@@ -7,8 +7,9 @@ export interface Project {
 }
 
 export interface AIVisibility {
-  mentioned: boolean;
-  excerpt: string | null;
+  aiPresenceScore: number;
+  mentionCount: number;
+  totalPrompts: number;
   tested_at: string;
 }
 
@@ -147,6 +148,8 @@ export interface GoogleData {
   }>;
   photos: number;
   priceLevel: number | null;
+  description?: string;
+  website?: string;
 }
 
 export interface SerpData {
@@ -173,17 +176,30 @@ export interface TrustpilotData {
 
 export interface AIHealthScore {
   overallScore: number;
-  // Deterministic component scores (weighted contributions that sum to overallScore)
-  googleRatingScore: number;
-  reviewCountScore: number;
-  localPackScore: number;
-  aiVisibilityScore: number;
-  // Legacy fields kept for display compatibility
-  seoScore?: number;
-  trustScore?: number;
-  contentScore?: number;
+  weeklyDelta: number | null; // +/- vs 7 days ago
+
+  reputationScore: number;        // weighted rating × reviews × recency
+  localVisibilityScore: number;   // local pack position (0–100)
+  websiteHealthScore: number;     // crawl-derived: speed, CTA, contact, errors
+  gbpCompletenessScore: number;   // Google Business Profile completeness
+  aiPresenceScore: number;        // multi-prompt AI mention check (0–100)
+  reviewVelocityScore: number;    // new reviews in last 30d vs competitors
+
   summary?: string;
-  calculation_method?: string;
+  generatedAt: string;
+}
+
+export interface ScoreSnapshot {
+  id: string;
+  businessId: string;
+  overallScore: number;
+  reputationScore: number;
+  localVisibilityScore: number;
+  websiteHealthScore: number;
+  gbpCompletenessScore: number;
+  aiPresenceScore: number;
+  reviewVelocityScore: number;
+  snapshotAt: string;
 }
 
 export interface PriorityAction {
@@ -250,6 +266,4 @@ export interface AppSettings {
 }
 
 export interface User {
-  id: string;
-  email: string;
-}
+  id: 

@@ -245,12 +245,13 @@ export async function syncProject(projectId: string): Promise<{
           signals = { seo: sig.seo, pricing: sig.pricing, trust: sig.trust, content: sig.content, engagement: sig.engagement, features: sig.features } as ExtractedSignals;
         }
 
-        // Recalculate if missing or was AI-generated (not deterministic)
-        if (!aiScore || aiScore.calculation_method !== 'deterministic') {
+        // Recalculate if missing
+        if (!aiScore) {
           aiScore = calculateScores(
             b.google_data as Parameters<typeof calculateScores>[0],
             b.serp_data as Parameters<typeof calculateScores>[1],
-            b.ai_visibility as Parameters<typeof calculateScores>[2]
+            b.ai_visibility as Parameters<typeof calculateScores>[2],
+            signals
           );
           await supabaseAdmin.from('businesses').update({ ai_score: aiScore }).eq('id', b.id);
         }

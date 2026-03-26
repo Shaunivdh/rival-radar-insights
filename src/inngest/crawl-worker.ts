@@ -7,11 +7,12 @@ import {
 } from '@/lib/crawl/orchestrator';
 import { supabaseAdmin } from '@/lib/supabase/server';
 import { fetchGoogleData, fetchSerpData } from '@/actions/enrichment';
-import { generatePriorityActions, generateChangeSummary, checkAIVisibility } from '@/services/ai';
-import { calculateScores } from '@/services/scores';
+import { generatePriorityActions, generateChangeSummary, checkAIPresence } from '@/services/ai';
+import { calculateScores, recomputeOverallScore } from '@/services/scores';
 import { diffSignals } from '@/services/diff';
 import { updateBusiness, saveChangeEvent } from '@/actions/projects';
-import type { ExtractedSignals, Business, ChangeEvent } from '@/types';
+import { saveScoreSnapshot, getWeeklyDelta } from '@/lib/supabase/scores';
+import type { ExtractedSignals, Business, ChangeEvent, AIHealthScore, SerpData } from '@/types';
 
 const MAX_POLL_ATTEMPTS = 60;
 const POLL_INTERVAL = '5s';
@@ -126,18 +127,18 @@ export const crawlBusinessFunction = inngest.createFunction(
     });
 
     // Step 6: AI search visibility check
-    await step.run('ai-visibility', async () => {
+    await step.run('check-ai-visibility', async () => {
       if (!meta.primaryService || !meta.location) return;
       try {
-        const visibility = await checkAIVisibility(meta.primaryService, meta.location, meta.name, meta.domain);
+        const visibility = await checkAIPresence(meta.primaryService, meta.location, meta.name, meta.domain);
         const { error } = await supabaseAdmin.from('businesses').update({ ai_visibility: visibility }).eq('id', businessId);
         if (error) {
-          console.error(`[ai-visibility] DB write failed for business ${businessId}:`, error);
+          console.error(`[check-ai-visibility] DB write failed for business ${businessId}:`, error);
         } else {
-          console.log(`[ai-visibility] ai_visibility saved for business ${businessId}`);
+          console.log(`[check-ai-visibility] aiPresenceScore=${visibility.aiPresenceScore} saved for business ${businessId}`);
         }
       } catch (e) {
-        console.error(`[ai-visibility] Failed for business ${businessId}:`, e);
+        console.error(`[check-ai-visibility] Failed for business ${businessId}:`, e);
       }
     });
 
@@ -178,27 +179,179 @@ export const crawlBusinessFunction = inngest.createFunction(
     }
 
     // Step 7: Calculate deterministic health score
-    await step.run('health-score', async () => {
-      const { data: biz } = await supabaseAdmin
-        .from('businesses')
-        .select('google_data, serp_data, ai_visibility')
-        .eq('id', businessId)
-        .single();
+    await step.run('calculate-scores', async () => {
+      const [{ data: biz }, { data: sig }, { data: googleHistory }] = await Promise.all([
+        supabaseAdmin
+          .from('businesses')
+          .select('google_data, serp_data, ai_visibility')
+          .eq('id', businessId)
+          .single(),
+        supabaseAdmin
+          .from('extracted_signals')
+          .select('seo, pricing, trust, content, engagement, features')
+          .eq('business_id', businessId)
+          .order('scanned_at', { ascending: false })
+          .limit(1)
+          .maybeSingle(),
+        supabaseAdmin
+          .from('google_data')
+          .select('review_count, fetched_at')
+          .eq('business_id', businessId)
+          .order('fetched_at', { ascending: false })
+          .limit(2),
+      ]);
 
       if (!biz) return;
 
-      console.log(`[health-score] business ${businessId} — google_data:`, biz.google_data != null, '| serp_data:', biz.serp_data != null, '| ai_visibility:', biz.ai_visibility != null);
+      const signals = sig?.seo
+        ? ({ seo: sig.seo, pricing: sig.pricing, trust: sig.trust, content: sig.content, engagement: sig.engagement, features: sig.features } as ExtractedSignals)
+        : null;
+
+      let previousReviewCount: number | undefined;
+      let daysBetween: number | undefined;
+      if (googleHistory && googleHistory.length >= 2) {
+        const msApart =
+          new Date(googleHistory[0].fetched_at as string).getTime() -
+          new Date(googleHistory[1].fetched_at as string).getTime();
+        previousReviewCount = googleHistory[1].review_count as number;
+        daysBetween = msApart / 86400000;
+      }
+
+      console.log(`[calculate-scores] business ${businessId} — google_data:`, biz.google_data != null, '| serp_data:', biz.serp_data != null, '| ai_visibility:', biz.ai_visibility != null);
 
       const aiScore = calculateScores(
         biz.google_data as Parameters<typeof calculateScores>[0],
         biz.serp_data as Parameters<typeof calculateScores>[1],
-        biz.ai_visibility as Parameters<typeof calculateScores>[2]
+        biz.ai_visibility as Parameters<typeof calculateScores>[2],
+        signals,
+        previousReviewCount,
+        daysBetween
       );
       await updateBusiness(businessId, { aiScore });
-      console.log(`[health-score] ai_score saved for business ${businessId}:`, JSON.stringify(aiScore));
+      console.log(`[calculate-scores] ai_score saved for business ${businessId}:`, JSON.stringify(aiScore));
     });
 
-    // Step 8: If all businesses in project are done, generate priority actions
+    // Step 8: Apply score decay if no recent google_data
+    await step.run('apply-score-decay', async () => {
+      const thirtyDaysAgo = new Date(Date.now() - 30 * 86400000).toISOString();
+      const { data: oldRow } = await supabaseAdmin
+        .from('google_data')
+        .select('fetched_at')
+        .eq('business_id', businessId)
+        .lt('fetched_at', thirtyDaysAgo)
+        .order('fetched_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (!oldRow) return;
+
+      const daysSinceLastReview =
+        (Date.now() - new Date(oldRow.fetched_at as string).getTime()) / 86400000;
+      if (daysSinceLastReview <= 30) return;
+
+      const { data: bizRow } = await supabaseAdmin
+        .from('businesses')
+        .select('ai_score')
+        .eq('id', businessId)
+        .single();
+      if (!bizRow?.ai_score) return;
+
+      const aiScore = bizRow.ai_score as AIHealthScore;
+      const weeksOver30 = Math.floor((daysSinceLastReview - 30) / 7);
+      aiScore.reviewVelocityScore = Math.max(0, aiScore.reviewVelocityScore - weeksOver30 * 10);
+      aiScore.overallScore = recomputeOverallScore(aiScore);
+      await updateBusiness(businessId, { aiScore });
+    });
+
+    // Step 9: Save score snapshot, compute weeklyDelta, persist to businesses + ai_health_scores
+    await step.run('save-score-snapshot', async () => {
+      const { data: bizRow } = await supabaseAdmin
+        .from('businesses')
+        .select('ai_score')
+        .eq('id', businessId)
+        .single();
+      if (!bizRow?.ai_score) return;
+
+      const aiScore = bizRow.ai_score as AIHealthScore;
+      await saveScoreSnapshot(supabaseAdmin, businessId, aiScore);
+
+      const weeklyDelta = await getWeeklyDelta(supabaseAdmin, businessId);
+
+      // Write weeklyDelta back into businesses.ai_score so the UI can read it
+      const updatedScore: AIHealthScore = { ...aiScore, weeklyDelta };
+      await updateBusiness(businessId, { aiScore: updatedScore });
+
+      // Upsert into ai_health_scores (denormalised table for potential reporting)
+      await supabaseAdmin.from('ai_health_scores').upsert(
+        {
+          business_id: businessId,
+          overall_score: updatedScore.overallScore,
+          weekly_delta: weeklyDelta,
+          reputation_score: updatedScore.reputationScore,
+          local_visibility_score: updatedScore.localVisibilityScore,
+          website_health_score: updatedScore.websiteHealthScore,
+          gbp_completeness_score: updatedScore.gbpCompletenessScore,
+          ai_presence_score: updatedScore.aiPresenceScore,
+          review_velocity_score: updatedScore.reviewVelocityScore,
+          generated_at: new Date().toISOString(),
+        },
+        { onConflict: 'business_id' }
+      );
+    });
+
+    // Step 10: Check if any competitor overtook own business in local pack
+    await step.run('check-threats', async () => {
+      const { data: allBiz } = await supabaseAdmin
+        .from('businesses')
+        .select('id, is_own_business, serp_data')
+        .eq('project_id', meta.projectId);
+
+      if (!allBiz) return;
+
+      const ownBiz = allBiz.find((b) => b.is_own_business);
+      if (!ownBiz) return;
+
+      const ownPosition = (ownBiz.serp_data as SerpData | null)?.localPackPosition;
+      if (ownPosition == null) return;
+
+      const overtakers = allBiz.filter((b) => {
+        if (b.is_own_business) return false;
+        const pos = (b.serp_data as SerpData | null)?.localPackPosition;
+        return pos != null && pos < ownPosition;
+      });
+
+      if (!overtakers.length) return;
+
+      for (const comp of overtakers) {
+        const theirPosition = (comp.serp_data as SerpData).localPackPosition!;
+        const event: ChangeEvent = {
+          id: crypto.randomUUID(),
+          detectedAt: Date.now(),
+          severity: 'high',
+          summary: 'Competitor overtook you in local pack',
+          changes: [{
+            category: 'threat',
+            description: JSON.stringify({ competitorId: comp.id, theirPosition, yourPosition: ownPosition }),
+            significance: 'high',
+          }],
+        };
+        await saveChangeEvent(ownBiz.id as string, event);
+      }
+
+      const { data: ownBizRow } = await supabaseAdmin
+        .from('businesses')
+        .select('ai_score')
+        .eq('id', ownBiz.id)
+        .single();
+      if (!ownBizRow?.ai_score) return;
+
+      const aiScore = ownBizRow.ai_score as AIHealthScore;
+      aiScore.localVisibilityScore = Math.max(0, aiScore.localVisibilityScore - 10);
+      aiScore.overallScore = recomputeOverallScore(aiScore);
+      await updateBusiness(ownBiz.id as string, { aiScore });
+    });
+
+    // Step 11: If all businesses in project are done, generate priority actions
     await step.run('priority-actions', async () => {
       const { data: allBiz } = await supabaseAdmin
         .from('businesses')

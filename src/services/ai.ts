@@ -1,6 +1,12 @@
 import Anthropic from '@anthropic-ai/sdk';
 import type { ExtractedSignals, PriorityAction, ChangeSummary, Business, AIVisibility } from '@/types';
 
+const PRESENCE_PROMPTS = (service: string, location: string) => [
+  `What are the best ${service} companies in ${location}?`,
+  `Who should I hire for ${service} near ${location}?`,
+  `Recommend a trusted ${service} in ${location}`,
+];
+
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
 async function askClaude<T>(prompt: string): Promise<T> {
@@ -22,33 +28,34 @@ Competitors: ${JSON.stringify(competitors.map((c) => ({ name: c.name, signals: c
   return askClaude<PriorityAction[]>(prompt);
 }
 
-export async function checkAIVisibility(
+export async function checkAIPresence(
   primaryService: string,
   location: string,
   businessName: string,
   domain: string
 ): Promise<AIVisibility> {
-  const prompt = `Can you recommend a ${primaryService} in ${location}? I'm looking for someone reliable and well-reviewed.`;
-  const msg = await client.messages.create({
-    model: 'claude-sonnet-4-20250514',
-    max_tokens: 300,
-    messages: [{ role: 'user', content: prompt }],
-  });
-  const text = (msg.content[0] as { type: string; text: string }).text;
-  const lower = text.toLowerCase();
-  const mentioned =
-    lower.includes(businessName.toLowerCase()) || lower.includes(domain.toLowerCase());
+  const prompts = PRESENCE_PROMPTS(primaryService, location);
+  const nameLower = businessName.toLowerCase();
+  const domainLower = domain.toLowerCase();
 
-  let excerpt: string | null = null;
-  if (mentioned) {
-    const idx =
-      lower.indexOf(businessName.toLowerCase()) !== -1
-        ? lower.indexOf(businessName.toLowerCase())
-        : lower.indexOf(domain.toLowerCase());
-    excerpt = text.slice(Math.max(0, idx - 50), idx + 150).trim();
-  }
+  const results = await Promise.all(
+    prompts.map(async (prompt) => {
+      const msg = await client.messages.create({
+        model: 'claude-haiku-4-5-20251001',
+        max_tokens: 200,
+        messages: [{ role: 'user', content: prompt }],
+      });
+      const text = (msg.content[0] as { type: string; text: string }).text.toLowerCase();
+      return text.includes(nameLower) || text.includes(domainLower);
+    })
+  );
 
-  return { mentioned, excerpt, tested_at: new Date().toISOString() };
+  const mentionCount = results.filter(Boolean).length;
+  const totalPrompts = prompts.length;
+  const scoreMap: Record<number, number> = { 0: 0, 1: 33, 2: 67, 3: 100 };
+  const aiPresenceScore = scoreMap[mentionCount] ?? 0;
+
+  return { aiPresenceScore, mentionCount, totalPrompts, tested_at: new Date().toISOString() };
 }
 
 export async function generateChangeSummary(

@@ -48,9 +48,9 @@ const CompetitorsList = () => {
             <div className="flex flex-wrap gap-1.5">
               {biz.aiScore && (
                 <>
-                  <ScoreChip label="SEO" score={biz.aiScore.seoScore} />
-                  <ScoreChip label="Trust" score={biz.aiScore.trustScore} />
-                  <ScoreChip label="Content" score={biz.aiScore.contentScore} />
+                  <ScoreChip label="Reputation" score={biz.aiScore.reputationScore} />
+                  <ScoreChip label="Local Visibility" score={biz.aiScore.localVisibilityScore} />
+                  <ScoreChip label="Website Health" score={biz.aiScore.websiteHealthScore} />
                 </>
               )}
             </div>

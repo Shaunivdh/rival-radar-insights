@@ -3,11 +3,12 @@ import type { Business, PriorityAction, ChangeEvent } from '@/types';
 const now = Date.now();
 const day = 86400000;
 
-// Deterministic scores calculated per Section 4 rules:
-// googleRatingScore = (rating/5)*30, reviewCountScore = min(count/200,1)*20
-// localPackScore: 1→30, 2→24, 3→18, 4-10→6, null→0
-// aiVisibilityScore: mentioned→20, else 0
-// overallScore = round(sum / totalWeight * 100)
+// Deterministic scores: reputationScore = round((rating/5)²*log10(count+1)/log10(201)*100)
+// localVisibilityScore: pos1→100, pos2→80, pos3→60, pos4-10→20, null→0
+// aiPresenceScore: 0/3→0, 1/3→33, 2/3→67, 3/3→100
+// websiteHealthScore: computed from seo/engagement signals (0–100)
+// gbpCompletenessScore: computed from googleData fields (0–100)
+// overallScore = round(rep*0.25 + local*0.25 + web*0.20 + gbp*0.15 + aiPresence*0.10)
 
 export const mockOwnBusiness: Business = {
   id: 'own-1',
@@ -123,18 +124,22 @@ export const mockOwnBusiness: Business = {
   },
   trustpilotData: null,
   aiVisibility: {
-    mentioned: false,
-    excerpt: null,
+    aiPresenceScore: 0,
+    mentionCount: 0,
+    totalPrompts: 3,
     tested_at: new Date(now - day * 2).toISOString(),
   },
-  // googleRatingScore=25, reviewCountScore=1, localPackScore=0, aiVisibilityScore=0 → overallScore=26
+  // reputationScore=34, localVisibilityScore=0, websiteHealthScore=100, gbpCompletenessScore=80, aiPresenceScore=0 → overallScore=41
   aiScore: {
-    overallScore: 26,
-    googleRatingScore: 25,
-    reviewCountScore: 1,
-    localPackScore: 0,
-    aiVisibilityScore: 0,
-    calculation_method: 'deterministic',
+    overallScore: 41,
+    weeklyDelta: null,
+    reputationScore: 34,
+    localVisibilityScore: 0,
+    websiteHealthScore: 100,
+    gbpCompletenessScore: 80,
+    aiPresenceScore: 0,
+    reviewVelocityScore: 0,
+    generatedAt: new Date(now - day * 2).toISOString(),
   },
   enrichmentErrors: null,
   previousSignals: null,
@@ -256,18 +261,22 @@ export const mockCompetitors: Business[] = [
     },
     trustpilotData: null,
     aiVisibility: {
-      mentioned: true,
-      excerpt: 'Riverside Construction comes highly recommended — they\'ve received excellent reviews and have a strong track record for extensions in Manchester.',
+      aiPresenceScore: 33,
+      mentionCount: 1,
+      totalPrompts: 3,
       tested_at: new Date(now - day * 2).toISOString(),
     },
-    // googleRatingScore=29, reviewCountScore=14, localPackScore=30, aiVisibilityScore=20 → overallScore=93
+    // reputationScore=86, localVisibilityScore=100, websiteHealthScore=100, gbpCompletenessScore=80, aiPresenceScore=100 → overallScore=89
     aiScore: {
-      overallScore: 93,
-      googleRatingScore: 29,
-      reviewCountScore: 14,
-      localPackScore: 30,
-      aiVisibilityScore: 20,
-      calculation_method: 'deterministic',
+      overallScore: 89,
+      weeklyDelta: null,
+      reputationScore: 86,
+      localVisibilityScore: 100,
+      websiteHealthScore: 100,
+      gbpCompletenessScore: 80,
+      aiPresenceScore: 100,
+      reviewVelocityScore: 0,
+      generatedAt: new Date(now - day * 2).toISOString(),
     },
     enrichmentErrors: null,
   previousSignals: null,
@@ -403,18 +412,22 @@ export const mockCompetitors: Business[] = [
     },
     trustpilotData: null,
     aiVisibility: {
-      mentioned: false,
-      excerpt: null,
+      aiPresenceScore: 0,
+      mentionCount: 0,
+      totalPrompts: 3,
       tested_at: new Date(now - day * 2).toISOString(),
     },
-    // googleRatingScore=27, reviewCountScore=6, localPackScore=18, aiVisibilityScore=0 → overallScore=51
+    // reputationScore=62, localVisibilityScore=60, websiteHealthScore=100, gbpCompletenessScore=80, aiPresenceScore=0 → overallScore=63
     aiScore: {
-      overallScore: 51,
-      googleRatingScore: 27,
-      reviewCountScore: 6,
-      localPackScore: 18,
-      aiVisibilityScore: 0,
-      calculation_method: 'deterministic',
+      overallScore: 63,
+      weeklyDelta: null,
+      reputationScore: 62,
+      localVisibilityScore: 60,
+      websiteHealthScore: 100,
+      gbpCompletenessScore: 80,
+      aiPresenceScore: 0,
+      reviewVelocityScore: 0,
+      generatedAt: new Date(now - day * 2).toISOString(),
     },
     enrichmentErrors: null,
   previousSignals: null,
@@ -549,18 +562,22 @@ export const mockCompetitors: Business[] = [
     },
     trustpilotData: null,
     aiVisibility: {
-      mentioned: false,
-      excerpt: null,
+      aiPresenceScore: 0,
+      mentionCount: 0,
+      totalPrompts: 3,
       tested_at: new Date(now - day * 2).toISOString(),
     },
-    // googleRatingScore=28, reviewCountScore=3, localPackScore=24, aiVisibilityScore=0 → overallScore=55
+    // reputationScore=57, localVisibilityScore=80, websiteHealthScore=100, gbpCompletenessScore=80, aiPresenceScore=0 → overallScore=66
     aiScore: {
-      overallScore: 55,
-      googleRatingScore: 28,
-      reviewCountScore: 3,
-      localPackScore: 24,
-      aiVisibilityScore: 0,
-      calculation_method: 'deterministic',
+      overallScore: 66,
+      weeklyDelta: null,
+      reputationScore: 57,
+      localVisibilityScore: 80,
+      websiteHealthScore: 100,
+      gbpCompletenessScore: 80,
+      aiPresenceScore: 0,
+      reviewVelocityScore: 0,
+      generatedAt: new Date(now - day * 2).toISOString(),
     },
     enrichmentErrors: null,
   previousSignals: null,
@@ -693,18 +710,22 @@ export const mockCompetitors: Business[] = [
     },
     trustpilotData: null,
     aiVisibility: {
-      mentioned: false,
-      excerpt: null,
+      aiPresenceScore: 0,
+      mentionCount: 0,
+      totalPrompts: 3,
       tested_at: new Date(now - day * 2).toISOString(),
     },
-    // googleRatingScore=29, reviewCountScore=9, localPackScore=0, aiVisibilityScore=0 → overallScore=38
+    // reputationScore=81, localVisibilityScore=0, websiteHealthScore=85, gbpCompletenessScore=80, aiPresenceScore=0 → overallScore=49
     aiScore: {
-      overallScore: 38,
-      googleRatingScore: 29,
-      reviewCountScore: 9,
-      localPackScore: 0,
-      aiVisibilityScore: 0,
-      calculation_method: 'deterministic',
+      overallScore: 49,
+      weeklyDelta: null,
+      reputationScore: 81,
+      localVisibilityScore: 0,
+      websiteHealthScore: 85,
+      gbpCompletenessScore: 80,
+      aiPresenceScore: 0,
+      reviewVelocityScore: 0,
+      generatedAt: new Date(now - day * 2).toISOString(),
     },
     enrichmentErrors: null,
   previousSignals: null,
@@ -748,4 +769,3 @@ export const mockPriorityActions: PriorityAction[] = [
     estimatedImpact: 'medium',
     timeframe: '90 days',
   },
-];

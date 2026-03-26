@@ -80,10 +80,12 @@ const CompetitorDetail = () => {
       {/* Score chips */}
       {biz.aiScore && (
         <div className="flex flex-wrap gap-2">
-          <ScoreChip label="SEO" score={Math.round((biz.aiScore.googleRatingScore / 30) * 100)} size="md" />
-          <ScoreChip label="Reviews" score={Math.round((biz.aiScore.reviewCountScore / 20) * 100)} size="md" />
-          <ScoreChip label="Local Pack" score={Math.round((biz.aiScore.localPackScore / 30) * 100)} size="md" />
-          <ScoreChip label="AI Visibility" score={Math.round((biz.aiScore.aiVisibilityScore / 20) * 100)} size="md" />
+          <ScoreChip label="Reputation" score={biz.aiScore.reputationScore} size="md" />
+          <ScoreChip label="Local Visibility" score={biz.aiScore.localVisibilityScore} size="md" />
+          <ScoreChip label="Website Health" score={biz.aiScore.websiteHealthScore} size="md" />
+          <ScoreChip label="GBP" score={biz.aiScore.gbpCompletenessScore} size="md" />
+          <ScoreChip label="AI Presence" score={biz.aiScore.aiPresenceScore} size="md" />
+          <ScoreChip label="Review Velocity" score={biz.aiScore.reviewVelocityScore} size="md" />
         </div>
       )}
 

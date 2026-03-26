@@ -103,18 +103,34 @@ create table if not exists trustpilot_data (
   fetched_at              timestamptz not null default now()
 );
 
--- ai_health_scores
+-- ai_health_scores (one row per business, upserted each crawl)
 create table if not exists ai_health_scores (
-  id                          uuid primary key default uuid_generate_v4(),
-  business_id                 uuid not null references businesses(id) on delete cascade,
-  overall_score               integer not null,
-  seo_score                   integer,
-  trust_score                 integer,
-  content_score               integer,
-  engagement_score            integer,
-  pricing_transparency_score  integer,
-  summary                     text,
-  generated_at                timestamptz not null default now()
+  id                      uuid primary key default uuid_generate_v4(),
+  business_id             uuid not null unique references businesses(id) on delete cascade,
+  overall_score           integer not null,
+  weekly_delta            numeric(5,2),
+  reputation_score        integer not null default 0,
+  local_visibility_score  integer not null default 0,
+  website_health_score    integer not null default 0,
+  gbp_completeness_score  integer not null default 0,
+  ai_presence_score       integer not null default 0,
+  review_velocity_score   integer not null default 0,
+  summary                 text,
+  generated_at            timestamptz not null default now()
+);
+
+-- score_snapshots (historical record for trend tracking)
+create table if not exists score_snapshots (
+  id                      uuid primary key default uuid_generate_v4(),
+  business_id             uuid not null references businesses(id) on delete cascade,
+  overall_score           integer not null,
+  reputation_score        integer not null,
+  local_visibility_score  integer not null,
+  website_health_score    integer not null,
+  gbp_completeness_score  integer not null,
+  ai_presence_score       integer not null,
+  review_velocity_score   integer not null,
+  snapshot_at             timestamptz not null default now()
 );
 
 -- priority_actions
@@ -142,6 +158,7 @@ create index on google_data (business_id);
 create index on serp_data (business_id);
 create index on trustpilot_data (business_id);
 create index on ai_health_scores (business_id, generated_at desc);
+create index on score_snapshots (business_id, snapshot_at desc);
 create index on priority_actions (project_id, generated_at desc);
 
 -- ============================================================
@@ -185,6 +202,7 @@ alter table google_data       enable row level security;
 alter table serp_data         enable row level security;
 alter table trustpilot_data   enable row level security;
 alter table ai_health_scores  enable row level security;
+alter table score_snapshots   enable row level security;
 alter table priority_actions  enable row level security;
 
 -- ---- app_settings ----
@@ -238,6 +256,12 @@ create policy "users manage trustpilot_data for own businesses"
 -- ---- ai_health_scores ----
 create policy "users manage ai_scores for own businesses"
   on ai_health_scores for all
+  using (user_owns_project(project_id_for_business(business_id)))
+  with check (user_owns_project(project_id_for_business(business_id)));
+
+-- ---- score_snapshots ----
+create policy "users manage score_snapshots for own businesses"
+  on score_snapshots for all
   using (user_owns_project(project_id_for_business(business_id)))
   with check (user_owns_project(project_id_for_business(business_id)));
 

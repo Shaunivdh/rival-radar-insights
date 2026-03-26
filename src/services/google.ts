@@ -53,29 +53,39 @@ export async function getPlaceData(
     headers: {
       'Content-Type': 'application/json',
       'X-Goog-Api-Key': apiKey,
-      'X-Goog-FieldMask': 'places.id,places.displayName,places.rating,places.userRatingCount,places.formattedAddress,places.nationalPhoneNumber,places.regularOpeningHours,places.reviews,places.priceLevel,places.types,places.photos,places.location',
+      'X-Goog-FieldMask': 'places.id,places.displayName,places.rating,places.userRatingCount,places.formattedAddress,places.nationalPhoneNumber,places.regularOpeningHours,places.reviews,places.priceLevel,places.types,places.photos,places.location,places.websiteUri,places.editorialSummary,places.generativeSummary',
     },
     body: JSON.stringify({ textQuery, ...(locationBias ? { locationBias } : {}) }),
   });
   const json = await res.json();
-  const place = json.places?.[0];
+  const places: Record<string, unknown>[] = json.places ?? [];
+  const place = domain
+    ? places.find((p) => {
+        const placeHost = (() => { try { return new URL(p.websiteUri as string).hostname.replace(/^www\./, ''); } catch { return ''; } })();
+        return placeHost === domain.replace(/^www\./, '');
+      })
+    : places[0];
   if (!place) return null;
 
   return {
-    placeId: place.id ?? '',
-    googleRating: place.rating ?? 0,
-    reviewCount: place.userRatingCount ?? 0,
-    businessCategory: place.types?.[0] ?? '',
-    address: place.formattedAddress ?? '',
-    phoneNumber: place.nationalPhoneNumber ?? '',
-    openingHours: place.regularOpeningHours?.weekdayDescriptions ?? [],
-    recentReviews: (place.reviews ?? []).slice(0, 3).map((r: Record<string, unknown>) => ({
+    placeId: place.id as string ?? '',
+    googleRating: place.rating as number ?? 0,
+    reviewCount: place.userRatingCount as number ?? 0,
+    businessCategory: (place.types as string[])?.[0] ?? '',
+    address: place.formattedAddress as string ?? '',
+    phoneNumber: place.nationalPhoneNumber as string ?? '',
+    openingHours: (place.regularOpeningHours as Record<string, unknown>)?.weekdayDescriptions as string[] ?? [],
+    recentReviews: ((place.reviews as unknown[]) ?? []).slice(0, 3).map((r: Record<string, unknown>) => ({
       rating: r.rating as number,
       text: (r.text as Record<string, unknown>)?.text as string ?? '',
-      time: r.publishTime ? new Date(r.publishTime as string).getTime() / 1000 : 0,
+      time: r.publishTime ? new Date(r.publishTime as string).getTime() : 0,
       authorName: (r.authorAttribution as Record<string, unknown>)?.displayName as string ?? '',
     })),
     photos: place.photos?.length ?? 0,
     priceLevel: place.priceLevel ?? null,
+    description: (place.editorialSummary as Record<string, unknown>)?.text as string
+      ?? (place.generativeSummary as Record<string, unknown>)?.text as string
+      ?? undefined,
+    website: place.websiteUri as string ?? undefined,
   };
 }

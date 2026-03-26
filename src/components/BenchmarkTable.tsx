@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useRivalRadarStore } from '@/store/rivalradar';
 import { StarRating } from '@/components/StarRating';
+import { ScoreChip } from '@/components/ScoreChip';
 import type { Business } from '@/types';
 import { ExternalLink } from 'lucide-react';
 
@@ -123,9 +124,9 @@ const Row = ({ biz, isOwn }: { biz: Business; isOwn?: boolean }) => {
         <td className="px-4 py-3 text-center">
           {biz.aiVisibility == null ? (
             <span className="text-sm text-muted-foreground">—</span>
-          ) : biz.aiVisibility.mentioned ? (
-            <span className="text-xs font-medium text-green-600" title={biz.aiVisibility.excerpt ?? undefined}>
-              ✓ Mentioned
+          ) : biz.aiVisibility.aiPresenceScore > 0 ? (
+            <span className="text-xs font-medium text-green-600" title={`${biz.aiVisibility.mentionCount}/${biz.aiVisibility.totalPrompts} prompts`}>
+              ✓ {biz.aiVisibility.aiPresenceScore}%
             </span>
           ) : (
             <span className="text-xs text-muted-foreground">✗ Not found</span>
@@ -134,13 +135,35 @@ const Row = ({ biz, isOwn }: { biz: Business; isOwn?: boolean }) => {
 
         {/* Overall Score */}
         <td className="px-4 py-3 text-center">
-          <span className="metric-value text-xl">{biz.aiScore?.overallScore ?? '—'}</span>
+          {biz.aiScore
+            ? <ScoreChip label="" score={biz.aiScore.overallScore} weeklyDelta={biz.aiScore.weeklyDelta} />
+            : <span className="text-xs text-muted-foreground">—</span>}
+        </td>
+
+        {/* Sub-scores */}
+        <td className="px-4 py-3 text-center">
+          {biz.aiScore ? <ScoreChip label="" score={biz.aiScore.reputationScore} /> : <span className="text-xs text-muted-foreground">—</span>}
+        </td>
+        <td className="px-4 py-3 text-center">
+          {biz.aiScore ? <ScoreChip label="" score={biz.aiScore.localVisibilityScore} /> : <span className="text-xs text-muted-foreground">—</span>}
+        </td>
+        <td className="px-4 py-3 text-center">
+          {biz.aiScore ? <ScoreChip label="" score={biz.aiScore.websiteHealthScore} /> : <span className="text-xs text-muted-foreground">—</span>}
+        </td>
+        <td className="px-4 py-3 text-center">
+          {biz.aiScore ? <ScoreChip label="" score={biz.aiScore.gbpCompletenessScore} /> : <span className="text-xs text-muted-foreground">—</span>}
+        </td>
+        <td className="px-4 py-3 text-center">
+          {biz.aiScore ? <ScoreChip label="" score={biz.aiScore.aiPresenceScore} /> : <span className="text-xs text-muted-foreground">—</span>}
+        </td>
+        <td className="px-4 py-3 text-center">
+          {biz.aiScore ? <ScoreChip label="" score={biz.aiScore.reviewVelocityScore} /> : <span className="text-xs text-muted-foreground">—</span>}
         </td>
       </tr>
 
       {expanded && lastChange && (
         <tr className="border-b border-border bg-muted/20">
-          <td colSpan={7} className="px-6 py-3 text-sm text-muted-foreground">
+          <td colSpan={13} className="px-6 py-3 text-sm text-muted-foreground">
             {lastChange.summary}
           </td>
         </tr>
@@ -160,7 +183,7 @@ export const BenchmarkTable = () => {
       <table className="w-full text-left">
         <thead>
           <tr className="border-b border-border bg-muted/30">
-            {['Business', 'Google Rating', 'Reviews', 'Local Pack', 'Website Changes', 'AI Search', 'Overall Score'].map((h) => (
+            {['Business', 'Google Rating', 'Reviews', 'Local Pack', 'Website Changes', 'AI Search', 'Overall Score', 'Reputation', 'Local Visibility', 'Website Health', 'GBP Score', 'AI Presence', 'Review Velocity'].map((h) => (
               <th key={h} className="px-4 py-3 text-xs font-medium text-muted-foreground uppercase tracking-wider">{h}</th>
             ))}
           </tr>

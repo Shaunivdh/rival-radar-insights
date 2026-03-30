@@ -26,6 +26,7 @@ const SettingsPage = () => {
   const fields = [
     { key: 'primaryService', label: 'Primary Service', type: 'text' },
     { key: 'location', label: 'Location', type: 'text' },
+    { key: 'postcode', label: 'Postcode', type: 'text' },
   ] as const;
 
   return (
@@ -42,7 +43,7 @@ const SettingsPage = () => {
             <label className="text-xs font-medium text-muted-foreground mb-1 block">{field.label}</label>
             <input
               type={field.type}
-              value={form[field.key]}
+              value={form[field.key] ?? ''}
               onChange={(e) => setForm({ ...form, [field.key]: e.target.value })}
               className="w-full px-3 py-2 text-sm bg-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/30"
               placeholder=""

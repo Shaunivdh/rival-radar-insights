@@ -61,6 +61,7 @@ const BusinessSetupPage = () => {
   const [own, setOwn] = useState<Business>(emptyBusiness());
   const [primaryService, setPrimaryService] = useState('');
   const [location, setLocation] = useState('');
+  const [postcode, setPostcode] = useState('');
   const [competitors, setCompetitors] = useState([emptyBusiness()]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -137,7 +138,7 @@ const BusinessSetupPage = () => {
 
       // Don't call setProject yet — it would trigger the redirect guard and unmount this component.
       // We set it right before router.push in the polling effect instead.
-      setSettings({ primaryService, location });
+      setSettings({ primaryService, location, postcode });
 
       const allBiz = [savedProject.ownBusiness, ...savedProject.competitors];
       setBizStatuses(allBiz.map((b) => ({ id: b.id, name: b.name, crawl_status: 'pending' })));
@@ -214,6 +215,15 @@ const BusinessSetupPage = () => {
                 onChange={(e) => setLocation(e.target.value)}
                 className="w-full px-3 py-2 text-sm bg-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/30"
                 placeholder="e.g. Manchester"
+              />
+            </div>
+            <div>
+              <label className="text-xs font-medium text-muted-foreground mb-1 block">Postcode</label>
+              <input
+                value={postcode}
+                onChange={(e) => setPostcode(e.target.value)}
+                className="w-full px-3 py-2 text-sm bg-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/30"
+                placeholder="e.g. M1 1AA"
               />
             </div>
             <button

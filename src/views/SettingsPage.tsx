@@ -1,13 +1,18 @@
 'use client';
 
 import { useRivalRadarStore } from '@/store/rivalradar';
-import { Settings as SettingsIcon, Trash2, RefreshCw } from 'lucide-react';
+import { Settings as SettingsIcon, Trash2, RefreshCw, AlertTriangle } from 'lucide-react';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { rescanAll } from '@/actions/projects';
 
 const SettingsPage = () => {
   const { settings, setSettings, deleteProject, project } = useRivalRadarStore();
+
+  const allBusinesses = project
+    ? [project.ownBusiness, ...project.competitors]
+    : [];
+  const enrichmentErrorBusinesses = allBusinesses.filter((b) => b.enrichmentErrors && (b.enrichmentErrors.google || b.enrichmentErrors.serp));
   const router = useRouter();
   const [form, setForm] = useState(settings);
   const [rescanning, setRescanning] = useState(false);
@@ -57,6 +62,28 @@ const SettingsPage = () => {
           Save Settings
         </button>
       </div>
+
+      {enrichmentErrorBusinesses.length > 0 && (
+        <div className="card-surface space-y-3 border border-amber-500/30">
+          <h2 className="text-sm font-semibold text-foreground flex items-center gap-2">
+            <AlertTriangle className="w-4 h-4 text-amber-500" />
+            Enrichment Warnings
+          </h2>
+          <div className="space-y-2">
+            {enrichmentErrorBusinesses.map((b) => (
+              <div key={b.id} className="text-xs space-y-0.5">
+                <p className="font-medium text-foreground">{b.name}</p>
+                {b.enrichmentErrors?.google && (
+                  <p className="text-amber-600">Google data unavailable — {b.enrichmentErrors.google}</p>
+                )}
+                {b.enrichmentErrors?.serp && (
+                  <p className="text-amber-600">Search ranking unavailable — {b.enrichmentErrors.serp}</p>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="card-surface space-y-3">
         <h2 className="text-sm font-semibold text-foreground">Actions</h2>

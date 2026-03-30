@@ -5,7 +5,7 @@ import { useRivalRadarStore } from '@/store/rivalradar';
 import { ScoreChip } from '@/components/ScoreChip';
 import { StarRating } from '@/components/StarRating';
 import { SeverityBadge, ChangeEventCard } from '@/components/Badges';
-import { ArrowLeft, ExternalLink, RefreshCw, Shield, FileText, Search, Bell } from 'lucide-react';
+import { ArrowLeft, ExternalLink, RefreshCw, Shield, FileText, Search, Bell, AlertTriangle } from 'lucide-react';
 import { useState } from 'react';
 import { cn } from '@/lib/utils';
 
@@ -86,6 +86,20 @@ const CompetitorDetail = () => {
           <ScoreChip label="GBP" score={biz.aiScore.gbpCompletenessScore} size="md" />
           <ScoreChip label="AI Presence" score={biz.aiScore.aiPresenceScore} size="md" />
           <ScoreChip label="Review Velocity" score={biz.aiScore.reviewVelocityScore} size="md" />
+        </div>
+      )}
+
+      {/* Enrichment errors */}
+      {biz.enrichmentErrors && (biz.enrichmentErrors.google || biz.enrichmentErrors.serp) && (
+        <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-600 text-xs">
+          <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+          <span>
+            {[
+              biz.enrichmentErrors.google && 'Google data unavailable',
+              biz.enrichmentErrors.serp && 'Search ranking unavailable',
+            ].filter(Boolean).join(' · ')}
+            {' '}— scores may be incomplete.
+          </span>
         </div>
       )}
 

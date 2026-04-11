@@ -1,7 +1,7 @@
 'use client';
 
-import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { useRivalRadarStore } from '@/store/rivalradar';
 import { ScoreChip } from '@/components/ScoreChip';
 import type { Business } from '@/types';
@@ -15,6 +15,16 @@ const METRICS: { key: keyof NonNullable<Business['aiScore']>; emoji: string; lab
   { key: 'aiPresenceScore',      emoji: '🤖', label: 'AI Presence' },
   { key: 'reviewVelocityScore',  emoji: '⚡', label: 'Review Velocity' },
 ];
+
+const GOOGLE_METRICS = new Set<typeof METRICS[number]['key']>(['reputationScore', 'gbpCompletenessScore', 'reviewVelocityScore']);
+
+function isDataMissing(key: string, biz: Business): boolean {
+  if (GOOGLE_METRICS.has(key)) return biz.googleData === null;
+  if (key === 'localVisibilityScore') return biz.serpData === null;
+  if (key === 'websiteHealthScore') return biz.signals === null;
+  if (key === 'aiPresenceScore') return biz.aiVisibility === null;
+  return false;
+}
 
 const Row = ({ biz, isOwn }: { biz: Business; isOwn?: boolean }) => {
   const router = useRouter();
@@ -39,13 +49,39 @@ const Row = ({ biz, isOwn }: { biz: Business; isOwn?: boolean }) => {
           : <span className="text-xs text-muted-foreground">—</span>}
       </td>
 
-      {METRICS.map(({ key }) => (
-        <td key={key} className="px-4 py-3 text-center">
-          {biz.aiScore
-            ? <ScoreChip label="" score={biz.aiScore[key] as number} />
-            : <span className="text-xs text-muted-foreground">—</span>}
-        </td>
-      ))}
+      {METRICS.map(({ key }) => {
+        const missing = isDataMissing(key, biz);
+        if (!biz.aiScore || missing) {
+          if (isOwn && missing && GOOGLE_METRICS.has(key)) {
+            return (
+              <td key={key} className="px-4 py-3 text-center">
+                <Link
+                  href="/settings"
+                  onClick={(e) => e.stopPropagation()}
+                  className="text-[10px] font-medium bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400 px-1.5 py-0.5 rounded whitespace-nowrap"
+                >
+                  Setup needed
+                </Link>
+              </td>
+            );
+          }
+          return (
+            <td key={key} className="px-4 py-3 text-center">
+              <span
+                className="text-xs text-muted-foreground"
+                title={missing ? `No data found for ${biz.name}` : undefined}
+              >
+                —
+              </span>
+            </td>
+          );
+        }
+        return (
+          <td key={key} className="px-4 py-3 text-center">
+            <ScoreChip label="" score={biz.aiScore[key] as number} />
+          </td>
+        );
+      })}
     </tr>
   );
 };

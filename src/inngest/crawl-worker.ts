@@ -5,6 +5,7 @@ import {
   extractAndPersistSignals,
   markCrawlFailed,
 } from '@/lib/crawl/orchestrator';
+import { checkDirectSignals } from '@/lib/crawl/direct-checks';
 import { supabaseAdmin } from '@/lib/supabase/server';
 import { fetchGoogleData, fetchSerpData } from '@/actions/enrichment';
 import { generatePriorityActions, generateChangeSummary, checkAIPresence } from '@/services/ai';
@@ -16,6 +17,20 @@ import type { ExtractedSignals, Business, ChangeEvent, AIHealthScore, SerpData }
 
 const MAX_POLL_ATTEMPTS = 60;
 const POLL_INTERVAL = '5s';
+
+async function writeEnrichmentError(
+  businessId: string,
+  key: 'google' | 'serp',
+  userMessage: string
+): Promise<void> {
+  const { data } = await supabaseAdmin
+    .from('businesses')
+    .select('enrichment_errors')
+    .eq('id', businessId)
+    .single();
+  const errors = { ...(data?.enrichment_errors as object ?? {}), [key]: userMessage };
+  await supabaseAdmin.from('businesses').update({ enrichment_errors: errors }).eq('id', businessId);
+}
 
 /**
  * Event: crawl/business.scan
@@ -63,19 +78,53 @@ export const crawlBusinessFunction = inngest.createFunction(
       throw new Error(`Crawl ended with status: ${crawlStatus} after ${attempts} attempts`);
     }
 
-    // Step 3: Extract signals and persist
-    await step.run('persist-signals', () =>
-      extractAndPersistSignals(businessId, jobId)
-    );
+    // Step 3: Extract signals and persist, then override seo fields via direct HTTP checks
+    await step.run('persist-signals', async () => {
+      await extractAndPersistSignals(businessId, jobId);
+
+      const { data: bizRow } = await supabaseAdmin
+        .from('businesses')
+        .select('url')
+        .eq('id', businessId)
+        .single();
+      if (!bizRow?.url) return;
+
+      const { hasRobotsTxt, hasSitemap } = await checkDirectSignals(bizRow.url as string);
+      console.log(`[direct-checks] ${bizRow.url} robots=${hasRobotsTxt} sitemap=${hasSitemap}`);
+
+      // Only override if direct check found something the crawl missed
+      if (!hasRobotsTxt && !hasSitemap) return;
+
+      const { data: sigRow } = await supabaseAdmin
+        .from('extracted_signals')
+        .select('id, seo')
+        .eq('business_id', businessId)
+        .order('scanned_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (!sigRow) return;
+
+      const seo = { ...(sigRow.seo as Record<string, unknown>) };
+      if (hasRobotsTxt) seo.hasRobotsTxt = true;
+      if (hasSitemap) seo.hasSitemap = true;
+
+      await supabaseAdmin
+        .from('extracted_signals')
+        .update({ seo })
+        .eq('id', sigRow.id);
+    });
 
     // Step 4: Fetch business + project metadata (name, url, domain, settings)
     const meta = await step.run('fetch-meta', async () => {
       const { data: biz } = await supabaseAdmin
         .from('businesses')
-        .select('name, url, domain, project_id')
+        .select('name, url, domain, project_id, is_own_business, google_place_id')
         .eq('id', businessId)
         .single();
-      if (!biz) throw new Error('Business not found');
+      if (!biz) {
+        console.warn(`[fetch-meta] Business ${businessId} no longer exists — skipping remaining steps`);
+        return null;
+      }
 
       const { data: proj } = await supabaseAdmin
         .from('projects')
@@ -90,27 +139,41 @@ export const crawlBusinessFunction = inngest.createFunction(
         .eq('user_id', proj.user_id)
         .maybeSingle();
 
-      return {
+      const result = {
         name: biz.name as string,
         url: biz.url as string,
         domain: biz.domain as string,
         projectId: biz.project_id as string,
+        isOwnBusiness: (biz.is_own_business as boolean | null) ?? false,
+        googlePlaceId: biz.google_place_id as string | null,
         primaryService: (settings?.primary_service as string) ?? '',
         location: (settings?.location as string) ?? '',
         postcode: (settings?.postcode as string) ?? '',
       };
+
+      if (!result.primaryService || !result.location) {
+        console.warn(
+          `[fetch-meta] business ${businessId}: app_settings missing ` +
+          `primary_service="${result.primaryService}" location="${result.location}". ` +
+          `SERP and AI checks will be skipped.`
+        );
+      }
+
+      return result;
     });
+
+    if (!meta) return { businessId, status: 'skipped-deleted' };
 
     // Step 5: Enrichment (sequential)
     await step.run('enrich-google', async () => {
       try {
-        await fetchGoogleData(businessId, meta.name, meta.url, meta.postcode);
+        await fetchGoogleData(businessId, meta.name, meta.url, meta.postcode, meta.googlePlaceId);
       } catch (e) {
-        const msg = e instanceof Error ? e.message : 'unknown error';
-        console.error(`[enrich-google] Failed for business ${businessId}:`, msg);
-        const { data: biz } = await supabaseAdmin.from('businesses').select('enrichment_errors').eq('id', businessId).single();
-        const errors = { ...(biz?.enrichment_errors as object ?? {}), google: 'unavailable' };
-        await supabaseAdmin.from('businesses').update({ enrichment_errors: errors }).eq('id', businessId);
+        console.error(`[enrich-google] Failed for business ${businessId}:`, e instanceof Error ? e.message : e);
+        const userMessage = meta.isOwnBusiness
+          ? 'We could not find your business on Google. Go to Settings → Business Details and check your business name and postcode are correct.'
+          : `No Google data found for "${meta.name}". This competitor may not have a Google Business Profile, or the name may not match exactly.`;
+        await writeEnrichmentError(businessId, 'google', userMessage);
       }
     });
 
@@ -118,11 +181,11 @@ export const crawlBusinessFunction = inngest.createFunction(
       try {
         await fetchSerpData(businessId, meta.name, meta.domain, meta.primaryService, meta.location, meta.postcode);
       } catch (e) {
-        const msg = e instanceof Error ? e.message : 'unknown error';
-        console.error(`[enrich-serp] Failed for business ${businessId}:`, msg);
-        const { data: biz } = await supabaseAdmin.from('businesses').select('enrichment_errors').eq('id', businessId).single();
-        const errors = { ...(biz?.enrichment_errors as object ?? {}), serp: 'unavailable' };
-        await supabaseAdmin.from('businesses').update({ enrichment_errors: errors }).eq('id', businessId);
+        console.error(`[enrich-serp] Failed for business ${businessId}:`, e instanceof Error ? e.message : e);
+        const userMessage = meta.isOwnBusiness
+          ? 'Could not find your business in local search results. Go to Settings and make sure your Primary Service and Location are filled in.'
+          : `No local search data found for "${meta.name}".`;
+        await writeEnrichmentError(businessId, 'serp', userMessage);
       }
     });
 

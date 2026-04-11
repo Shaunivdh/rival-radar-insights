@@ -8,6 +8,8 @@ interface MetricCardProps {
   subtitle: string;
   detail: string;
   source: string;
+  error?: string;    // enrichment error — amber warning
+  noData?: string;   // "Not yet tested" / "Insufficient data" — grey
 }
 
 function scoreColor(s: number) {
@@ -16,8 +18,14 @@ function scoreColor(s: number) {
   return { bar: 'bg-red-500', text: 'text-red-600', bg: 'bg-red-50 dark:bg-red-950/30' };
 }
 
-function MetricCard({ emoji, title, score, subtitle, detail, source }: MetricCardProps) {
-  const colors = scoreColor(score);
+function MetricCard({ emoji, title, score, subtitle, detail, source, error, noData }: MetricCardProps) {
+  const overrideMsg = error ?? noData;
+  const colors = overrideMsg
+    ? (error
+        ? { bar: '', text: 'text-amber-600', bg: 'bg-amber-50 dark:bg-amber-950/30' }
+        : { bar: '', text: 'text-muted-foreground', bg: '' })
+    : scoreColor(score);
+
   return (
     <div className={cn('card-surface flex flex-col gap-3', colors.bg)}>
       <div className="flex items-start justify-between gap-2">
@@ -25,14 +33,22 @@ function MetricCard({ emoji, title, score, subtitle, detail, source }: MetricCar
           <span className="text-xl leading-none">{emoji}</span>
           <p className="text-sm font-semibold text-foreground">{title}</p>
         </div>
-        <span className={cn('text-2xl font-bold tabular-nums', colors.text)}>{score}</span>
+        {overrideMsg ? (
+          <span className={cn('text-xs font-medium text-right max-w-[60%]', colors.text)}>
+            {error && <span className="mr-1">⚠</span>}{overrideMsg}
+          </span>
+        ) : (
+          <span className={cn('text-2xl font-bold tabular-nums', colors.text)}>{score}</span>
+        )}
       </div>
-      <div className="w-full h-1.5 rounded-full bg-muted overflow-hidden">
-        <div
-          className={cn('h-full rounded-full transition-all', colors.bar)}
-          style={{ width: `${score}%` }}
-        />
-      </div>
+      {!overrideMsg && (
+        <div className="w-full h-1.5 rounded-full bg-muted overflow-hidden">
+          <div
+            className={cn('h-full rounded-full transition-all', colors.bar)}
+            style={{ width: `${score}%` }}
+          />
+        </div>
+      )}
       <div>
         <p className="text-xs font-medium text-foreground">{subtitle}</p>
         <p className="text-xs text-muted-foreground mt-0.5">{detail}</p>
@@ -47,8 +63,11 @@ interface MetricsGridProps {
 }
 
 export function MetricsGrid({ business }: MetricsGridProps) {
-  const { aiScore, googleData, serpData, aiVisibility } = business;
+  const { aiScore, googleData, serpData, aiVisibility, enrichmentErrors } = business;
   if (!aiScore) return null;
+
+  const getErr = (score: number, key: keyof NonNullable<typeof enrichmentErrors>) =>
+    score === 0 ? enrichmentErrors?.[key] : undefined;
 
   const localPackPos = serpData?.localPackPosition ?? null;
   const localPackLabel =
@@ -91,6 +110,7 @@ export function MetricsGrid({ business }: MetricsGridProps) {
         subtitle={ratingLabel}
         detail={recencyLabel}
         source="Google Places"
+        error={getErr(aiScore.reputationScore, 'google')}
       />
       <MetricCard
         emoji="📍"
@@ -99,6 +119,7 @@ export function MetricsGrid({ business }: MetricsGridProps) {
         subtitle={localPackLabel}
         detail="Position 1 = 100 · Not in top 7 = 0"
         source="SerpAPI"
+        error={getErr(aiScore.localVisibilityScore, 'serp')}
       />
       <MetricCard
         emoji="🌐"
@@ -107,6 +128,7 @@ export function MetricsGrid({ business }: MetricsGridProps) {
         subtitle="Page structure & contact signals"
         detail="Phone, CTA, H1, sitemap, schema"
         source="Cloudflare Crawl"
+        error={getErr(aiScore.websiteHealthScore, 'crawl')}
       />
       <MetricCard
         emoji="📋"
@@ -115,6 +137,7 @@ export function MetricsGrid({ business }: MetricsGridProps) {
         subtitle={gbpLabel}
         detail="Photos, hours, phone, description, website"
         source="Google Places"
+        error={getErr(aiScore.gbpCompletenessScore, 'google')}
       />
       <MetricCard
         emoji="🤖"
@@ -123,6 +146,7 @@ export function MetricsGrid({ business }: MetricsGridProps) {
         subtitle={aiLabel}
         detail="Simulated ChatGPT / Perplexity queries"
         source="Claude API"
+        noData={!aiVisibility ? 'Not yet tested' : undefined}
       />
       <MetricCard
         emoji="⚡"
@@ -131,6 +155,7 @@ export function MetricsGrid({ business }: MetricsGridProps) {
         subtitle="New reviews per 30 days"
         detail="5 reviews/month = 100 · 0 = losing ground"
         source="Google Places"
+        noData={aiScore.weeklyDelta === null ? 'Insufficient data' : undefined}
       />
     </div>
   );

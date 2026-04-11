@@ -6,6 +6,8 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { rescanAll } from '@/actions/projects';
 
+type FieldErrors = Partial<Record<'primaryService' | 'location' | 'postcode', string>>;
+
 const SettingsPage = () => {
   const { settings, setSettings, deleteProject, project } = useRivalRadarStore();
 
@@ -16,8 +18,17 @@ const SettingsPage = () => {
   const router = useRouter();
   const [form, setForm] = useState(settings);
   const [rescanning, setRescanning] = useState(false);
+  const [errors, setErrors] = useState<FieldErrors>({});
 
   const handleSave = () => {
+    const newErrors: FieldErrors = {};
+    if (!form.primaryService?.trim()) newErrors.primaryService = 'Primary Service is required';
+    if (!form.location?.trim()) newErrors.location = 'Location is required';
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
+      return;
+    }
+    setErrors({});
     setSettings(form);
   };
 
@@ -29,9 +40,9 @@ const SettingsPage = () => {
   };
 
   const fields = [
-    { key: 'primaryService', label: 'Primary Service', type: 'text' },
-    { key: 'location', label: 'Location', type: 'text' },
-    { key: 'postcode', label: 'Postcode', type: 'text' },
+    { key: 'primaryService', label: 'Primary Service', type: 'text', placeholder: 'e.g. health screening, plumber, hair salon', required: true },
+    { key: 'location', label: 'Location', type: 'text', placeholder: 'e.g. London, Manchester', required: true },
+    { key: 'postcode', label: 'Postcode', type: 'text', placeholder: '', required: false },
   ] as const;
 
   return (
@@ -45,14 +56,22 @@ const SettingsPage = () => {
         <h2 className="text-sm font-semibold text-foreground">Project Settings</h2>
         {fields.map((field) => (
           <div key={field.key}>
-            <label className="text-xs font-medium text-muted-foreground mb-1 block">{field.label}</label>
+            <label className="text-xs font-medium text-muted-foreground mb-1 block">
+              {field.label}{field.required && <span className="text-destructive ml-0.5">*</span>}
+            </label>
             <input
               type={field.type}
               value={form[field.key] ?? ''}
-              onChange={(e) => setForm({ ...form, [field.key]: e.target.value })}
-              className="w-full px-3 py-2 text-sm bg-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/30"
-              placeholder=""
+              onChange={(e) => {
+                setForm({ ...form, [field.key]: e.target.value });
+                if (field.key in errors) { const { [field.key]: _, ...rest } = errors; setErrors(rest); }
+              }}
+              className={`w-full px-3 py-2 text-sm bg-background border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/30 ${errors[field.key] ? 'border-destructive' : 'border-border'}`}
+              placeholder={field.placeholder}
             />
+            {errors[field.key] && (
+              <p className="text-xs text-destructive mt-1">{errors[field.key]}</p>
+            )}
           </div>
         ))}
         <button

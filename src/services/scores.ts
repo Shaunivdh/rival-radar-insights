@@ -4,8 +4,8 @@ import type { GoogleData, SerpData, AIVisibility, AIHealthScore, ExtractedSignal
  * Website health score derived from crawl signals.
  * Max 100, clamped to 0–100.
  */
-export function computeWebsiteHealthScore(signals: ExtractedSignals | null): number {
-  if (signals == null) return 0;
+export function computeWebsiteHealthScore(signals: ExtractedSignals | null): number | null {
+  if (signals == null) return null;  // null = crawl blocked, NOT a zero score
   const { seo, engagement } = signals;
 
   let score = 0;
@@ -78,14 +78,14 @@ export function computeGBPCompletenessScore(googleData: GoogleData | null): numb
 
 /**
  * Review velocity score: new reviews per 30 days, scaled so 5/30d = 100.
- * Returns 50 (neutral) if no previous data.
+ * Returns null if no previous data (excluded from weighted average).
  */
 export function computeReviewVelocityScore(
   currentReviewCount: number,
   previousReviewCount?: number,
   daysBetween?: number
-): number {
-  if (previousReviewCount === undefined || daysBetween === undefined || daysBetween <= 0) return 50;
+): number | null {
+  if (previousReviewCount === undefined || daysBetween === undefined || daysBetween <= 0) return null;
   const newReviews = Math.max(0, currentReviewCount - previousReviewCount);
   const velocityPer30d = (newReviews / daysBetween) * 30;
   return Math.min(100, Math.max(0, Math.round((velocityPer30d / 5) * 100)));
@@ -132,32 +132,42 @@ export function calculateScores(
   }
 
   const aiPresenceScore = aiVisibility?.aiPresenceScore ?? 0;
-  const websiteHealthScore = computeWebsiteHealthScore(signals ?? null);
   const gbpCompletenessScore = computeGBPCompletenessScore(googleData);
+
+  const websiteHealthScore = computeWebsiteHealthScore(signals ?? null);
   const reviewVelocityScore = computeReviewVelocityScore(
     googleData?.reviewCount ?? 0,
     previousReviewCount,
     daysBetween
   );
 
-  const overallScore = Math.round(
-    reputationScore * 0.25 +
-    localVisibilityScore * 0.25 +
-    websiteHealthScore * 0.20 +
-    gbpCompletenessScore * 0.15 +
-    aiPresenceScore * 0.10 +
-    reviewVelocityScore * 0.05
-  );
+  // Weighted average that EXCLUDES null components (unknown ≠ zero)
+  const components: Array<{ score: number | null; weight: number }> = [
+    { score: reputationScore,      weight: 0.25 },
+    { score: localVisibilityScore, weight: 0.25 },
+    { score: websiteHealthScore,   weight: 0.20 },
+    { score: gbpCompletenessScore, weight: 0.15 },
+    { score: aiPresenceScore,      weight: 0.10 },
+    { score: reviewVelocityScore,  weight: 0.05 },
+  ];
+
+  const available = components.filter((c) => c.score !== null);
+  const totalWeight = available.reduce((sum, c) => sum + c.weight, 0);
+  const overallScore = totalWeight === 0
+    ? 0
+    : Math.round(
+        available.reduce((sum, c) => sum + c.score! * c.weight, 0) / totalWeight
+      );
 
   return {
     overallScore,
     weeklyDelta: null,
     reputationScore,
     localVisibilityScore,
-    websiteHealthScore,
+    websiteHealthScore: websiteHealthScore ?? 0,
     gbpCompletenessScore,
     aiPresenceScore,
-    reviewVelocityScore,
+    reviewVelocityScore: reviewVelocityScore ?? 0,
     generatedAt: new Date().toISOString(),
   };
 }

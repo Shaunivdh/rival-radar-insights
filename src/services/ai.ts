@@ -63,10 +63,14 @@ export async function generateChangeSummary(
   before: ExtractedSignals,
   after: ExtractedSignals
 ): Promise<ChangeSummary> {
+  const strip = (s: ExtractedSignals): ExtractedSignals => ({
+    ...s,
+    seo: s.seo ? { ...s.seo, pageCount: undefined as unknown as number } : s.seo,
+  });
   const prompt = `Summarise website changes for "${name}". Return JSON only.
 Schema: {"hasSignificantChanges":boolean,"severity":"high"|"medium"|"low","summary":"string","changes":[{"category":"string","description":"string","significance":"string"}]}
 Summary max 15 words. Max 5 changes.
-Before: ${JSON.stringify(before)}
-After: ${JSON.stringify(after)}`;
+Before: ${JSON.stringify(strip(before))}
+After: ${JSON.stringify(strip(after))}`;
   return askClaude<ChangeSummary>(prompt);
 }

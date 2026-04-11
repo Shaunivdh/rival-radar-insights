@@ -155,7 +155,8 @@ export async function getProject(userId: string): Promise<Project | null> {
 
 export async function updateBusiness(
   businessId: string,
-  partial: Partial<Pick<Business, 'crawlStatus' | 'crawlJobId' | 'lastCrawledAt' | 'aiScore' | 'googleData' | 'serpData' | 'trustpilotData' | 'aiVisibility'>>
+  partial: Partial<Pick<Business, 'crawlStatus' | 'crawlJobId' | 'lastCrawledAt' | 'aiScore' | 'googleData' | 'serpData' | 'trustpilotData' | 'aiVisibility'>>,
+  extras?: { googlePlaceId?: string }
 ): Promise<void> {
   const row: Record<string, unknown> = {};
   if (partial.crawlStatus !== undefined) row.crawl_status = partial.crawlStatus;
@@ -167,6 +168,7 @@ export async function updateBusiness(
   if (partial.serpData !== undefined) row.serp_data = partial.serpData;
   if (partial.trustpilotData !== undefined) row.trustpilot_data = partial.trustpilotData;
   if (partial.aiVisibility !== undefined) row.ai_visibility = partial.aiVisibility;
+  if (extras?.googlePlaceId !== undefined) row.google_place_id = extras.googlePlaceId;
 
   const { error } = await supabaseAdmin.from('businesses').update(row).eq('id', businessId);
   if (error) throw new Error(error.message);

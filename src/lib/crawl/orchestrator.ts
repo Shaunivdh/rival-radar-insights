@@ -52,17 +52,20 @@ export async function startBusinessCrawl(
 
   if (error || !business) throw new Error(`Business not found: ${businessId}`);
 
+  const rawUrl = business.url as string;
+  const normalizedUrl = /^https?:\/\//i.test(rawUrl) ? rawUrl : `https://${rawUrl}`;
+
   const credentials = getCredentials();
   const isIncremental = mode === 'incremental' && !!business.last_crawled_at;
 
   const jobId = isIncremental
     ? await startIncrementalCrawl(
-        business.url as string,
+        normalizedUrl,
         new Date(business.last_crawled_at as string).getTime(),
         credentials
       )
     : await startCrawl(
-        business.url as string,
+        normalizedUrl,
         {
           maxDepth: 3,
           maxPages: Math.max(1, MAX_TOTAL_PAGES - MAX_PRIORITY_PAGES),

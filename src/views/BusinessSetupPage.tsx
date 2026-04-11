@@ -54,9 +54,10 @@ const getDomain = (url: string) => {
 };
 
 const BusinessSetupPage = () => {
-  const { user, project, setProject, setSettings } = useRivalRadarStore();
+  const { user, project, setProject, setSettings, initAuth } = useRivalRadarStore();
   const router = useRouter();
 
+  const [authReady, setAuthReady] = useState(false);
   const [step, setStep] = useState(0);
   const [own, setOwn] = useState<Business>(emptyBusiness());
   const [primaryService, setPrimaryService] = useState('');
@@ -70,9 +71,14 @@ const BusinessSetupPage = () => {
   const [savedProjectRef, setSavedProjectRef] = useState<Project | null>(null);
 
   useEffect(() => {
+    initAuth().finally(() => setAuthReady(true));
+  }, [initAuth]);
+
+  useEffect(() => {
+    if (!authReady) return;
     if (!user) router.replace('/');
     else if (project) router.replace('/dashboard');
-  }, [user, project, router]);
+  }, [authReady, user, project, router]);
 
   useEffect(() => {
     if (step !== 2 || !projectId) return;
@@ -102,6 +108,12 @@ const BusinessSetupPage = () => {
     }, 3000);
     return () => clearInterval(interval);
   }, [step, projectId, router, savedProjectRef, setProject]);
+
+  if (!authReady) return (
+    <div className="flex min-h-screen items-center justify-center">
+      <div className="w-6 h-6 rounded-full border-2 border-primary border-t-transparent animate-spin" />
+    </div>
+  );
 
   if (!user || project) return null;
 

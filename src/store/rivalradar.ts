@@ -98,7 +98,10 @@ export const useRivalRadarStore = create<RivalRadarState>()(
             location: settings.location,
             postcode: settings.postcode ?? null,
             updated_at: new Date().toISOString(),
-          }, { onConflict: 'user_id' }).then(() => {});
+          }, { onConflict: 'user_id' }).then(({ error }) => {
+            if (error) console.error('[setSettings] upsert failed:', error.message, error.details);
+            else console.log('[setSettings] saved: primaryService=', settings.primaryService, 'location=', settings.location);
+          });
         }
       },
       setPriorityActions: (actions) => set({ priorityActions: actions }),

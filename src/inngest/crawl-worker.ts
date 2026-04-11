@@ -116,13 +116,13 @@ export const crawlBusinessFunction = inngest.createFunction(
 
     // Step 4: Fetch business + project metadata (name, url, domain, settings)
     const meta = await step.run('fetch-meta', async () => {
-      const { data: biz } = await supabaseAdmin
+      const { data: biz, error: bizError } = await supabaseAdmin
         .from('businesses')
         .select('name, url, domain, project_id, is_own_business, google_place_id')
         .eq('id', businessId)
         .single();
       if (!biz) {
-        console.warn(`[fetch-meta] Business ${businessId} no longer exists — skipping remaining steps`);
+        console.warn(`[fetch-meta] Business ${businessId} no longer exists — skipping remaining steps`, bizError?.message);
         return null;
       }
 

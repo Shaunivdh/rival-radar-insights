@@ -8,7 +8,9 @@ interface SerpApiOrganicResult {
 
 interface SerpApiLocalResult {
   position: number;
+  title?: string;
   website?: string;
+  links?: { website?: string };
 }
 
 interface SerpApiResponse {
@@ -42,16 +44,29 @@ export async function getRankingData(
     localRes.json() as Promise<SerpApiResponse>,
   ]);
 
+  // Normalize a URL/domain to bare hostname for comparison
+  const normalizeDomain = (s: string) =>
+    s.replace(/^https?:\/\//, '').replace(/^www\./, '').split('/')[0].toLowerCase();
+
+  const normalizedDomain = domain ? normalizeDomain(domain) : '';
+  const normalizedName = businessName.toLowerCase().trim();
+
   // Organic position — find result whose link contains the business domain
   const organicMatch = organicJson.organic_results?.find(r =>
-    r.link?.includes(domain)
+    normalizedDomain && r.link && normalizeDomain(r.link).includes(normalizedDomain)
   );
   const organicPosition = organicMatch?.position ?? null;
 
-  // Local pack — check local_results for business domain
-  const localMatch = localJson.local_results?.find(r =>
-    r.website?.includes(domain)
-  );
+  // Local pack — match by domain first, fall back to business name
+  const getLocalWebsite = (r: SerpApiLocalResult) => r.website ?? r.links?.website;
+  console.log('[serp] normalizedDomain:', normalizedDomain, 'normalizedName:', normalizedName);
+  console.log('[serp] local_results:', JSON.stringify(localJson.local_results?.map(r => ({ pos: r.position, title: r.title, website: getLocalWebsite(r) }))));
+  const localMatch = localJson.local_results?.find(r => {
+    const site = getLocalWebsite(r);
+    if (normalizedDomain && site && normalizeDomain(site).includes(normalizedDomain)) return true;
+    // fallback: match by business name if no website or domain mismatch
+    return r.title && r.title.toLowerCase().includes(normalizedName);
+  });
   const localPackPresent = (localJson.local_results?.length ?? 0) > 0;
   const localPackPosition = localMatch?.position ?? null;
 

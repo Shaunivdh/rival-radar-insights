@@ -19,6 +19,7 @@ const SettingsPage = () => {
   const [form, setForm] = useState(settings);
   const [rescanning, setRescanning] = useState(false);
   const [errors, setErrors] = useState<FieldErrors>({});
+  const [saved, setSaved] = useState(false);
 
   const handleSave = () => {
     const newErrors: FieldErrors = {};
@@ -30,6 +31,8 @@ const SettingsPage = () => {
     }
     setErrors({});
     setSettings(form);
+    setSaved(true);
+    setTimeout(() => setSaved(false), 2000);
   };
 
   const handleDelete = () => {
@@ -78,7 +81,7 @@ const SettingsPage = () => {
           onClick={handleSave}
           className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:opacity-90"
         >
-          Save Settings
+          {saved ? 'Saved!' : 'Save Settings'}
         </button>
       </div>
 

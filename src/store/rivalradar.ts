@@ -1,5 +1,4 @@
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
 import type { Project, Business, AppSettings, PriorityAction, User } from '@/types';
 import { mockOwnBusiness, mockCompetitors, mockPriorityActions } from '@/mock/data';
 import { supabase } from '@/lib/supabase/client';
@@ -37,8 +36,7 @@ interface RivalRadarState {
 }
 
 export const useRivalRadarStore = create<RivalRadarState>()(
-  persist(
-    (set, get) => ({
+  (set, get) => ({
       user: null,
       project: null,
       settings: { primaryService: '', location: '' },
@@ -75,12 +73,8 @@ export const useRivalRadarStore = create<RivalRadarState>()(
           set((state) => ({
             user: state.user?.id === u.id ? state.user : { id: u.id, email: u.email! },
           }));
-          try {
-            const project = await getProject(u.id);
-            if (project) set({ project, isDemoMode: false });
-          } catch {
-            // Supabase unavailable — keep persisted localStorage state as demo fallback
-          }
+          const project = await getProject(u.id);
+          if (project) set({ project, isDemoMode: false });
         } else {
           set({ user: null, isDemoMode: false });
         }
@@ -159,7 +153,5 @@ export const useRivalRadarStore = create<RivalRadarState>()(
           return { project: { ...state.project, competitors: [...state.project.competitors, business] } };
         });
       },
-    }),
-    { name: 'rivalradar-store' }
-  )
+  })
 );

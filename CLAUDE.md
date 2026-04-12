@@ -37,7 +37,7 @@ Stack:
 * Tailwind
 * Supabase (database)
 * Anthropic API (AI analysis)
-* Cloudflare Crawl API
+* Cloudflare Browser Rendering
 * Google Places API
 * SerpApi
 
@@ -72,7 +72,7 @@ Always design crawl orchestration to be queue-based.
 Crawl implementation rules:
 
 * `CrawlCredentials` is exported from `@/services/crawl` — do not redeclare it elsewhere.
-* `startCrawl` serializes `maxDepth`, `outputFormats`, `modifiedSince`, and `jsonOptions` to the CF API body — always pass them via `CrawlOptions`.
+* `startCrawl` serializes only `render`, `limit` (from `maxPages`), `jsonOptions`, and `modifiedSince` to the CF API body — CF rejects `maxDepth` and `outputFormats` (unrecognized keys). CF returns `html` by default; `json` is only populated when `jsonOptions.prompt` is set.
 * `crawl_jobs` rows must include `cf_job_id` (the CF job ID returned by `startCrawl`).
 * Daily crawl limit (`MAX_DAILY_CRAWLS`) counts only `status IN ('running', 'completed')` rows — not failed/cancelled.
 * Cache (`saveToCache`) is written after priority page enrichment, not before — so cached results always include multi-page data.

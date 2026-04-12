@@ -79,6 +79,7 @@ create table if not exists crawl_jobs (
   business_id  uuid not null references businesses(id) on delete cascade,
   mode         text not null default 'initial' check (mode in ('initial','incremental')),
   status       text not null default 'pending' check (status in ('pending','running','complete','failed')),
+  cf_job_id    text,
   started_at   timestamptz,
   completed_at timestamptz,
   created_at   timestamptz not null default now()

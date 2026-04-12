@@ -2,6 +2,7 @@ import { supabaseAdmin } from '@/lib/supabase/server';
 import { startCrawl, startIncrementalCrawl, pollCrawlStatus, getCrawlResults, extractPriorityLinks, crawlSinglePage, type CrawlCredentials } from '@/services/crawl';
 import { saveToCache, loadFromCache } from '@/services/crawl.cache';
 import { extractSignals } from '@/services/extract';
+import { extractPageSignals } from '@/services/ai';
 import type { RawCrawlResult } from '@/types';
 
 const MAX_PRIORITY_PAGES = parseInt(process.env.CRAWL_PRIORITY_PAGES ?? '5', 10);
@@ -157,6 +158,20 @@ export async function extractAndPersistSignals(
   if (dedupedPages.length < rawResult.pages.length) {
     console.log(`[crawl] Deduped ${rawResult.pages.length - dedupedPages.length} duplicate pages`);
     rawResult = { ...rawResult, pages: dedupedPages };
+  }
+
+  // CF crawl doesn't return json field — extract signals from HTML via Claude
+  const needsExtraction = rawResult.pages.some(p => (!p.json || Object.keys(p.json).length === 0) && !!p.html);
+  if (needsExtraction) {
+    const pagesToExtract = rawResult.pages.slice(0, 5);
+    const extracted = await Promise.all(
+      pagesToExtract.map(p => p.html ? extractPageSignals(p.html, EXTRACTION_PROMPT) : Promise.resolve({}))
+    );
+    rawResult = {
+      ...rawResult,
+      pages: rawResult.pages.map((p, i) => i < 5 ? { ...p, json: extracted[i] } : p),
+    };
+    console.log(`[crawl] Extracted signals from HTML for ${pagesToExtract.length} pages`);
   }
 
   const signals = await extractSignals(rawResult);

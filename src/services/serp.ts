@@ -59,15 +59,15 @@ export async function getRankingData(
 
   // Local pack — match by domain first, fall back to business name
   const getLocalWebsite = (r: SerpApiLocalResult) => r.website ?? r.links?.website;
+  const localResults: SerpApiLocalResult[] = Array.isArray(localJson.local_results) ? localJson.local_results : [];
   console.log('[serp] normalizedDomain:', normalizedDomain, 'normalizedName:', normalizedName);
-  console.log('[serp] local_results:', JSON.stringify(localJson.local_results?.map(r => ({ pos: r.position, title: r.title, website: getLocalWebsite(r) }))));
-  const localMatch = localJson.local_results?.find(r => {
+  const localMatch = localResults.find(r => {
     const site = getLocalWebsite(r);
     if (normalizedDomain && site && normalizeDomain(site).includes(normalizedDomain)) return true;
     // fallback: match by business name if no website or domain mismatch
     return r.title && r.title.toLowerCase().includes(normalizedName);
   });
-  const localPackPresent = (localJson.local_results?.length ?? 0) > 0;
+  const localPackPresent = localResults.length > 0;
   const localPackPosition = localMatch?.position ?? null;
 
   // Featured snippet (answer_box present)

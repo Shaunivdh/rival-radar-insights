@@ -9,6 +9,27 @@ const PRESENCE_PROMPTS = (service: string, location: string) => [
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
+export async function extractPageSignals(html: string, prompt: string): Promise<Record<string, unknown>> {
+  const stripped = html
+    .replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, '')
+    .replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi, '')
+    .replace(/<svg\b[^>]*>[\s\S]*?<\/svg>/gi, '')
+    .slice(0, 12000);
+  try {
+    const msg = await client.messages.create({
+      model: 'claude-haiku-4-5-20251001',
+      max_tokens: 1500,
+      messages: [{ role: 'user', content: `${prompt}\n\nHTML:\n${stripped}\n\nReturn JSON only, no markdown.` }],
+    });
+    const text = (msg.content[0] as { type: string; text: string }).text.trim();
+    const json = text.replace(/^```(?:json)?\n?/, '').replace(/\n?```$/, '');
+    return JSON.parse(json) as Record<string, unknown>;
+  } catch (e) {
+    console.warn('[extractPageSignals] failed:', e);
+    return {};
+  }
+}
+
 async function askClaude<T>(prompt: string): Promise<T> {
   const msg = await client.messages.create({
     model: 'claude-haiku-4-5-20251001',

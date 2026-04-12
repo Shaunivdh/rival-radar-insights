@@ -205,41 +205,39 @@ export const crawlBusinessFunction = inngest.createFunction(
       }
     });
 
-    // Step 7: If incremental, diff signals and generate change summary
-    if (mode === 'incremental') {
-      await step.run('diff-and-summarize', async () => {
-        const { data: rows } = await supabaseAdmin
-          .from('extracted_signals')
-          .select('seo, pricing, trust, content, engagement, features')
-          .eq('business_id', businessId)
-          .order('scanned_at', { ascending: false })
-          .limit(2);
+    // Step 7: Diff signals and generate change summary (runs on any rescan if previous snapshot exists)
+    await step.run('diff-and-summarize', async () => {
+      const { data: rows } = await supabaseAdmin
+        .from('extracted_signals')
+        .select('seo, pricing, trust, content, engagement, features')
+        .eq('business_id', businessId)
+        .order('scanned_at', { ascending: false })
+        .limit(2);
 
-        if (!rows || rows.length < 2) return;
+      if (!rows || rows.length < 2) return;
 
-        const toSignals = (r: Record<string, unknown>): ExtractedSignals =>
-          ({ seo: r.seo, pricing: r.pricing, trust: r.trust, content: r.content, engagement: r.engagement, features: r.features } as ExtractedSignals);
+      const toSignals = (r: Record<string, unknown>): ExtractedSignals =>
+        ({ seo: r.seo, pricing: r.pricing, trust: r.trust, content: r.content, engagement: r.engagement, features: r.features } as ExtractedSignals);
 
-        const current = toSignals(rows[0]);
-        const previous = toSignals(rows[1]);
-        const diff = diffSignals(previous, current);
+      const current = toSignals(rows[0]);
+      const previous = toSignals(rows[1]);
+      const diff = diffSignals(previous, current);
 
-        if (!diff.hasChanges) return;
+      if (!diff.hasChanges) return;
 
-        const summary = await generateChangeSummary(meta.name, previous, current);
-        if (!summary.hasSignificantChanges) return;
+      const summary = await generateChangeSummary(meta.name, previous, current);
+      if (!summary.hasSignificantChanges) return;
 
-        const event: ChangeEvent = {
-          id: crypto.randomUUID(),
-          detectedAt: Date.now(),
-          severity: summary.severity,
-          summary: summary.summary,
-          changes: summary.changes,
-        };
+      const event: ChangeEvent = {
+        id: crypto.randomUUID(),
+        detectedAt: Date.now(),
+        severity: summary.severity,
+        summary: summary.summary,
+        changes: summary.changes,
+      };
 
-        await saveChangeEvent(businessId, event);
-      });
-    }
+      await saveChangeEvent(businessId, event);
+    });
 
     // Step 7: Calculate deterministic health score
     await step.run('calculate-scores', async () => {

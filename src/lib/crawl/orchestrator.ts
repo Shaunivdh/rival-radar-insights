@@ -21,30 +21,11 @@ function getCredentials(): CrawlCredentials {
   return { accountId, apiToken };
 }
 
-const MAX_DAILY_CRAWLS = parseInt(process.env.MAX_DAILY_CRAWLS ?? '20', 10);
-
-async function checkDailyLimit(): Promise<void> {
-  const startOfDay = new Date();
-  startOfDay.setUTCHours(0, 0, 0, 0);
-
-  const { count } = await supabaseAdmin
-    .from('crawl_jobs')
-    .select('id', { count: 'exact', head: true })
-    .gte('started_at', startOfDay.toISOString())
-    .in('status', ['running', 'completed']);
-
-  if ((count ?? 0) >= MAX_DAILY_CRAWLS) {
-    throw new Error(`Daily crawl limit reached (${MAX_DAILY_CRAWLS}). Resets at UTC midnight.`);
-  }
-}
-
 /** Begin a crawl for a business. Updates crawl_status to 'running'. Returns the CF job ID. */
 export async function startBusinessCrawl(
   businessId: string,
   mode: 'initial' | 'incremental'
 ): Promise<string> {
-  await checkDailyLimit();
-
   const { data: business, error } = await supabaseAdmin
     .from('businesses')
     .select('url, last_crawled_at')
@@ -175,6 +156,14 @@ export async function extractAndPersistSignals(
   }
 
   const signals = await extractSignals(rawResult);
+  console.log(`[crawl] Engagement signals for ${businessId}:`, JSON.stringify({
+    hasPhoneNumberProminent: signals.engagement.hasPhoneNumberProminent,
+    hasContactForm: signals.engagement.hasContactForm,
+    hasCallToAction: signals.engagement.hasCallToAction,
+    h1TagCount: signals.seo.h1Tags.length,
+    schemaMarkupTypes: signals.seo.schemaMarkupTypes,
+    pageCount: signals.seo.pageCount,
+  }));
 
   // Archive previous signals
   await supabaseAdmin

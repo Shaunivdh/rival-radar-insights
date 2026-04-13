@@ -85,11 +85,16 @@ export async function getPlaceData(
 
   let domain = '';
   try {
-    domain = new URL(url).hostname;
+    const normalized = url.startsWith('http') ? url : `https://${url}`;
+    domain = new URL(normalized).hostname.replace(/^www\./, '');
   } catch {
     // ignore invalid url
   }
-  const textQuery = domain ? `${name} ${domain}` : name;
+
+  // Require a valid domain — without it we cannot confidently match a Place
+  if (!domain) return null;
+
+  const textQuery = `${name} ${domain}`;
 
   const res = await fetch(`${NEW_PLACES_BASE}:searchText`, {
     method: 'POST',
@@ -102,12 +107,10 @@ export async function getPlaceData(
   });
   const json = await res.json();
   const places: Record<string, unknown>[] = json.places ?? [];
-  const place = domain
-    ? places.find((p) => {
-        const placeHost = (() => { try { return new URL(p.websiteUri as string).hostname.replace(/^www\./, ''); } catch { return ''; } })();
-        return placeHost === domain.replace(/^www\./, '');
-      })
-    : places[0];
+  const place = places.find((p) => {
+    const placeHost = (() => { try { return new URL(p.websiteUri as string).hostname.replace(/^www\./, ''); } catch { return ''; } })();
+    return placeHost === domain || placeHost.endsWith(`.${domain}`) || domain.endsWith(`.${placeHost}`);
+  });
   if (!place) return null;
 
   return mapPlaceToGoogleData(place);

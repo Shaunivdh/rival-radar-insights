@@ -220,7 +220,7 @@ const CompetitorDetail = () => {
             <div className="grid grid-cols-3 gap-4">
               <div><p className="metric-label">Portfolio Items</p><p className="text-lg font-bold">{s.content.portfolioItemCount}</p></div>
               <div><p className="metric-label">FAQ Count</p><p className="text-lg font-bold">{s.content.faqCount}</p></div>
-              <div><p className="metric-label">Total Pages</p><p className="text-lg font-bold">{s.content.totalPages}</p></div>
+
             </div>
             <div>
               <h3 className="metric-label mb-3">Engagement Tools</h3>

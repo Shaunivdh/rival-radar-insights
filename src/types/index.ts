@@ -65,7 +65,6 @@ export interface TrustSignals {
 }
 
 export interface ContentSignals {
-  totalPages: number;
   servicesListed: string[];
   serviceAreasMentioned: string[];
   hasBlog: boolean;

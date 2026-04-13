@@ -74,7 +74,6 @@ export async function extractSignals(rawResult: RawCrawlResult): Promise<Extract
       guaranteesMentioned: mergeStringArrays(pages, 'guaranteesMentioned'),
     },
     content: {
-      totalPages: rawResult.pages.length,
       servicesListed: mergeStringArrays(pages, 'servicesListed'),
       serviceAreasMentioned: mergeStringArrays(pages, 'serviceAreasMentioned'),
       hasBlog: pickBool(pages, 'hasBlog'),

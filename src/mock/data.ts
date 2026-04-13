@@ -42,7 +42,6 @@ export const mockOwnBusiness: Business = {
       guaranteesMentioned: ['10-year structural guarantee'],
     },
     content: {
-      totalPages: 18,
       servicesListed: ['Extensions', 'Loft Conversions', 'New Builds', 'Renovations', 'Kitchens'],
       serviceAreasMentioned: ['Manchester', 'Salford', 'Stockport'],
       hasBlog: true,
@@ -158,7 +157,6 @@ export const mockCompetitors: Business[] = [
         guaranteesMentioned: ['10-year structural guarantee', 'Workmanship guarantee', 'Insurance-backed warranty'],
       },
       content: {
-        totalPages: 45,
         servicesListed: ['Extensions', 'Loft Conversions', 'New Builds', 'Commercial Fit-outs', 'Renovations', 'Kitchens', 'Bathrooms', 'Roofing', 'Landscaping'],
         serviceAreasMentioned: ['Manchester', 'Salford', 'Stockport', 'Trafford', 'Bury', 'Bolton', 'Rochdale', 'Oldham'],
         hasBlog: true,
@@ -289,7 +287,6 @@ export const mockCompetitors: Business[] = [
         guaranteesMentioned: ['10-year guarantee'],
       },
       content: {
-        totalPages: 22,
         servicesListed: ['Extensions', 'Loft Conversions', 'New Builds', 'Renovations', 'Kitchens', 'Bathrooms'],
         serviceAreasMentioned: ['Manchester', 'Stockport', 'Trafford', 'Tameside'],
         hasBlog: true,
@@ -411,7 +408,6 @@ export const mockCompetitors: Business[] = [
         guaranteesMentioned: ['5-year guarantee'],
       },
       content: {
-        totalPages: 32,
         servicesListed: ['Extensions', 'Loft Conversions', 'Renovations', 'Kitchens', 'Bathrooms', 'Garden Rooms'],
         serviceAreasMentioned: ['Manchester', 'Salford', 'Stockport', 'Altrincham', 'Didsbury', 'Chorlton'],
         hasBlog: true,
@@ -542,7 +538,6 @@ export const mockCompetitors: Business[] = [
         guaranteesMentioned: ['25-year structural guarantee', 'Insurance-backed warranty', 'Defects liability period'],
       },
       content: {
-        totalPages: 14,
         servicesListed: ['Extensions', 'New Builds', 'Commercial Projects', 'Renovations'],
         serviceAreasMentioned: ['Manchester', 'Greater Manchester'],
         hasBlog: false,

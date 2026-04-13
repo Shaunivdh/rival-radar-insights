@@ -44,7 +44,6 @@ export interface SEOSignals {
   title: string;
   metaDescription: string;
   h1Tags: string[];
-  pageCount: number;
   hasSitemap: boolean;
   hasRobotsTxt: boolean;
   internalLinkCount: number;

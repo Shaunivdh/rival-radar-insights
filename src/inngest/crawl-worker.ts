@@ -12,6 +12,7 @@ import { generatePriorityActions, generateChangeSummary, checkAIPresence } from 
 import { calculateScores, recomputeOverallScore } from '@/services/scores';
 import { diffSignals } from '@/services/diff';
 import { updateBusiness, saveChangeEvent } from '@/actions/projects';
+import { normalizeUrl } from '@/lib/url';
 import { saveScoreSnapshot, getWeeklyDelta } from '@/lib/supabase/scores';
 import type { ExtractedSignals, Business, ChangeEvent, AIHealthScore, SerpData } from '@/types';
 
@@ -88,8 +89,7 @@ export const crawlBusinessFunction = inngest.createFunction(
         .eq('id', businessId)
         .single();
       if (!bizRow?.url) return;
-
-      const { hasRobotsTxt, hasSitemap } = await checkDirectSignals(bizRow.url as string);
+      const { hasRobotsTxt, hasSitemap } = await checkDirectSignals(normalizeUrl(bizRow.url as string));
       console.log(`[direct-checks] ${bizRow.url} robots=${hasRobotsTxt} sitemap=${hasSitemap}`);
 
       // Only override if direct check found something the crawl missed

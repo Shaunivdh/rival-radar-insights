@@ -5,6 +5,7 @@ import { supabaseAdmin } from '@/lib/supabase/server';
 import { inngest } from '@/inngest/client';
 import { calculateScores } from '@/services/scores';
 import type { Project, Business, ExtractedSignals, AIHealthScore, PriorityAction, ChangeEvent, AIVisibility } from '@/types';
+import { normalizeUrl, extractDomain } from '@/lib/url';
 
 // ── Auth helper ───────────────────────────────────────────────────────────────
 
@@ -84,9 +85,15 @@ export async function createProject(
 
   if (projectError) throw new Error(projectError.message);
 
+  const normalizeEntry = <T extends { url: string; domain: string }>(b: T) => ({
+    ...b,
+    url: normalizeUrl(b.url),
+    domain: extractDomain(b.url),
+  });
+
   const businessRows = [
-    { project_id: project.id, ...ownBusiness, is_own_business: true },
-    ...competitors.map(c => ({ project_id: project.id, ...c, is_own_business: false })),
+    { project_id: project.id, ...normalizeEntry(ownBusiness), is_own_business: true },
+    ...competitors.map(c => ({ project_id: project.id, ...normalizeEntry(c), is_own_business: false })),
   ];
 
   const { data: businesses, error: bizError } = await supabaseAdmin
@@ -338,9 +345,15 @@ export async function addCompetitor(
 
   if ((existing?.length ?? 0) >= 5) throw new Error('Maximum of 5 competitors allowed');
 
+  const normalized = {
+    ...competitor,
+    url: normalizeUrl(competitor.url),
+    domain: extractDomain(competitor.url),
+  };
+
   const { data: row, error } = await supabaseAdmin
     .from('businesses')
-    .insert({ project_id: projectId, ...competitor, is_own_business: false })
+    .insert({ project_id: projectId, ...normalized, is_own_business: false })
     .select()
     .single();
 

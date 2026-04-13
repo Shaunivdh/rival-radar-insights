@@ -16,8 +16,6 @@ export function computeWebsiteHealthScore(signals: ExtractedSignals | null): num
   if (engagement.hasCallToAction) score += 20;
   // +15: title tag and h1 set
   if (seo.title && seo.h1Tags.length > 0) score += 15;
-  // +10: multi-page site (pageCount >= 3)
-  if (seo.pageCount >= 3) score += 10;
   // +10: sitemap present
   if (seo.hasSitemap) score += 10;
   // +10: site assumed indexable (no noIndexed field available)

@@ -3,6 +3,8 @@ import { startCrawl, startIncrementalCrawl, pollCrawlStatus, getCrawlResults, ex
 import { saveToCache, loadFromCache } from '@/services/crawl.cache';
 import { extractSignals } from '@/services/extract';
 import { extractPageSignals } from '@/services/ai';
+import { parseHtmlSignals } from '@/lib/crawl/html-parser';
+import { normalizeUrl } from '@/lib/url';
 import type { RawCrawlResult } from '@/types';
 
 const MAX_PRIORITY_PAGES = parseInt(process.env.CRAWL_PRIORITY_PAGES ?? '5', 10);
@@ -34,8 +36,7 @@ export async function startBusinessCrawl(
 
   if (error || !business) throw new Error(`Business not found: ${businessId}`);
 
-  const rawUrl = business.url as string;
-  const normalizedUrl = /^https?:\/\//i.test(rawUrl) ? rawUrl : `https://${rawUrl}`;
+  const normalizedUrl = normalizeUrl(business.url as string);
 
   const credentials = getCredentials();
   const isIncremental = mode === 'incremental' && !!business.last_crawled_at;
@@ -155,6 +156,17 @@ export async function extractAndPersistSignals(
     console.log(`[crawl] Extracted signals from HTML for ${pagesToExtract.length} pages`);
   }
 
+  // Always apply deterministic HTML parsing on top of AI-extracted json.
+  // AI often returns empty strings for metadata fields even when the HTML contains them.
+  rawResult = {
+    ...rawResult,
+    pages: rawResult.pages.map(p => {
+      if (!p.html) return p;
+      const parsed = parseHtmlSignals(p.html);
+      return { ...p, json: { ...(p.json ?? {}), ...parsed } };
+    }),
+  };
+
   const signals = await extractSignals(rawResult);
   console.log(`[crawl] Engagement signals for ${businessId}:`, JSON.stringify({
     hasPhoneNumberProminent: signals.engagement.hasPhoneNumberProminent,
@@ -162,7 +174,6 @@ export async function extractAndPersistSignals(
     hasCallToAction: signals.engagement.hasCallToAction,
     h1TagCount: signals.seo.h1Tags.length,
     schemaMarkupTypes: signals.seo.schemaMarkupTypes,
-    pageCount: signals.seo.pageCount,
   }));
 
   // Archive previous signals

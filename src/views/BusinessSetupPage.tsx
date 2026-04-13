@@ -50,7 +50,8 @@ const StatusBadge = ({ status }: { status: string }) => (
 );
 
 const getDomain = (url: string) => {
-  try { return new URL(url).hostname; } catch { return url; }
+  const normalized = /^https?:\/\//i.test(url.trim()) ? url.trim() : `https://${url.trim()}`;
+  try { return new URL(normalized).hostname; } catch { return url.trim(); }
 };
 
 const BusinessSetupPage = () => {

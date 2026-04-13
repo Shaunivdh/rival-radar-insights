@@ -55,7 +55,6 @@ export async function extractSignals(rawResult: RawCrawlResult): Promise<Extract
       title: pickStr(pages, 'title'),
       metaDescription: pickStr(pages, 'metaDescription'),
       h1Tags: mergeStringArrays(pages, 'h1Tags'),
-      pageCount: Math.min(rawResult.pages.length, 25),
       hasSitemap: pickBool(pages, 'hasSitemap'),
       hasRobotsTxt: pickBool(pages, 'hasRobotsTxt'),
       internalLinkCount: pickNum(pages, 'internalLinkCount', 0) ?? 0,

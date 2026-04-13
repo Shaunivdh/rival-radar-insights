@@ -86,7 +86,7 @@ export async function generateChangeSummary(
 ): Promise<ChangeSummary> {
   const strip = (s: ExtractedSignals): ExtractedSignals => ({
     ...s,
-    seo: s.seo ? { ...s.seo, pageCount: undefined as unknown as number } : s.seo,
+    seo: s.seo,
   });
   const prompt = `Summarise website changes for "${name}". Return JSON only.
 Schema: {"hasSignificantChanges":boolean,"severity":"high"|"medium"|"low","summary":"string","changes":[{"category":"string","description":"string","significance":"string"}]}

@@ -134,9 +134,8 @@ const CompetitorDetail = () => {
               <h3 className="metric-label mb-2">Meta Description</h3>
               <p className="text-sm text-foreground">{s.seo.metaDescription}</p>
             </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div><p className="metric-label">Pages</p><p className="text-lg font-bold">{s.seo.pageCount}</p></div>
-              <div><p className="metric-label">Internal Links</p><p className="text-lg font-bold">{s.seo.internalLinkCount}</p></div>
+            <div>
+              <p className="metric-label">Internal Links</p><p className="text-lg font-bold">{s.seo.internalLinkCount}</p>
             </div>
             <div className="grid grid-cols-3 gap-4">
               <div><p className="metric-label">Sitemap</p><p className="text-sm font-medium">{s.seo.hasSitemap ? '✓ Yes' : '✗ No'}</p></div>
@@ -217,9 +216,9 @@ const CompetitorDetail = () => {
               <div className="flex flex-wrap gap-1">{s.content.serviceAreasMentioned.map((a) => <span key={a} className="score-chip bg-muted text-muted-foreground">{a}</span>)}</div>
             </div>
             <div className="grid grid-cols-3 gap-4">
-              <div><p className="metric-label">Portfolio Items</p><p className="text-lg font-bold">{s.content.portfolioItemCount}</p></div>
-              <div><p className="metric-label">FAQ Count</p><p className="text-lg font-bold">{s.content.faqCount}</p></div>
-
+              <div><p className="metric-label">Portfolio</p><p className="text-sm font-medium">{s.content.hasPortfolio ? '✓ Yes' : '✗ No'}</p></div>
+              <div><p className="metric-label">FAQ</p><p className="text-sm font-medium">{s.content.hasFAQ ? '✓ Yes' : '✗ No'}</p></div>
+              <div><p className="metric-label">Blog</p><p className="text-sm font-medium">{s.content.hasBlog ? '✓ Yes' : '✗ No'}</p></div>
             </div>
             <div>
               <h3 className="metric-label mb-3">Engagement Tools</h3>

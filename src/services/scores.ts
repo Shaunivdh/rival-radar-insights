@@ -25,10 +25,6 @@ export function computeWebsiteHealthScore(signals: ExtractedSignals | null): num
   // +5: schema markup present
   if (seo.schemaMarkupTypes.length > 0) score += 5;
 
-  // Deductions
-  if (!engagement.hasPhoneNumberProminent && !engagement.hasContactForm) score -= 20;
-  if (seo.h1Tags.length === 0) score -= 10;
-
   return Math.min(100, Math.max(0, score));
 }
 

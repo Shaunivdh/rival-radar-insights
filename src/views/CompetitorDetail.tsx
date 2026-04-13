@@ -201,19 +201,6 @@ const CompetitorDetail = () => {
               <div className="flex flex-wrap gap-1">{s.trust.awardsAndMemberships.length ? s.trust.awardsAndMemberships.map((a) => <span key={a} className="score-chip bg-warning/10 text-[hsl(38,92%,40%)]">{a}</span>) : <span className="text-sm text-muted-foreground">None</span>}</div>
             </div>
             <div>
-              <h3 className="metric-label mb-2">Named Clients</h3>
-              <div className="flex flex-wrap gap-1">{s.trust.namedClientsOrPartners.length ? s.trust.namedClientsOrPartners.map((c) => <span key={c} className="score-chip bg-muted text-foreground">{c}</span>) : <span className="text-sm text-muted-foreground">None listed</span>}</div>
-            </div>
-            <div className="grid grid-cols-3 gap-4">
-              <div><p className="metric-label">Case Studies</p><p className="text-lg font-bold">{s.trust.caseStudyCount}</p></div>
-              <div><p className="metric-label">Testimonials</p><p className="text-lg font-bold">{s.trust.testimonialCount}</p></div>
-              <div><p className="metric-label">Team Members</p><p className="text-lg font-bold">{s.trust.namedTeamMemberCount}</p></div>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div><p className="metric-label">Years in Business</p><p className="text-lg font-bold">{s.trust.yearsInBusiness ?? '—'}</p></div>
-              <div><p className="metric-label">Video Testimonials</p><p className="text-sm font-medium">{s.trust.videoTestimonials ? '✓ Yes' : '✗ No'}</p></div>
-            </div>
-            <div>
               <h3 className="metric-label mb-2">Guarantees</h3>
               {s.trust.guaranteesMentioned.length ? s.trust.guaranteesMentioned.map((g) => <p key={g} className="text-sm">• {g}</p>) : <span className="text-sm text-muted-foreground">None mentioned</span>}
             </div>
@@ -238,7 +225,6 @@ const CompetitorDetail = () => {
             <div>
               <h3 className="metric-label mb-3">Engagement Tools</h3>
               <div className="space-y-2 text-sm">
-                <p>{s.engagement.hasChatWidget ? `✓ Chat: ${s.engagement.chatProvider}` : '✗ No chat widget'}</p>
                 <p>{s.engagement.hasBookingSystem ? `✓ Booking: ${s.engagement.bookingProvider}` : '✗ No booking system'}</p>
                 <p>{s.engagement.hasContactForm ? '✓ Contact form' : '✗ No contact form'}</p>
                 <p>{s.engagement.hasNewsletterSignup ? '✓ Newsletter signup' : '✗ No newsletter'}</p>

@@ -34,7 +34,6 @@ export interface Business {
 
 export interface ExtractedSignals {
   seo: SEOSignals;
-  pricing: PricingSignals;
   trust: TrustSignals;
   content: ContentSignals;
   engagement: EngagementSignals;
@@ -56,37 +55,12 @@ export interface SEOSignals {
   altTagCoverage: 'full' | 'partial' | 'none';
 }
 
-export interface PricingSignals {
-  hasPricingPage: boolean;
-  pricingMentions: Array<{
-    service: string;
-    price: string;
-    context: string;
-  }>;
-  hasPackages: boolean;
-  packageDetails: Array<{
-    name: string;
-    price: string;
-    includes: string[];
-  }>;
-  hasFreeQuote: boolean;
-  hasFreeTrial: boolean;
-  priceTransparencyScore: 'high' | 'medium' | 'low' | 'none';
-}
-
 export interface TrustSignals {
   accreditations: string[];
   certifications: string[];
   awardsAndMemberships: string[];
-  namedClientsOrPartners: string[];
-  caseStudyCount: number;
-  testimonialCount: number;
-  videoTestimonials: boolean;
   reviewPlatformsLinked: string[];
-  trustBadges: string[];
-  yearsInBusiness: number | null;
   teamPageExists: boolean;
-  namedTeamMemberCount: number;
   insuranceMentioned: boolean;
   guaranteesMentioned: string[];
 }
@@ -107,8 +81,6 @@ export interface ContentSignals {
 }
 
 export interface EngagementSignals {
-  hasChatWidget: boolean;
-  chatProvider: string | null;
   hasContactForm: boolean;
   hasBookingSystem: boolean;
   bookingProvider: string | null;

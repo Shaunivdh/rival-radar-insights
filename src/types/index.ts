@@ -226,7 +226,7 @@ export interface PageSpeedData {
 }
 
 export interface AppSettings {
-  primaryService: string;
+  primaryService: import('@/lib/serviceCategories').ServiceCategory;
   location: string;
   postcode?: string;
 }

@@ -372,19 +372,19 @@ export const crawlBusinessFunction = inngest.createFunction(
       const ownBiz = allBiz.find((b) => b.is_own_business);
       if (!ownBiz) return;
 
-      const ownPosition = (ownBiz.serp_data as SerpData | null)?.localPackPosition;
+      const ownPosition = (ownBiz.serp_data as SerpData | null)?.localVisabilityPosition;
       if (ownPosition == null) return;
 
       const overtakers = allBiz.filter((b) => {
         if (b.is_own_business) return false;
-        const pos = (b.serp_data as SerpData | null)?.localPackPosition;
+        const pos = (b.serp_data as SerpData | null)?.localVisabilityPosition;
         return pos != null && pos < ownPosition;
       });
 
       if (!overtakers.length) return;
 
       for (const comp of overtakers) {
-        const theirPosition = (comp.serp_data as SerpData).localPackPosition!;
+        const theirPosition = (comp.serp_data as SerpData).localVisabilityPosition!;
         const event: ChangeEvent = {
           id: crypto.randomUUID(),
           detectedAt: Date.now(),

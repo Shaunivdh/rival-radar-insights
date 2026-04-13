@@ -85,7 +85,6 @@ create table if not exists google_data (
 create table if not exists serp_data (
   id                   uuid primary key default uuid_generate_v4(),
   business_id          uuid not null references businesses(id) on delete cascade,
-  organic_position     integer,
   local_pack_position  integer,
   featured_snippet     boolean not null default false,
   sitelinks            jsonb,

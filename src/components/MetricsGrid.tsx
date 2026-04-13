@@ -69,7 +69,7 @@ export function MetricsGrid({ business }: MetricsGridProps) {
   const getErr = (score: number, key: keyof NonNullable<typeof enrichmentErrors>) =>
     score === 0 ? enrichmentErrors?.[key] : undefined;
 
-  const localPackPos = serpData?.localPackPosition ?? null;
+  const localPackPos = serpData?.localVisabilityPosition ?? null;
   const localPackLabel =
     localPackPos === 1 ? '#1 in local 3-pack'
     : localPackPos === 2 ? '#2 in local 3-pack'

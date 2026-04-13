@@ -151,9 +151,13 @@ const CompetitorDetail = () => {
               </div>
             </div>
             {biz.serpData && (
-              <div className="grid grid-cols-2 gap-4">
-                <div><p className="metric-label">Organic Position</p><p className="text-lg font-bold">{biz.serpData.organicPosition ? `#${biz.serpData.organicPosition}` : '—'}</p></div>
-                <div><p className="metric-label">Local Pack</p><p className="text-lg font-bold">{biz.serpData.localPackPosition ? `#${biz.serpData.localPackPosition}` : '—'}</p></div>
+              <div>
+                <p className="metric-label">Local Visibility</p>
+                <p className="text-lg font-bold">
+                  {biz.serpData.localVisabilityPosition
+                    ? `#${biz.serpData.localVisabilityPosition} in local visibility`
+                    : 'Not found in local visibility'}
+                </p>
               </div>
             )}
           </div>

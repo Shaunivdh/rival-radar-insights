@@ -103,8 +103,7 @@ export interface GoogleData {
 }
 
 export interface SerpData {
-  organicPosition: number | null;
-  localPackPosition: number | null;
+  localVisabilityPosition: number | null;
   localPackPresent: boolean;
   featuredSnippet: boolean;
   knowledgePanelPresent: boolean;

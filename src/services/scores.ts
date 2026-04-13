@@ -118,11 +118,11 @@ export function calculateScores(
 
   let localVisibilityScore = 0;
   if (serpData != null) {
-    const pos = serpData.localPackPosition;
-    if (pos === 1) localVisibilityScore = 100;
-    else if (pos === 2) localVisibilityScore = 80;
-    else if (pos === 3) localVisibilityScore = 60;
-    else if (pos !== null && pos >= 4 && pos <= 10) localVisibilityScore = 20;
+    const pos = serpData.localVisabilityPosition;
+    // Granular 1–10 scoring; null = not found in top 10
+    if (pos !== null && pos >= 1 && pos <= 10) {
+      localVisibilityScore = Math.round(100 - (pos - 1) * 10);
+    }
   }
 
   const aiPresenceScore = aiVisibility?.aiPresenceScore ?? 0;

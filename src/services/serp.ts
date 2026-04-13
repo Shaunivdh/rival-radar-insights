@@ -1,11 +1,5 @@
 import type { SerpData } from '@/types';
 
-interface SerpApiOrganicResult {
-  position: number;
-  link: string;
-  sitelinks?: unknown;
-}
-
 interface SerpApiLocalResult {
   position: number;
   title?: string;
@@ -14,11 +8,22 @@ interface SerpApiLocalResult {
 }
 
 interface SerpApiResponse {
-  organic_results?: SerpApiOrganicResult[];
   local_results?: SerpApiLocalResult[];
   answer_box?: { type?: string };
   knowledge_graph?: unknown;
   ads?: unknown[];
+  error?: string;
+}
+
+// Normalize a URL/domain to bare hostname for comparison
+const normalizeDomain = (s: string) =>
+  s.replace(/^https?:\/\//, '').replace(/^www\./, '').split('/')[0].toLowerCase();
+
+// Check if name words match (all words in normalizedName must appear in title)
+function nameMatches(title: string, normalizedName: string): boolean {
+  const titleLower = title.toLowerCase();
+  const nameWords = normalizedName.split(/\s+/).filter(w => w.length > 2);
+  return nameWords.length > 0 && nameWords.every(word => titleLower.includes(word));
 }
 
 export async function getRankingData(
@@ -31,65 +36,86 @@ export async function getRankingData(
 ): Promise<SerpData> {
   const base = 'https://serpapi.com/search.json';
   const common = `&api_key=${apiKey}&gl=gb&hl=en`;
-  const llParam = ll ? `&ll=@${ll.lat},${ll.lng},14z` : '';
+  const llParam = ll ? `&ll=@${ll.lat},${ll.lng},12z` : '';
   const searchTerm = `${primaryService} ${location}`;
 
-  const [organicRes, localRes] = await Promise.all([
-    fetch(`${base}?q=${encodeURIComponent(`${businessName} ${primaryService} ${location}`)}${common}`),
-    fetch(`${base}?q=${encodeURIComponent(searchTerm)}${common}${llParam}`),
-  ]);
+  let localJson: SerpApiResponse;
+  try {
+    const localRes = await fetch(
+      `${base}?q=${encodeURIComponent(searchTerm)}${common}${llParam}`
+    );
+    if (!localRes.ok) {
+      console.error('[serp] HTTP error:', localRes.status, localRes.statusText);
+      return emptyResult(searchTerm);
+    }
+    localJson = await localRes.json() as SerpApiResponse;
+  } catch (err) {
+    console.error('[serp] fetch failed:', err);
+    return emptyResult(searchTerm);
+  }
 
-  const [organicJson, localJson] = await Promise.all([
-    organicRes.json() as Promise<SerpApiResponse>,
-    localRes.json() as Promise<SerpApiResponse>,
-  ]);
+  if (localJson.error) {
+    console.error('[serp] API error:', localJson.error);
+    return emptyResult(searchTerm);
+  }
 
-  // Normalize a URL/domain to bare hostname for comparison
-  const normalizeDomain = (s: string) =>
-    s.replace(/^https?:\/\//, '').replace(/^www\./, '').split('/')[0].toLowerCase();
+  const localResults: SerpApiLocalResult[] = Array.isArray(localJson.local_results)
+    ? localJson.local_results
+    : [];
+
+  if (localResults.length === 0) {
+    console.warn('[serp] No local results returned for:', searchTerm);
+    return emptyResult(searchTerm);
+  }
 
   const normalizedDomain = domain ? normalizeDomain(domain) : '';
   const normalizedName = businessName.toLowerCase().trim();
 
-  // Organic position — find result whose link contains the business domain
-  const organicMatch = organicJson.organic_results?.find(r =>
-    normalizedDomain && r.link && normalizeDomain(r.link).includes(normalizedDomain)
-  );
-  const organicPosition = organicMatch?.position ?? null;
-
-  // Local pack — match by domain first, fall back to business name
-  const getLocalWebsite = (r: SerpApiLocalResult) => r.website ?? r.links?.website;
-  const localResults: SerpApiLocalResult[] = Array.isArray(localJson.local_results) ? localJson.local_results : [];
   console.log('[serp] normalizedDomain:', normalizedDomain, 'normalizedName:', normalizedName);
-  const localMatch = localResults.find(r => {
+
+  const getLocalWebsite = (r: SerpApiLocalResult) => r.website ?? r.links?.website;
+
+  // Only check top 10
+  const top10 = localResults.filter(r => r.position <= 10);
+
+  const localMatch = top10.find(r => {
     const site = getLocalWebsite(r);
     if (normalizedDomain && site && normalizeDomain(site).includes(normalizedDomain)) return true;
-    // fallback: match by business name if no website or domain mismatch
-    return r.title && r.title.toLowerCase().includes(normalizedName);
+    // Stricter name fallback: all words in business name must appear in title
+    return r.title ? nameMatches(r.title, normalizedName) : false;
   });
-  const localPackPresent = localResults.length > 0;
-  const localPackPosition = localMatch?.position ?? null;
 
-  // Featured snippet (answer_box present)
-  const featuredSnippet = !!organicJson.answer_box;
+  const localPackPresent = localResults.length > 0;
+  const localVisabilityPosition = localMatch?.position ?? null;
+
+  // Featured snippet
+  const featuredSnippet = !!localJson.answer_box;
 
   // Knowledge panel
-  const knowledgePanelPresent = !!organicJson.knowledge_graph;
-
-  // Sitelinks — present on the matched organic result itself
-  const sitelinks = !!organicMatch?.sitelinks;
+  const knowledgePanelPresent = !!localJson.knowledge_graph;
 
   // Ads above results
-  const adsAboveResults = Array.isArray(organicJson.ads) ? organicJson.ads.length : 0;
+  const adsAboveResults = Array.isArray(localJson.ads) ? localJson.ads.length : 0;
 
   return {
-    organicPosition,
-    localPackPosition,
+    localVisabilityPosition,
     localPackPresent,
     featuredSnippet,
     knowledgePanelPresent,
-    sitelinks,
+    sitelinks: false,
     adsAboveResults,
+    searchTerm,
+  };
+}
+
+function emptyResult(searchTerm: string): SerpData {
+  return {
+    localVisabilityPosition: null,
+    localPackPresent: false,
+    featuredSnippet: false,
+    knowledgePanelPresent: false,
+    sitelinks: false,
+    adsAboveResults: 0,
     searchTerm,
   };
 }

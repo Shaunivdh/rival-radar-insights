@@ -3,6 +3,7 @@
 import { getPlaceData, getPlaceDataById, postcodeToLatLng } from '@/services/google';
 import { getRankingData } from '@/services/serp';
 import { updateBusiness } from '@/actions/projects';
+import { supabaseAdmin } from '@/lib/supabase/server';
 
 export async function fetchGoogleData(
   businessId: string,
@@ -36,6 +37,16 @@ export async function fetchGoogleData(
     { googleData },
     usedFallback && googleData.placeId ? { googlePlaceId: googleData.placeId } : undefined
   );
+
+  await supabaseAdmin.from('google_data').insert({
+    business_id: businessId,
+    google_rating: googleData.googleRating,
+    review_count: googleData.reviewCount,
+    place_id: googleData.placeId,
+    address: googleData.address,
+    recent_reviews: googleData.recentReviews,
+  });
+
   console.log(`[enrich-google] google_data saved for business ${businessId}`);
 }
 

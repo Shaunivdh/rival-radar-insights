@@ -188,11 +188,15 @@ const CompetitorDetail = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
               <h3 className="metric-label mb-2">Accreditations</h3>
-              <div className="flex flex-wrap gap-1">{s.trust.accreditations.map((a) => <span key={a} className="score-chip bg-primary/10 text-primary">{a}</span>)}</div>
+              {s.trust.accreditations.length > 0
+                ? <div className="flex flex-wrap gap-1">{s.trust.accreditations.map((a) => <span key={a} className="score-chip bg-primary/10 text-primary">{a}</span>)}</div>
+                : <p className="text-sm text-muted-foreground">✗ None found</p>}
             </div>
             <div>
               <h3 className="metric-label mb-2">Certifications</h3>
-              <div className="flex flex-wrap gap-1">{s.trust.certifications.map((c) => <span key={c} className="score-chip bg-muted text-muted-foreground">{c}</span>)}</div>
+              {s.trust.certifications.length > 0
+                ? <div className="flex flex-wrap gap-1">{s.trust.certifications.map((c) => <span key={c} className="score-chip bg-muted text-muted-foreground">{c}</span>)}</div>
+                : <p className="text-sm text-muted-foreground">✗ None found</p>}
             </div>
             <div>
               <h3 className="metric-label mb-2">Awards & Memberships</h3>
@@ -209,11 +213,15 @@ const CompetitorDetail = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
               <h3 className="metric-label mb-2">Services Listed</h3>
-              <div className="flex flex-wrap gap-1">{s.content.servicesListed.map((sv) => <span key={sv} className="score-chip bg-muted text-foreground">{sv}</span>)}</div>
+              {s.content.servicesListed.length > 0
+                ? <div className="flex flex-wrap gap-1">{s.content.servicesListed.map((sv) => <span key={sv} className="score-chip bg-muted text-foreground">{sv}</span>)}</div>
+                : <p className="text-sm text-muted-foreground">✗ None found</p>}
             </div>
             <div>
               <h3 className="metric-label mb-2">Service Areas</h3>
-              <div className="flex flex-wrap gap-1">{s.content.serviceAreasMentioned.map((a) => <span key={a} className="score-chip bg-muted text-muted-foreground">{a}</span>)}</div>
+              {s.content.serviceAreasMentioned.length > 0
+                ? <div className="flex flex-wrap gap-1">{s.content.serviceAreasMentioned.map((a) => <span key={a} className="score-chip bg-muted text-muted-foreground">{a}</span>)}</div>
+                : <p className="text-sm text-muted-foreground">✗ None found</p>}
             </div>
             <div className="grid grid-cols-3 gap-4">
               <div><p className="metric-label">Portfolio</p><p className="text-sm font-medium">{s.content.hasPortfolio ? '✓ Yes' : '✗ No'}</p></div>
@@ -230,11 +238,15 @@ const CompetitorDetail = () => {
             </div>
             <div>
               <h3 className="metric-label mb-2">CTAs Found</h3>
-              <div className="flex flex-wrap gap-1">{s.engagement.ctaText.map((c) => <span key={c} className="score-chip bg-primary/10 text-primary">{c}</span>)}</div>
+              {s.engagement.ctaText.length > 0
+                ? <div className="flex flex-wrap gap-1">{s.engagement.ctaText.map((c) => <span key={c} className="score-chip bg-primary/10 text-primary">{c}</span>)}</div>
+                : <p className="text-sm text-muted-foreground">✗ None found</p>}
             </div>
             <div>
               <h3 className="metric-label mb-2">Social Platforms</h3>
-              <div className="flex flex-wrap gap-1">{s.engagement.socialLinksPresent.map((p) => <span key={p} className="score-chip bg-muted text-muted-foreground">{p}</span>)}</div>
+              {s.engagement.socialLinksPresent.length > 0
+                ? <div className="flex flex-wrap gap-1">{s.engagement.socialLinksPresent.map((p) => <span key={p} className="score-chip bg-muted text-muted-foreground">{p}</span>)}</div>
+                : <p className="text-sm text-muted-foreground">✗ None found</p>}
             </div>
           </div>
         )}

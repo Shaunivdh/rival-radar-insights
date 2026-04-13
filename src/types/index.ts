@@ -80,7 +80,6 @@ export interface EngagementSignals {
   hasNewsletterSignup: boolean;
   socialLinksPresent: string[];
   hasPhoneNumberProminent: boolean;
-  hasEmergencyContact: boolean;
 }
 
 export interface FeatureChanges {

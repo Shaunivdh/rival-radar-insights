@@ -1,6 +1,5 @@
 import { create } from 'zustand';
 import type { Project, Business, AppSettings, PriorityAction, User } from '@/types';
-import { mockOwnBusiness, mockCompetitors, mockPriorityActions } from '@/mock/data';
 import { supabase } from '@/lib/supabase/client';
 import { getProject } from '@/actions/projects';
 

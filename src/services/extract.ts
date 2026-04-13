@@ -56,6 +56,14 @@ function mergeObjectArrays(pages: PageJson[], key: string): unknown[] {
   return results;
 }
 
+/** Returns true if any page HTML contains a <form> element with inputs — deterministic fallback for hasContactForm. */
+function htmlHasContactForm(rawResult: RawCrawlResult): boolean {
+  return rawResult.pages.some((p) => {
+    const html = p.html ?? '';
+    return /<form[\s>]/i.test(html) && /<input[\s>]/i.test(html);
+  });
+}
+
 /** Aggregate extracted JSON blobs from all crawl pages into a single ExtractedSignals object. */
 export async function extractSignals(rawResult: RawCrawlResult): Promise<ExtractedSignals> {
   const pages = rawResult.pages.map((p) => (p.json ?? {}) as PageJson);
@@ -90,7 +98,7 @@ export async function extractSignals(rawResult: RawCrawlResult): Promise<Extract
       hasFAQ: pickBool(pages, 'hasFAQ'),
     },
     engagement: {
-      hasContactForm: pickBool(pages, 'hasContactForm'),
+      hasContactForm: pickBool(pages, 'hasContactForm') || htmlHasContactForm(rawResult),
       hasBookingSystem: pickBool(pages, 'hasBookingSystem'),
       bookingProvider: pickStr(pages, 'bookingProvider') || null,
       hasCallToAction: pickBool(pages, 'hasCallToAction'),
@@ -98,7 +106,6 @@ export async function extractSignals(rawResult: RawCrawlResult): Promise<Extract
       hasNewsletterSignup: pickBool(pages, 'hasNewsletterSignup'),
       socialLinksPresent: mergeStringArrays(pages, 'socialLinksPresent'),
       hasPhoneNumberProminent: pickBool(pages, 'hasPhoneNumberProminent'),
-      hasEmergencyContact: pickBool(pages, 'hasEmergencyContact'),
     },
     features: {
       newServicesDetected: mergeStringArrays(pages, 'newServicesDetected'),

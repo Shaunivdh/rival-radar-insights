@@ -27,6 +27,7 @@ export interface Business {
   trustpilotData: TrustpilotData | null;
   aiScore: AIHealthScore | null;
   aiVisibility: AIVisibility | null;
+  pagespeedData: PageSpeedData | null;
   enrichmentErrors: { google?: string; serp?: string; crawl?: string } | null;
   previousSignals: ExtractedSignals | null;
   changeEvents: ChangeEvent[];
@@ -131,8 +132,9 @@ export interface AIHealthScore {
   localVisibilityScore: number;   // local pack position (0–100)
   websiteHealthScore: number;     // crawl-derived: speed, CTA, contact, errors
   gbpCompletenessScore: number;   // Google Business Profile completeness
-  aiPresenceScore: number;        // multi-prompt AI mention check (0–100)
-  reviewVelocityScore: number;    // new reviews in last 30d vs competitors
+  aiPresenceScore: number;             // multi-prompt AI mention check (0–100)
+  reviewVelocityScore: number;         // Google: new reviews in last 30d
+  trustpilotVelocityScore: number | null; // Trustpilot: new reviews in last 30d (null = not found)
 
   summary?: string;
   generatedAt: string;
@@ -148,6 +150,7 @@ export interface ScoreSnapshot {
   gbpCompletenessScore: number;
   aiPresenceScore: number;
   reviewVelocityScore: number;
+  trustpilotVelocityScore: number | null;
   snapshotAt: string;
 }
 
@@ -206,6 +209,20 @@ export interface ChangeSummary {
   severity: 'high' | 'medium' | 'low';
   summary: string;
   changes: Change[];
+}
+
+export interface PageSpeedMetrics {
+  performanceScore: number; // 0-100
+  lcp: number | null;       // ms
+  cls: number | null;       // 0–1
+  inp: number | null;       // ms
+  fcp: number | null;       // ms
+}
+
+export interface PageSpeedData {
+  mobile: PageSpeedMetrics;
+  desktop: PageSpeedMetrics;
+  fetchedAt: string;
 }
 
 export interface AppSettings {

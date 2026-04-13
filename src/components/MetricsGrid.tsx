@@ -1,5 +1,5 @@
 import { cn } from '@/lib/utils';
-import type { Business } from '@/types';
+import type { Business, PageSpeedMetrics } from '@/types';
 
 interface MetricCardProps {
   emoji: string;
@@ -62,8 +62,20 @@ interface MetricsGridProps {
   business: Business;
 }
 
+function formatLcp(ms: number | null) {
+  if (ms === null) return '—';
+  return ms >= 1000 ? `${(ms / 1000).toFixed(1)}s` : `${Math.round(ms)}ms`;
+}
+
+function psiSubtitle(m: PageSpeedMetrics) {
+  const lcp = formatLcp(m.lcp);
+  const cls = m.cls !== null ? m.cls.toFixed(2) : '—';
+  const inp = m.inp !== null ? `${Math.round(m.inp)}ms` : '—';
+  return `LCP ${lcp} · CLS ${cls} · INP ${inp}`;
+}
+
 export function MetricsGrid({ business }: MetricsGridProps) {
-  const { aiScore, googleData, serpData, aiVisibility, enrichmentErrors } = business;
+  const { aiScore, googleData, serpData, aiVisibility, pagespeedData, enrichmentErrors, trustpilotData } = business;
   if (!aiScore) return null;
 
   const getErr = (score: number, key: keyof NonNullable<typeof enrichmentErrors>) =>
@@ -150,12 +162,41 @@ export function MetricsGrid({ business }: MetricsGridProps) {
       />
       <MetricCard
         emoji="⚡"
-        title="Review Velocity"
+        title="Review Velocity (Google)"
         score={aiScore.reviewVelocityScore}
-        subtitle="New reviews per 30 days"
+        subtitle="New Google reviews per 30 days"
         detail="5 reviews/month = 100 · 0 = losing ground"
         source="Google Places"
         noData={aiScore.weeklyDelta === null ? 'Insufficient data' : undefined}
+      />
+      <MetricCard
+        emoji="⭐"
+        title="Review Velocity (Trustpilot)"
+        score={aiScore.trustpilotVelocityScore ?? 0}
+        subtitle={trustpilotData?.trustpilotReviewCount != null
+          ? `${trustpilotData.trustpilotRating?.toFixed(1) ?? '?'}★ · ${trustpilotData.trustpilotReviewCount.toLocaleString()} reviews`
+          : 'Not found on Trustpilot'}
+        detail="5 reviews/month = 100 · 0 = losing ground"
+        source="Trustpilot (CF Crawl)"
+        noData={aiScore.trustpilotVelocityScore === null ? 'Not found on Trustpilot' : undefined}
+      />
+      <MetricCard
+        emoji="📱"
+        title="Mobile Page Speed"
+        score={pagespeedData?.mobile.performanceScore ?? 0}
+        subtitle={pagespeedData ? psiSubtitle(pagespeedData.mobile) : '—'}
+        detail="Lighthouse performance · Core Web Vitals"
+        source="Google PageSpeed"
+        noData={!pagespeedData ? 'Not yet scanned' : undefined}
+      />
+      <MetricCard
+        emoji="🖥️"
+        title="Desktop Page Speed"
+        score={pagespeedData?.desktop.performanceScore ?? 0}
+        subtitle={pagespeedData ? psiSubtitle(pagespeedData.desktop) : '—'}
+        detail="Lighthouse performance · Core Web Vitals"
+        source="Google PageSpeed"
+        noData={!pagespeedData ? 'Not yet scanned' : undefined}
       />
     </div>
   );

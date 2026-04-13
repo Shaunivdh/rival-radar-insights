@@ -112,10 +112,11 @@ create table if not exists ai_health_scores (
   local_visibility_score  integer not null default 0,
   website_health_score    integer not null default 0,
   gbp_completeness_score  integer not null default 0,
-  ai_presence_score       integer not null default 0,
-  review_velocity_score   integer not null default 0,
-  summary                 text,
-  generated_at            timestamptz not null default now()
+  ai_presence_score            integer not null default 0,
+  review_velocity_score        integer not null default 0,
+  trustpilot_velocity_score    integer,
+  summary                      text,
+  generated_at                 timestamptz not null default now()
 );
 
 -- score_snapshots (historical record for trend tracking)
@@ -127,9 +128,10 @@ create table if not exists score_snapshots (
   local_visibility_score  integer not null,
   website_health_score    integer not null,
   gbp_completeness_score  integer not null,
-  ai_presence_score       integer not null,
-  review_velocity_score   integer not null,
-  snapshot_at             timestamptz not null default now()
+  ai_presence_score            integer not null,
+  review_velocity_score        integer not null,
+  trustpilot_velocity_score    integer,
+  snapshot_at                  timestamptz not null default now()
 );
 
 -- priority_actions

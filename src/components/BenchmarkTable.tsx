@@ -8,18 +8,20 @@ import type { Business } from '@/types';
 import { ExternalLink } from 'lucide-react';
 
 const METRICS: { key: keyof NonNullable<Business['aiScore']>; emoji: string; label: string }[] = [
-  { key: 'reputationScore',      emoji: '🌟', label: 'Reputation' },
-  { key: 'localVisibilityScore', emoji: '📍', label: 'Local Visibility' },
-  { key: 'websiteHealthScore',   emoji: '🌐', label: 'Website Health' },
-  { key: 'gbpCompletenessScore', emoji: '📋', label: 'GBP Completeness' },
-  { key: 'aiPresenceScore',      emoji: '🤖', label: 'AI Presence' },
-  { key: 'reviewVelocityScore',  emoji: '⚡', label: 'Review Velocity' },
+  { key: 'reputationScore',           emoji: '🌟', label: 'Reputation' },
+  { key: 'localVisibilityScore',      emoji: '📍', label: 'Local Visibility' },
+  { key: 'websiteHealthScore',        emoji: '🌐', label: 'Website Health' },
+  { key: 'gbpCompletenessScore',      emoji: '📋', label: 'GBP Completeness' },
+  { key: 'aiPresenceScore',           emoji: '🤖', label: 'AI Presence' },
+  { key: 'reviewVelocityScore',       emoji: '⚡', label: 'Review Velocity (G)' },
+  { key: 'trustpilotVelocityScore',   emoji: '⭐', label: 'Review Velocity (TP)' },
 ];
 
 const GOOGLE_METRICS = new Set<typeof METRICS[number]['key']>(['reputationScore', 'gbpCompletenessScore', 'reviewVelocityScore']);
 
-function isDataMissing(key: string, biz: Business): boolean {
+function isDataMissing(key: keyof NonNullable<Business['aiScore']>, biz: Business): boolean {
   if (GOOGLE_METRICS.has(key)) return biz.googleData === null;
+  if (key === 'trustpilotVelocityScore') return biz.trustpilotData === null;
   if (key === 'localVisibilityScore') return biz.serpData === null;
   if (key === 'websiteHealthScore') return biz.signals === null;
   if (key === 'aiPresenceScore') return biz.aiVisibility === null;
@@ -76,9 +78,17 @@ const Row = ({ biz, isOwn }: { biz: Business; isOwn?: boolean }) => {
             </td>
           );
         }
+        const val = biz.aiScore[key];
+        if (val === null) {
+          return (
+            <td key={key} className="px-4 py-3 text-center">
+              <span className="text-xs text-muted-foreground">—</span>
+            </td>
+          );
+        }
         return (
           <td key={key} className="px-4 py-3 text-center">
-            <ScoreChip label="" score={biz.aiScore[key] as number} />
+            <ScoreChip label="" score={val as number} />
           </td>
         );
       })}

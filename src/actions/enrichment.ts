@@ -2,6 +2,7 @@
 
 import { getPlaceData, getPlaceDataById, postcodeToLatLng } from '@/services/google';
 import { getRankingData } from '@/services/serp';
+import { getTrustpilotData } from '@/services/trustpilot';
 import { updateBusiness } from '@/actions/projects';
 import { supabaseAdmin } from '@/lib/supabase/server';
 
@@ -87,6 +88,24 @@ export async function fetchSerpData(
   console.log(`[enrich-serp] serp_data saved for business ${businessId}`);
 }
 
-export async function fetchTrustpilotData(_businessId: string, _url: string): Promise<void> {
-  // Removed: Trustpilot scraping violates ToS
+export async function fetchTrustpilotData(businessId: string, url: string): Promise<void> {
+  const accountId = process.env.CF_ACCOUNT_ID;
+  const apiToken = process.env.CF_API_TOKEN;
+  if (!accountId || !apiToken) {
+    console.warn('[enrich-trustpilot] CF credentials not set — skipping');
+    return;
+  }
+
+  const data = await getTrustpilotData(url, { accountId, apiToken });
+
+  await updateBusiness(businessId, { trustpilotData: data });
+
+  await supabaseAdmin.from('trustpilot_data').insert({
+    business_id: businessId,
+    trustpilot_rating: data.trustpilotRating,
+    review_count: data.trustpilotReviewCount,
+    recent_reviews: data.recentTrustpilotReviews,
+  });
+
+  console.log(`[enrich-trustpilot] trustpilot_data saved for business ${businessId}`);
 }

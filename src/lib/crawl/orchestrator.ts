@@ -218,7 +218,6 @@ export async function extractAndPersistSignals(
     trust: signals.trust,
     content: signals.content,
     engagement: signals.engagement,
-    features: signals.features,
   });
   if (insertError) throw new Error(`Failed to insert signals: ${insertError.message}`);
 

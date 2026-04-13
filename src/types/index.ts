@@ -37,7 +37,6 @@ export interface ExtractedSignals {
   trust: TrustSignals;
   content: ContentSignals;
   engagement: EngagementSignals;
-  features: FeatureChanges;
 }
 
 export interface SEOSignals {
@@ -82,17 +81,6 @@ export interface EngagementSignals {
   hasPhoneNumberProminent: boolean;
 }
 
-export interface FeatureChanges {
-  newServicesDetected: string[];
-  removedServicesDetected: string[];
-  newTechIntegrations: string[];
-  recentAnnouncementsOrNews: Array<{
-    headline: string;
-    date: string | null;
-  }>;
-  recentHiringSignals: string[];
-  newLocationsOrExpansion: string[];
-}
 
 export interface GoogleData {
   googleRating: number;

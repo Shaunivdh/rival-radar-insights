@@ -209,7 +209,7 @@ export const crawlBusinessFunction = inngest.createFunction(
     await step.run('diff-and-summarize', async () => {
       const { data: rows } = await supabaseAdmin
         .from('extracted_signals')
-        .select('seo, pricing, trust, content, engagement, features')
+        .select('seo, pricing, trust, content, engagement')
         .eq('business_id', businessId)
         .order('scanned_at', { ascending: false })
         .limit(2);
@@ -217,7 +217,7 @@ export const crawlBusinessFunction = inngest.createFunction(
       if (!rows || rows.length < 2) return;
 
       const toSignals = (r: Record<string, unknown>): ExtractedSignals =>
-        ({ seo: r.seo, pricing: r.pricing, trust: r.trust, content: r.content, engagement: r.engagement, features: r.features } as ExtractedSignals);
+        ({ seo: r.seo, pricing: r.pricing, trust: r.trust, content: r.content, engagement: r.engagement } as ExtractedSignals);
 
       const current = toSignals(rows[0]);
       const previous = toSignals(rows[1]);
@@ -249,7 +249,7 @@ export const crawlBusinessFunction = inngest.createFunction(
           .single(),
         supabaseAdmin
           .from('extracted_signals')
-          .select('seo, pricing, trust, content, engagement, features')
+          .select('seo, pricing, trust, content, engagement')
           .eq('business_id', businessId)
           .order('scanned_at', { ascending: false })
           .limit(1)
@@ -265,7 +265,7 @@ export const crawlBusinessFunction = inngest.createFunction(
       if (!biz) return;
 
       const signals = sig?.seo
-        ? ({ seo: sig.seo, pricing: sig.pricing, trust: sig.trust, content: sig.content, engagement: sig.engagement, features: sig.features } as ExtractedSignals)
+        ? ({ seo: sig.seo, pricing: sig.pricing, trust: sig.trust, content: sig.content, engagement: sig.engagement } as ExtractedSignals)
         : null;
 
       let previousReviewCount: number | undefined;
@@ -443,13 +443,13 @@ export const crawlBusinessFunction = inngest.createFunction(
         allBiz.map(async (b) => {
           const { data: sig } = await supabaseAdmin
             .from('extracted_signals')
-            .select('seo, pricing, trust, content, engagement, features')
+            .select('seo, pricing, trust, content, engagement')
             .eq('business_id', b.id)
             .order('scanned_at', { ascending: false })
             .limit(1)
             .maybeSingle();
           const signals = sig?.seo
-            ? ({ seo: sig.seo, pricing: sig.pricing, trust: sig.trust, content: sig.content, engagement: sig.engagement, features: sig.features } as ExtractedSignals)
+            ? ({ seo: sig.seo, pricing: sig.pricing, trust: sig.trust, content: sig.content, engagement: sig.engagement } as ExtractedSignals)
             : null;
           return {
             id: b.id as string,

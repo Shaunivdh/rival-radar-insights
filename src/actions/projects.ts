@@ -124,7 +124,7 @@ export async function getProject(userId: string): Promise<Project | null> {
       const [{ data: sig }, { data: events }] = await Promise.all([
         supabaseAdmin
           .from('extracted_signals')
-          .select('seo, pricing, trust, content, engagement, features')
+          .select('seo, pricing, trust, content, engagement')
           .eq('business_id', b.id)
           .order('scanned_at', { ascending: false })
           .limit(1)
@@ -137,7 +137,7 @@ export async function getProject(userId: string): Promise<Project | null> {
       ]);
 
       const signals = sig?.seo
-        ? ({ seo: sig.seo, pricing: sig.pricing, trust: sig.trust, content: sig.content, engagement: sig.engagement, features: sig.features } as ExtractedSignals)
+        ? ({ seo: sig.seo, pricing: sig.pricing, trust: sig.trust, content: sig.content, engagement: sig.engagement } as ExtractedSignals)
         : null;
       const changeEvents: ChangeEvent[] = (events ?? []).map(e => ({
         id: e.id as string,
@@ -244,14 +244,14 @@ export async function syncProject(projectId: string): Promise<{
       if (b.crawl_status === 'complete') {
         const { data: sig } = await supabaseAdmin
           .from('extracted_signals')
-          .select('seo, pricing, trust, content, engagement, features')
+          .select('seo, pricing, trust, content, engagement')
           .eq('business_id', b.id)
           .order('scanned_at', { ascending: false })
           .limit(1)
           .maybeSingle();
 
         if (sig?.seo) {
-          signals = { seo: sig.seo, pricing: sig.pricing, trust: sig.trust, content: sig.content, engagement: sig.engagement, features: sig.features } as ExtractedSignals;
+          signals = { seo: sig.seo, pricing: sig.pricing, trust: sig.trust, content: sig.content, engagement: sig.engagement } as ExtractedSignals;
         }
 
         // Recalculate if missing or if websiteHealthScore is 0 but signals are now available

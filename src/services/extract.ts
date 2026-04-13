@@ -107,13 +107,5 @@ export async function extractSignals(rawResult: RawCrawlResult): Promise<Extract
       socialLinksPresent: mergeStringArrays(pages, 'socialLinksPresent'),
       hasPhoneNumberProminent: pickBool(pages, 'hasPhoneNumberProminent'),
     },
-    features: {
-      newServicesDetected: mergeStringArrays(pages, 'newServicesDetected'),
-      removedServicesDetected: mergeStringArrays(pages, 'removedServicesDetected'),
-      newTechIntegrations: mergeStringArrays(pages, 'newTechIntegrations'),
-      recentAnnouncementsOrNews: mergeObjectArrays(pages, 'recentAnnouncementsOrNews') as ExtractedSignals['features']['recentAnnouncementsOrNews'],
-      recentHiringSignals: mergeStringArrays(pages, 'recentHiringSignals'),
-      newLocationsOrExpansion: mergeStringArrays(pages, 'newLocationsOrExpansion'),
-    },
   };
 }

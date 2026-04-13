@@ -2,6 +2,7 @@
 
 import { useRivalRadarStore } from '@/store/rivalradar';
 import { Settings as SettingsIcon, Trash2, RefreshCw, AlertTriangle } from 'lucide-react';
+import { isValidUKPostcode } from '@/lib/utils';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { rescanAll } from '@/actions/projects';
@@ -25,6 +26,7 @@ const SettingsPage = () => {
     const newErrors: FieldErrors = {};
     if (!form.primaryService?.trim()) newErrors.primaryService = 'Primary Service is required';
     if (!form.location?.trim()) newErrors.location = 'Location is required';
+    if (form.postcode?.trim() && !isValidUKPostcode(form.postcode)) newErrors.postcode = 'Enter a valid UK postcode (e.g. SW1A 1AA)';
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
       return;

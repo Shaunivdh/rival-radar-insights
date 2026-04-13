@@ -11,6 +11,7 @@ const SetupPage = () => {
   const router = useRouter();
 
   const [tab, setTab] = useState<'login' | 'signup'>('login');
+  const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -34,7 +35,7 @@ const SetupPage = () => {
 
     const result = tab === 'login'
       ? await login(email.trim(), password)
-      : await signup(email.trim(), password);
+      : await signup(email.trim(), password, name.trim() || undefined);
 
     if (!result.ok) {
       setError(result.error ?? 'Something went wrong.');
@@ -74,6 +75,20 @@ const SetupPage = () => {
         </div>
 
         <div className="card-surface space-y-4">
+          {tab === 'signup' && (
+            <div>
+              <label className="text-xs font-medium text-muted-foreground mb-1 block">Your Name</label>
+              <input
+                type="text"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleSubmit()}
+                className="w-full px-3 py-2 text-sm bg-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/30"
+                placeholder="Jane Smith"
+                autoFocus
+              />
+            </div>
+          )}
           <div>
             <label className="text-xs font-medium text-muted-foreground mb-1 block">Email</label>
             <input
@@ -83,7 +98,7 @@ const SetupPage = () => {
               onKeyDown={(e) => e.key === 'Enter' && handleSubmit()}
               className="w-full px-3 py-2 text-sm bg-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/30"
               placeholder="you@example.com"
-              autoFocus
+              autoFocus={tab === 'login'}
             />
           </div>
           <div>

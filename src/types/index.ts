@@ -47,8 +47,6 @@ export interface SEOSignals {
   hasSitemap: boolean;
   hasRobotsTxt: boolean;
   internalLinkCount: number;
-  blogPostCount: number;
-  lastBlogDate: string | null;
   schemaMarkupTypes: string[];
   canonicalTagsPresent: boolean;
   altTagCoverage: 'full' | 'partial' | 'none';
@@ -68,14 +66,9 @@ export interface ContentSignals {
   servicesListed: string[];
   serviceAreasMentioned: string[];
   hasBlog: boolean;
-  blogPostCount: number;
-  mostRecentPostDate: string | null;
-  hasVideo: boolean;
   hasPortfolio: boolean;
   portfolioItemCount: number;
   hasFAQ: boolean;
-  faqCount: number;
-  hasNewsFeed: boolean;
 }
 
 export interface EngagementSignals {

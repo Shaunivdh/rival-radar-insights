@@ -28,6 +28,16 @@ function pickNum(pages: PageJson[], key: string, fallback: number | null = null)
   return fallback;
 }
 
+/** Returns the maximum numeric value across all pages — use for counts where the dedicated page has the real value. */
+function maxNum(pages: PageJson[], key: string, fallback = 0): number {
+  let max = fallback;
+  for (const p of pages) {
+    const v = p[key];
+    if (typeof v === 'number' && v > max) max = v;
+  }
+  return max;
+}
+
 function mergeStringArrays(pages: PageJson[], key: string): string[] {
   const seen = new Set<string>();
   for (const p of pages) {
@@ -58,8 +68,6 @@ export async function extractSignals(rawResult: RawCrawlResult): Promise<Extract
       hasSitemap: pickBool(pages, 'hasSitemap'),
       hasRobotsTxt: pickBool(pages, 'hasRobotsTxt'),
       internalLinkCount: pickNum(pages, 'internalLinkCount', 0) ?? 0,
-      blogPostCount: pickNum(pages, 'blogPostCount', 0) ?? 0,
-      lastBlogDate: pickStr(pages, 'lastBlogDate') || null,
       schemaMarkupTypes: mergeStringArrays(pages, 'schemaMarkupTypes'),
       canonicalTagsPresent: pickBool(pages, 'canonicalTagsPresent'),
       altTagCoverage: (pickStr(pages, 'altTagCoverage') as 'full' | 'partial' | 'none') || 'none',
@@ -77,14 +85,9 @@ export async function extractSignals(rawResult: RawCrawlResult): Promise<Extract
       servicesListed: mergeStringArrays(pages, 'servicesListed'),
       serviceAreasMentioned: mergeStringArrays(pages, 'serviceAreasMentioned'),
       hasBlog: pickBool(pages, 'hasBlog'),
-      blogPostCount: pickNum(pages, 'blogPostCount', 0) ?? 0,
-      mostRecentPostDate: pickStr(pages, 'mostRecentPostDate') || null,
-      hasVideo: pickBool(pages, 'hasVideo'),
       hasPortfolio: pickBool(pages, 'hasPortfolio'),
-      portfolioItemCount: pickNum(pages, 'portfolioItemCount', 0) ?? 0,
+      portfolioItemCount: maxNum(pages, 'portfolioItemCount'),
       hasFAQ: pickBool(pages, 'hasFAQ'),
-      faqCount: pickNum(pages, 'faqCount', 0) ?? 0,
-      hasNewsFeed: pickBool(pages, 'hasNewsFeed'),
     },
     engagement: {
       hasContactForm: pickBool(pages, 'hasContactForm'),

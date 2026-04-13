@@ -11,10 +11,10 @@ const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
 export async function extractPageSignals(html: string, prompt: string): Promise<Record<string, unknown>> {
   const stripped = html
-    .replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, '')
+    .replace(/<script\b(?![^>]*type=["']application\/ld\+json["'])[^>]*>[\s\S]*?<\/script>/gi, '')
     .replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi, '')
     .replace(/<svg\b[^>]*>[\s\S]*?<\/svg>/gi, '')
-    .slice(0, 12000);
+    .slice(0, 24000);
   try {
     const msg = await client.messages.create({
       model: 'claude-haiku-4-5-20251001',

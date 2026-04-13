@@ -8,7 +8,7 @@ export interface CrawlCredentials {
 const USE_MOCK = process.env.USE_MOCK_CRAWL === 'true';
 const mock = USE_MOCK ? (require('@/services/crawl.mock') as typeof import('@/services/crawl.mock')) : null;
 
-const PRIORITY_KEYWORDS = ['services', 'service', 'blog', 'articles', 'article', 'news', 'resources', 'pricing', 'price', 'about', 'treatments', 'treatment', 'contact'];
+const PRIORITY_KEYWORDS = ['services', 'service', 'blog', 'articles', 'article', 'news', 'resources', 'pricing', 'price', 'about', 'treatments', 'treatment', 'contact', 'accreditation', 'certification', 'award', 'quality', 'standards', 'team', 'people', 'faq', 'faqs', 'help', 'support'];
 
 /**
  * Extract unique internal links from raw HTML, sorted by priority keyword score.

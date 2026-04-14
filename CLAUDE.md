@@ -1,134 +1,123 @@
-# Claude Instructions for RivalRadar
+# CLAUDE.md — RivalRadar
 
-You are assisting with development of a Next.js + TypeScript SaaS called RivalRadar.
+You are assisting with a Next.js + TypeScript SaaS called **RivalRadar**.
 
-Your goal is to minimize token usage and avoid unnecessary large responses.
+Your priority is **correctness, minimal token usage, and small safe diffs**.
 
-## Response Rules
+---
 
-* Keep responses concise.
-* Prefer bullet points over paragraphs.
-* Never explain obvious code.
-* Do not repeat code unless it changes.
-* Only output modified sections of files when editing.
-* If a change affects multiple files, list them first before generating code.
+## 1. Core Behaviour
 
-## File Reading Rules
+- Be concise
+- Prefer bullet points
+- Only output code changes (diffs / modified sections)
+- Do NOT rewrite full files unless explicitly requested
+- Do NOT explain code unless asked
+- Ask clarifying questions instead of guessing
 
-* Never read the entire repository unless explicitly asked.
-* Only read files required to complete the task.
-* Prefer reading a single file at a time.
-* Avoid reading files larger than 500 lines unless necessary.
+---
 
-## Code Generation Rules
+## 2. Safety Rules
 
-* Modify existing code instead of regenerating files.
-* Avoid rewriting entire components.
-* Do not generate placeholder boilerplate unless requested.
-* Follow existing project patterns and folder structure.
+- All external API calls must be server-side only
+- Never expose API keys to the frontend
+- Do not invent APIs, DB fields, or services
+- Use only existing project patterns and utilities
 
-## RivalRadar Architecture
+---
 
-Stack:
+## 3. Code Rules
 
-* Next.js (App Router)
-* TypeScript
-* Zustand
-* Tailwind
-* Supabase (database)
-* Anthropic API (AI analysis)
-* Cloudflare Browser Rendering
-* Google Places API
-* SerpApi
+- Prefer minimal edits over refactors
+- Reuse existing logic whenever possible
+- Follow current folder structure
+- Avoid boilerplate unless explicitly requested
+- Maintain TypeScript strictness
 
-Key rule:
+---
 
-All external API calls must be server-side.
+## 4. File Access Rules
 
-Never expose API keys to the frontend.
+- Only open files required for the task
+- Do not scan the full repository unless explicitly asked
+- Prefer one file at a time
+- Avoid reading large files (>500 lines) unless necessary
 
-## Crawling Constraints
+---
+
+## 5. AI Usage (Anthropic)
+
+Claude is used only for:
+
+- generateHealthScore
+- generatePriorityActions
+- generateChangeSummary
+
+### Requirements:
+- Output must be valid JSON only
+- Keep responses under 200 tokens
+- Prefer deterministic logic when possible
+- No explanations in AI outputs
+
+---
+
+## 6. Crawling System
+
+All crawl behaviour is defined in `@crawl-rules`.
+
+Do not re-implement crawl logic here.
+
+Key principle:
+- Crawl orchestration is queue-based
+- Multi-page enrichment happens after root crawl
+- Cache is written AFTER enrichment
+
+---
+
+## 7. UI Rules
+
+- Tailwind only
+- Inter font
+- Primary brand color: #5B4EE8
+- Do not introduce new UI libraries
+
+---
+
+## 8. RivalRadar Context
+
+RivalRadar is a local competitor intelligence SaaS.
 
 Each project includes:
+- 1 primary business
+- up to 5 competitors
 
-* 1 primary business
-* up to 5 competitors
+It scores businesses across:
+- reputation (reviews)
+- local SEO visibility
+- website quality
+- Google Business Profile completeness
+- AI visibility (LLM mentions)
+- review velocity
 
-Crawl limits:
+Outputs:
+- competitor comparison scores
+- ranked priority actions
+- change alerts
 
-Initial scan
+---
 
-* maxDepth: 3
-* maxPages: controlled by `CRAWL_MAX_PAGES` env var (default 15)
+## 9. Output Format Rules
 
-Incremental scan
+When responding:
 
-* maxDepth: 2
-* maxPages: 10
-* use modifiedSince timestamp
+- Default: bullet points only
+- Code: show only changed sections
+- Multi-file changes: list files first
+- No duplication of unchanged code
 
-Always design crawl orchestration to be queue-based.
+---
 
-Crawl implementation rules:
+## 10. When Unsure
 
-* `CrawlCredentials` is exported from `@/services/crawl` — do not redeclare it elsewhere.
-* `startCrawl` serializes only `render`, `limit` (from `maxPages`), `jsonOptions`, and `modifiedSince` to the CF API body — CF rejects `maxDepth` and `outputFormats` (unrecognized keys). CF returns `html` by default; `json` is only populated when `jsonOptions.prompt` is set.
-* `crawl_jobs` rows must include `cf_job_id` (the CF job ID returned by `startCrawl`).
-* Daily crawl limit (`MAX_DAILY_CRAWLS`) counts only `status IN ('running', 'completed')` rows — not failed/cancelled.
-* Cache (`saveToCache`) is written after priority page enrichment, not before — so cached results always include multi-page data.
-
-Multi-page enrichment (post-crawl):
-
-* `extractPriorityLinks` and `crawlSinglePage` are exported from `@/services/crawl` — use them for sub-page crawling.
-* After the root CF crawl completes, extract internal links from `pages[0].html` using `extractPriorityLinks`.
-* Prioritise URLs containing: `services`, `blog`, `pricing`, `about`, `treatments`, `contact`.
-* Crawl up to `CRAWL_PRIORITY_PAGES` additional pages (default 5) via `crawlSinglePage`, capped so total pages ≤ `CRAWL_MAX_PAGES` (default 15).
-* `crawlSinglePage` launches a separate CF job per URL and polls up to 60s — running 5 in parallel is the expected usage.
-* If `pages[0].html` is empty, log a warning — the multi-page step will silently skip and only root signals are extracted.
-* Merged pages are passed to `extractSignals` as a single `RawCrawlResult` — signals are always merged across all pages into one `extracted_signals` row.
-
-## AI Usage Rules
-
-Claude API is used only for:
-
-1. generateHealthScore
-2. generatePriorityActions
-3. generateChangeSummary
-
-AI responses must:
-
-* return valid JSON only
-* avoid verbose explanations
-* stay under 200 tokens
-
-Prefer deterministic scoring logic where possible to reduce AI calls.
-
-## Token Efficiency Guidelines
-
-Before generating code:
-
-1. Check if existing code can be reused
-2. Avoid large refactors unless requested
-3. Suggest minimal changes first
-
-When explaining something:
-
-* maximum 5 bullet points
-* no long essays
-
-## UI Rules
-
-* Use existing design system
-* Tailwind only
-* Inter font
-* RivalRadar purple: #5B4EE8
-* Avoid new UI libraries
-
-## When unsure
-
-Ask a clarification question instead of guessing.
-
-Do not invent APIs or data structures that are not defined in the project.
-Return JSON under 150 tokens.
-Do not refactor code unless explicitly requested.
-Prefer patch-style edits instead of full file rewrites.
+- Ask a question instead of assuming
+- Do not hallucinate schema, APIs, or logic

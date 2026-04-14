@@ -10,6 +10,8 @@ interface SyncedBusiness {
   aiScore: Business['aiScore'];
   enrichmentErrors?: Business['enrichmentErrors'];
   changeEvents?: Business['changeEvents'];
+  googleData?: Business['googleData'];
+  serpData?: Business['serpData'];
 }
 
 interface RivalRadarState {
@@ -115,7 +117,7 @@ export const useRivalRadarStore = create<RivalRadarState>()(
         const apply = (b: Business): Business => {
           const u = updates.find((x) => x.id === b.id);
           if (!u) return b;
-          return { ...b, crawlStatus: u.crawlStatus, signals: u.signals ?? b.signals, aiScore: u.aiScore ?? b.aiScore, enrichmentErrors: u.enrichmentErrors !== undefined ? u.enrichmentErrors : b.enrichmentErrors, changeEvents: u.changeEvents !== undefined ? u.changeEvents : b.changeEvents };
+          return { ...b, crawlStatus: u.crawlStatus, signals: u.signals ?? b.signals, aiScore: u.aiScore ?? b.aiScore, enrichmentErrors: u.enrichmentErrors !== undefined ? u.enrichmentErrors : b.enrichmentErrors, changeEvents: u.changeEvents !== undefined ? u.changeEvents : b.changeEvents, googleData: u.googleData !== undefined ? u.googleData : b.googleData, serpData: u.serpData !== undefined ? u.serpData : b.serpData };
         };
         set({
           project: {

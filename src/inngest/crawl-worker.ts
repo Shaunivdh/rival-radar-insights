@@ -34,6 +34,20 @@ async function writeEnrichmentError(
   await supabaseAdmin.from('businesses').update({ enrichment_errors: errors }).eq('id', businessId);
 }
 
+async function clearEnrichmentError(
+  businessId: string,
+  key: 'google' | 'serp'
+): Promise<void> {
+  const { data } = await supabaseAdmin
+    .from('businesses')
+    .select('enrichment_errors')
+    .eq('id', businessId)
+    .single();
+  const errors = { ...(data?.enrichment_errors as Record<string, unknown> ?? {}) };
+  delete errors[key];
+  await supabaseAdmin.from('businesses').update({ enrichment_errors: Object.keys(errors).length ? errors : null }).eq('id', businessId);
+}
+
 /**
  * Event: crawl/business.scan
  * Payload: { businessId: string; mode: 'initial' | 'incremental' }
@@ -176,6 +190,7 @@ export const crawlBusinessFunction = inngest.createFunction(
     await step.run('enrich-google', async () => {
       try {
         await fetchGoogleData(businessId, meta.name, meta.url, meta.postcode, meta.googlePlaceId);
+        await clearEnrichmentError(businessId, 'google');
       } catch (e) {
         console.error(`[enrich-google] Failed for business ${businessId}:`, e instanceof Error ? e.message : e);
         const userMessage = meta.isOwnBusiness
@@ -188,6 +203,7 @@ export const crawlBusinessFunction = inngest.createFunction(
     await step.run('enrich-serp', async () => {
       try {
         await fetchSerpData(businessId, meta.name, meta.domain, meta.primaryService, meta.location, meta.postcode);
+        await clearEnrichmentError(businessId, 'serp');
       } catch (e) {
         console.error(`[enrich-serp] Failed for business ${businessId}:`, e instanceof Error ? e.message : e);
         const userMessage = meta.isOwnBusiness

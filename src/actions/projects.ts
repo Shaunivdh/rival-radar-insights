@@ -294,7 +294,7 @@ export async function syncProject(projectId: string): Promise<{
         changes: e.changes as ChangeEvent['changes'],
       }));
 
-      return { id: b.id as string, crawlStatus: b.crawl_status as Business['crawlStatus'], signals, aiScore, enrichmentErrors: (b.enrichment_errors as Business['enrichmentErrors']) ?? null, serpData: (b.serp_data as Business['serpData']) ?? null, changeEvents };
+      return { id: b.id as string, crawlStatus: b.crawl_status as Business['crawlStatus'], signals, aiScore, enrichmentErrors: (b.enrichment_errors as Business['enrichmentErrors']) ?? null, googleData: (b.google_data as Business['googleData']) ?? null, serpData: (b.serp_data as Business['serpData']) ?? null, changeEvents };
     })
   );
 

@@ -108,10 +108,8 @@ export async function getPlaceData(
     // ignore invalid url
   }
 
-  // Require a valid domain — without it we cannot confidently match a Place
-  if (!domain) return null;
-
-  const textQuery = `${name} ${domain}`;
+  // Include domain in query if available for better accuracy, otherwise search by name alone
+  const textQuery = domain ? `${name} ${domain}` : name;
 
   const res = await fetch(`${NEW_PLACES_BASE}:searchText`, {
     method: 'POST',
@@ -124,11 +122,27 @@ export async function getPlaceData(
   });
   const json = await res.json();
   const places: Record<string, unknown>[] = json.places ?? [];
-  const place = places.find((p) => {
-    const placeHost = (() => { try { return new URL(p.websiteUri as string).hostname.replace(/^www\./, ''); } catch { return ''; } })();
-    return placeHost === domain || placeHost.endsWith(`.${domain}`) || domain.endsWith(`.${placeHost}`);
-  });
-  if (!place) return null;
 
-  return mapPlaceToGoogleData(place);
+  // 1. Domain match — most accurate
+  if (domain) {
+    const domainMatch = places.find((p) => {
+      const placeHost = (() => { try { return new URL(p.websiteUri as string).hostname.replace(/^www\./, ''); } catch { return ''; } })();
+      return placeHost === domain || placeHost.endsWith(`.${domain}`) || domain.endsWith(`.${placeHost}`);
+    });
+    if (domainMatch) return mapPlaceToGoogleData(domainMatch);
+  }
+
+  // 2. Name + postcode fallback — only when postcode is present (geo-disambiguates),
+  //    only accept places[0] (Google's top-ranked result), all significant words must match
+  if (postcode && places.length > 0) {
+    const top = places[0];
+    const displayName = ((top.displayName as Record<string, unknown>)?.text as string ?? '').toLowerCase();
+    const nameWords = name.toLowerCase().trim().split(/\s+/).filter(w => w.length > 2);
+    if (nameWords.length > 0 && nameWords.every(w => displayName.includes(w))) {
+      console.log(`[google] name fallback matched "${displayName}" for "${name}"`);
+      return mapPlaceToGoogleData(top);
+    }
+  }
+
+  return null;
 }

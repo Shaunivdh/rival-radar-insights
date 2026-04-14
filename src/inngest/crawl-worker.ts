@@ -218,9 +218,7 @@ export const crawlBusinessFunction = inngest.createFunction(
     await step.run('check-ai-visibility', async () => {
       if (!meta.primaryService || !meta.location) return;
       try {
-        const apiKey = process.env.SERP_API_KEY;
-        if (!apiKey) { console.warn('[check-ai-visibility] SERP_API_KEY not set, skipping'); return; }
-        const visibility = await checkAIPresenceFromSerp(meta.primaryService, meta.location, meta.name, meta.domain, apiKey);
+        const visibility = await checkAIPresenceFromSerp(meta.primaryService, meta.location, meta.name, meta.domain, '');
         const { error } = await supabaseAdmin.from('businesses').update({ ai_visibility: visibility }).eq('id', businessId);
         if (error) {
           console.error(`[check-ai-visibility] DB write failed for business ${businessId}:`, error);

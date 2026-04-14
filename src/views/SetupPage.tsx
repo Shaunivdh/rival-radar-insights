@@ -7,7 +7,7 @@ import { useEffect, useState } from 'react';
 import { ArrowRight } from 'lucide-react';
 
 const SetupPage = () => {
-  const { user, project, login, signup, loadMockData, initAuth } = useRivalRadarStore();
+  const { user, project, login, signup, initAuth } = useRivalRadarStore();
   const router = useRouter();
 
   const [tab, setTab] = useState<'login' | 'signup'>('login');
@@ -22,11 +22,6 @@ const SetupPage = () => {
   }, [user, project, router]);
 
   if (user) return null;
-
-  const handleDemo = () => {
-    loadMockData();
-    router.push('/dashboard');
-  };
 
   const handleSubmit = async () => {
     setError('');
@@ -120,12 +115,6 @@ const SetupPage = () => {
           >
             {loading ? 'Please wait…' : tab === 'login' ? 'Log In' : 'Create Account'}
             {!loading && <ArrowRight className="w-4 h-4" />}
-          </button>
-        </div>
-
-        <div className="text-center">
-          <button onClick={handleDemo} className="text-sm text-primary font-medium hover:underline">
-            Explore with demo data →
           </button>
         </div>
       </div>

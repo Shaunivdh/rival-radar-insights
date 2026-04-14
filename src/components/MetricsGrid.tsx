@@ -129,7 +129,7 @@ export function MetricsGrid({ business }: MetricsGridProps) {
         title="Local Visibility"
         score={aiScore.localVisibilityScore}
         subtitle={localPackLabel}
-        detail="Position 1 = 100 · Not in top 7 = 0"
+        detail="Position 1 = 100 · Position 10 = 10 · >10 = 0"
         source="SerpAPI"
         error={getErr(aiScore.localVisibilityScore, 'serp')}
       />

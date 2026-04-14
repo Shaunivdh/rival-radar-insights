@@ -64,6 +64,23 @@ export async function postcodeToLatLng(
   return { lat: loc.latitude as number, lng: loc.longitude as number };
 }
 
+// Uses postcodes.io (free, no API key) to derive canonical location string from postcode
+export async function postcodeToLocation(postcode: string): Promise<string | null> {
+  try {
+    const res = await fetch(`https://api.postcodes.io/postcodes/${encodeURIComponent(postcode.trim())}`);
+    if (!res.ok) return null;
+    const json = await res.json() as { result?: { admin_district?: string; admin_county?: string } };
+    const r = json.result;
+    if (!r) return null;
+    const town = r.admin_district ?? '';
+    const county = r.admin_county ?? '';
+    if (town && county) return `${town}, ${county}`;
+    return town || county || null;
+  } catch {
+    return null;
+  }
+}
+
 export async function getPlaceData(
   name: string,
   url: string,

@@ -17,7 +17,7 @@ import { normalizeUrl } from '@/lib/url';
 import { saveScoreSnapshot, getWeeklyDelta } from '@/lib/supabase/scores';
 import type { ExtractedSignals, Business, ChangeEvent, AIHealthScore, SerpData, PageSpeedData } from '@/types';
 
-const MAX_POLL_ATTEMPTS = 60;
+const MAX_POLL_ATTEMPTS = 120;
 const POLL_INTERVAL = '5s';
 
 async function writeEnrichmentError(
@@ -46,7 +46,14 @@ export const crawlBusinessFunction = inngest.createFunction(
     onFailure: async ({ error, event, step }) => {
       const { businessId } = event.data.event.data as { businessId: string };
       console.error(`[crawl-business] Unexpected failure for business ${businessId}:`, error.message);
-      await step.run('mark-failed-on-error', () => markCrawlFailed(businessId));
+      await step.run('mark-failed-on-error', async () => {
+        const { data } = await supabaseAdmin
+          .from('businesses')
+          .select('crawl_job_id')
+          .eq('id', businessId)
+          .single();
+        await markCrawlFailed(businessId, data?.crawl_job_id ?? undefined);
+      });
     },
   },
   { event: 'crawl/business.scan' },

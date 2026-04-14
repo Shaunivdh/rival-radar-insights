@@ -7,6 +7,8 @@ import { useEffect, useState } from 'react';
 import { ArrowRight, Plus, Trash2 } from 'lucide-react';
 import type { Business, Project } from '@/types';
 import { createProject, triggerInitialScans } from '@/actions/projects';
+import { SERVICE_CATEGORY_OPTIONS, type ServiceCategory } from '@/lib/serviceCategories';
+import { isValidUKPostcode } from '@/lib/utils';
 
 const emptyBusiness = (): Business => ({
   id: crypto.randomUUID(),
@@ -20,6 +22,7 @@ const emptyBusiness = (): Business => ({
   googleData: null,
   serpData: null,
   trustpilotData: null,
+  pagespeedData: null,
   aiScore: null,
   aiVisibility: null,
   enrichmentErrors: null,
@@ -61,9 +64,10 @@ const BusinessSetupPage = () => {
   const [authReady, setAuthReady] = useState(false);
   const [step, setStep] = useState(0);
   const [own, setOwn] = useState<Business>(emptyBusiness());
-  const [primaryService, setPrimaryService] = useState('');
+  const [primaryService, setPrimaryService] = useState<ServiceCategory | ''>('');
   const [location, setLocation] = useState('');
   const [postcode, setPostcode] = useState('');
+  const [postcodeError, setPostcodeError] = useState('');
   const [competitors, setCompetitors] = useState([emptyBusiness()]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -151,7 +155,7 @@ const BusinessSetupPage = () => {
 
       // Don't call setProject yet — it would trigger the redirect guard and unmount this component.
       // We set it right before router.push in the polling effect instead.
-      setSettings({ primaryService, location, postcode });
+      setSettings({ primaryService: primaryService as ServiceCategory, location, postcode });
 
       const allBiz = [savedProject.ownBusiness, ...savedProject.competitors];
       setBizStatuses(allBiz.map((b) => ({ id: b.id, name: b.name, crawl_status: 'pending' })));
@@ -214,12 +218,16 @@ const BusinessSetupPage = () => {
             </div>
             <div>
               <label className="text-xs font-medium text-muted-foreground mb-1 block">Primary Service</label>
-              <input
+              <select
                 value={primaryService}
-                onChange={(e) => setPrimaryService(e.target.value)}
-                className="w-full px-3 py-2 text-sm bg-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/30"
-                placeholder="e.g. building contractor"
-              />
+                onChange={(e) => setPrimaryService(e.target.value as ServiceCategory)}
+                className="w-full px-3 py-2 text-sm bg-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/30 text-foreground"
+              >
+                <option value="" disabled>Select your industry…</option>
+                {SERVICE_CATEGORY_OPTIONS.map((opt) => (
+                  <option key={opt.value} value={opt.value}>{opt.label}</option>
+                ))}
+              </select>
             </div>
             <div>
               <label className="text-xs font-medium text-muted-foreground mb-1 block">Location</label>
@@ -234,14 +242,22 @@ const BusinessSetupPage = () => {
               <label className="text-xs font-medium text-muted-foreground mb-1 block">Postcode</label>
               <input
                 value={postcode}
-                onChange={(e) => setPostcode(e.target.value)}
-                className="w-full px-3 py-2 text-sm bg-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/30"
+                onChange={(e) => { setPostcode(e.target.value); setPostcodeError(''); }}
+                className={`w-full px-3 py-2 text-sm bg-background border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/30 ${postcodeError ? 'border-destructive' : 'border-border'}`}
                 placeholder="e.g. M1 1AA"
               />
+              {postcodeError && <p className="text-xs text-destructive mt-1">{postcodeError}</p>}
             </div>
             <button
-              onClick={() => setStep(1)}
-              disabled={!own.name || !own.url}
+              onClick={() => {
+                if (postcode && !isValidUKPostcode(postcode)) {
+                  setPostcodeError('Enter a valid UK postcode (e.g. M1 1AA)');
+                  return;
+                }
+                setPostcodeError('');
+                setStep(1);
+              }}
+              disabled={!own.name || !own.url || !primaryService}
               className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 disabled:opacity-50"
             >
               Next <ArrowRight className="w-4 h-4" />

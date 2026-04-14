@@ -234,7 +234,7 @@ export async function triggerInitialScans(projectId: string): Promise<void> {
 }
 
 export async function syncProject(projectId: string): Promise<{
-  businesses: { id: string; crawlStatus: Business['crawlStatus']; signals: ExtractedSignals | null; aiScore: AIHealthScore | null; enrichmentErrors: Business['enrichmentErrors'] }[];
+  businesses: { id: string; crawlStatus: Business['crawlStatus']; signals: ExtractedSignals | null; aiScore: AIHealthScore | null; enrichmentErrors: Business['enrichmentErrors']; changeEvents: ChangeEvent[] }[];
   priorityActions: PriorityAction[];
 }> {
   const { data: rows } = await supabaseAdmin
@@ -268,8 +268,8 @@ export async function syncProject(projectId: string): Promise<{
           } as ExtractedSignals;
         }
 
-        // Recalculate if missing or if websiteHealthScore is 0 but signals are now available
-        if (!aiScore || (signals && aiScore.websiteHealthScore === 0)) {
+        // Recalculate if missing, websiteHealthScore is 0 with signals, or localVisibilityScore is 0 with serp data
+        if (!aiScore || (signals && aiScore.websiteHealthScore === 0) || (b.serp_data && aiScore && aiScore.localVisibilityScore === 0)) {
           aiScore = calculateScores(
             b.google_data as Parameters<typeof calculateScores>[0],
             b.serp_data as Parameters<typeof calculateScores>[1],
@@ -280,7 +280,21 @@ export async function syncProject(projectId: string): Promise<{
         }
       }
 
-      return { id: b.id as string, crawlStatus: b.crawl_status as Business['crawlStatus'], signals, aiScore, enrichmentErrors: (b.enrichment_errors as Business['enrichmentErrors']) ?? null };
+      const { data: events } = await supabaseAdmin
+        .from('change_events')
+        .select('id, detected_at, severity, summary, changes')
+        .eq('business_id', b.id)
+        .order('detected_at', { ascending: false });
+
+      const changeEvents: ChangeEvent[] = (events ?? []).map(e => ({
+        id: e.id as string,
+        detectedAt: new Date(e.detected_at as string).getTime(),
+        severity: e.severity as ChangeEvent['severity'],
+        summary: e.summary as string,
+        changes: e.changes as ChangeEvent['changes'],
+      }));
+
+      return { id: b.id as string, crawlStatus: b.crawl_status as Business['crawlStatus'], signals, aiScore, enrichmentErrors: (b.enrichment_errors as Business['enrichmentErrors']) ?? null, serpData: (b.serp_data as Business['serpData']) ?? null, changeEvents };
     })
   );
 

@@ -1,6 +1,6 @@
 'use server';
 
-import { getPlaceData, getPlaceDataById, postcodeToLatLng } from '@/services/google';
+import { getPlaceData, getPlaceDataById, postcodeToLatLng, postcodeToLocation } from '@/services/google';
 import { getRankingData } from '@/services/serp';
 import { getTrustpilotData } from '@/services/trustpilot';
 import { updateBusiness } from '@/actions/projects';
@@ -71,15 +71,21 @@ export async function fetchSerpData(
   if (!apiKey) throw new Error('SERP_API_KEY is not set');
 
   let ll: { lat: number; lng: number } | undefined;
+  let resolvedLocation = location;
   if (postcode) {
     const googleApiKey = process.env.GOOGLE_PLACES_API_KEY;
     if (googleApiKey) {
       const coords = await postcodeToLatLng(postcode, googleApiKey);
       if (coords) ll = coords;
     }
+    const canonicalLocation = await postcodeToLocation(postcode);
+    if (canonicalLocation) {
+      console.log(`[fetchSerpData] Overriding location "${location}" → "${canonicalLocation}" from postcode`);
+      resolvedLocation = canonicalLocation;
+    }
   }
 
-  const serpData = await getRankingData(businessName, primaryService, location, apiKey, domain, ll);
+  const serpData = await getRankingData(businessName, primaryService, resolvedLocation, apiKey, domain, ll);
   if (!serpData) {
     console.log(`[enrich-serp] No SERP data returned for business ${businessId}`);
     return;

@@ -9,6 +9,7 @@ interface SyncedBusiness {
   signals: Business['signals'];
   aiScore: Business['aiScore'];
   enrichmentErrors?: Business['enrichmentErrors'];
+  changeEvents?: Business['changeEvents'];
 }
 
 interface RivalRadarState {
@@ -18,7 +19,7 @@ interface RivalRadarState {
   priorityActions: PriorityAction[];
   isDemoMode: boolean;
   demoBannerDismissed: boolean;
-  signup: (email: string, password: string) => Promise<{ ok: boolean; error?: string }>;
+  signup: (email: string, password: string, name?: string) => Promise<{ ok: boolean; error?: string }>;
   login: (email: string, password: string) => Promise<{ ok: boolean; error?: string }>;
   logout: () => Promise<void>;
   initAuth: () => Promise<void>;
@@ -28,7 +29,6 @@ interface RivalRadarState {
   setPriorityActions: (actions: PriorityAction[]) => void;
   dismissDemoBanner: () => void;
   deleteProject: () => void;
-  loadMockData: () => void;
   syncBusinesses: (updates: SyncedBusiness[]) => void;
   getBusinessById: (id: string) => Business | undefined;
   addCompetitorToStore: (business: Business) => void;
@@ -38,13 +38,13 @@ export const useRivalRadarStore = create<RivalRadarState>()(
   (set, get) => ({
       user: null,
       project: null,
-      settings: { primaryService: '', location: '' },
+      settings: { primaryService: 'accounting', location: '' },
       priorityActions: [],
       isDemoMode: false,
       demoBannerDismissed: false,
 
-      signup: async (email, password) => {
-        const { data, error } = await supabase.auth.signUp({ email, password });
+      signup: async (email, password, name) => {
+        const { data, error } = await supabase.auth.signUp({ email, password, options: name ? { data: { full_name: name } } : undefined });
         if (error) return { ok: false, error: error.message };
         if (!data.user) return { ok: false, error: 'Signup failed.' };
         set({ user: { id: data.user.id, email: data.user.email! }, project: null, priorityActions: [], isDemoMode: false, demoBannerDismissed: false });
@@ -106,20 +106,7 @@ export const useRivalRadarStore = create<RivalRadarState>()(
       },
 
       loadMockData: () => {
-        document.cookie = 'rr-demo=1; path=/; max-age=86400';
-        set({
-          project: {
-            id: 'demo-project',
-            name: 'Apex Builders vs Competitors',
-            createdAt: Date.now(),
-            ownBusiness: mockOwnBusiness,
-            competitors: mockCompetitors,
-          },
-          priorityActions: mockPriorityActions,
-          isDemoMode: true,
-          demoBannerDismissed: false,
-          settings: { primaryService: 'building contractor', location: 'Manchester' },
-        });
+        // Mock data removed — demo mode disabled
       },
 
       syncBusinesses: (updates) => {
@@ -128,7 +115,7 @@ export const useRivalRadarStore = create<RivalRadarState>()(
         const apply = (b: Business): Business => {
           const u = updates.find((x) => x.id === b.id);
           if (!u) return b;
-          return { ...b, crawlStatus: u.crawlStatus, signals: u.signals ?? b.signals, aiScore: u.aiScore ?? b.aiScore, enrichmentErrors: u.enrichmentErrors !== undefined ? u.enrichmentErrors : b.enrichmentErrors };
+          return { ...b, crawlStatus: u.crawlStatus, signals: u.signals ?? b.signals, aiScore: u.aiScore ?? b.aiScore, enrichmentErrors: u.enrichmentErrors !== undefined ? u.enrichmentErrors : b.enrichmentErrors, changeEvents: u.changeEvents !== undefined ? u.changeEvents : b.changeEvents };
         };
         set({
           project: {

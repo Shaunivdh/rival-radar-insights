@@ -1,11 +1,5 @@
 import Anthropic from '@anthropic-ai/sdk';
-import type { ExtractedSignals, PriorityAction, ChangeSummary, Business, AIVisibility } from '@/types';
-
-const PRESENCE_PROMPTS = (service: string, location: string) => [
-  `What are the best ${service} companies in ${location}?`,
-  `Who should I hire for ${service} near ${location}?`,
-  `Recommend a trusted ${service} in ${location}`,
-];
+import type { ExtractedSignals, PriorityAction, ChangeSummary, Business } from '@/types';
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
@@ -49,35 +43,6 @@ Competitors: ${JSON.stringify(competitors.map((c) => ({ name: c.name, signals: c
   return askClaude<PriorityAction[]>(prompt);
 }
 
-export async function checkAIPresence(
-  primaryService: string,
-  location: string,
-  businessName: string,
-  domain: string
-): Promise<AIVisibility> {
-  const prompts = PRESENCE_PROMPTS(primaryService, location);
-  const nameLower = businessName.toLowerCase();
-  const domainLower = domain.toLowerCase();
-
-  const results = await Promise.all(
-    prompts.map(async (prompt) => {
-      const msg = await client.messages.create({
-        model: 'claude-haiku-4-5-20251001',
-        max_tokens: 200,
-        messages: [{ role: 'user', content: prompt }],
-      });
-      const text = (msg.content[0] as { type: string; text: string }).text.toLowerCase();
-      return text.includes(nameLower) || text.includes(domainLower);
-    })
-  );
-
-  const mentionCount = results.filter(Boolean).length;
-  const totalPrompts = prompts.length;
-  const scoreMap: Record<number, number> = { 0: 0, 1: 33, 2: 67, 3: 100 };
-  const aiPresenceScore = scoreMap[mentionCount] ?? 0;
-
-  return { aiPresenceScore, mentionCount, totalPrompts, tested_at: new Date().toISOString() };
-}
 
 export async function generateChangeSummary(
   name: string,

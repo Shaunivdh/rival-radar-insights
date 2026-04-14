@@ -29,19 +29,29 @@ export async function getTrustpilotData(
   const baseDomain = extractBaseDomain(domain);
   const trustpilotUrl = `https://www.trustpilot.com/review/${baseDomain}`;
 
-  const jobId = await startCrawl(
-    trustpilotUrl,
-    {
-      maxDepth: 0,
-      maxPages: 1,
-      outputFormats: ['json'],
-      jsonOptions: {
-        prompt:
-          'Extract: trustpilotRating (number), trustpilotReviewCount (number), trustpilotTrustScore (string like "Excellent"), and recentTrustpilotReviews as array of {rating, title, date}. Return ONLY valid JSON. If no page found return all nulls.',
+  let jobId: string;
+  try {
+    jobId = await startCrawl(
+      trustpilotUrl,
+      {
+        maxDepth: 0,
+        maxPages: 1,
+        outputFormats: ['json'],
+        jsonOptions: {
+          prompt:
+            'Extract: trustpilotRating (number), trustpilotReviewCount (number), trustpilotTrustScore (string like "Excellent"), and recentTrustpilotReviews as array of {rating, title, date}. Return ONLY valid JSON. If no page found return all nulls.',
+        },
       },
-    },
-    cfCredentials
-  );
+      cfCredentials
+    );
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    if (msg.includes('robots.txt') || msg.includes('400') || msg.includes('403')) {
+      console.warn(`[enrich-trustpilot] Skipping ${trustpilotUrl} — blocked: ${msg}`);
+      return NULL_RESULT;
+    }
+    throw e;
+  }
 
   // Poll until complete (max 60s)
   const maxAttempts = 20;

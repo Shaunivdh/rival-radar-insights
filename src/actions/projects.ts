@@ -154,7 +154,18 @@ export async function getProject(userId: string): Promise<Project | null> {
         changes: e.changes as ChangeEvent['changes'],
       }));
 
-      return { business: mapBusiness(b, signals, changeEvents), isOwn: b.is_own_business as boolean };
+      let aiScore = (b.ai_score as AIHealthScore) ?? null;
+      if (signals && (!aiScore || aiScore.websiteHealthScore === 0)) {
+        aiScore = calculateScores(
+          b.google_data as Parameters<typeof calculateScores>[0],
+          b.serp_data as Parameters<typeof calculateScores>[1],
+          b.ai_visibility as Parameters<typeof calculateScores>[2],
+          signals,
+        );
+        await supabaseAdmin.from('businesses').update({ ai_score: aiScore }).eq('id', b.id);
+      }
+
+      return { business: mapBusiness({ ...b, ai_score: aiScore }, signals, changeEvents), isOwn: b.is_own_business as boolean };
     })
   );
 
@@ -243,6 +254,36 @@ export async function syncProject(projectId: string): Promise<{
     .eq('project_id', projectId);
 
   if (!rows?.length) return { businesses: [], priorityActions: [] };
+
+  // Reset stale "running" jobs — if started_at > 35 min ago, mark as failed
+  // CF poll loop max: 120 attempts × 5s = 10 min, plus Inngest step overhead per step
+  const staleThreshold = new Date(Date.now() - 35 * 60 * 1000).toISOString();
+  const runningIds = rows.filter(b => b.crawl_status === 'running').map(b => b.id as string);
+  if (runningIds.length) {
+    const { data: staleJobs } = await supabaseAdmin
+      .from('crawl_jobs')
+      .select('business_id')
+      .in('business_id', runningIds)
+      .eq('status', 'running')
+      .lt('started_at', staleThreshold);
+
+    if (staleJobs?.length) {
+      const staleBusinessIds = staleJobs.map(j => j.business_id as string);
+      await supabaseAdmin
+        .from('businesses')
+        .update({ crawl_status: 'failed' })
+        .in('id', staleBusinessIds);
+      await supabaseAdmin
+        .from('crawl_jobs')
+        .update({ status: 'failed', completed_at: new Date().toISOString() })
+        .in('business_id', staleBusinessIds)
+        .eq('status', 'running');
+      // Reflect in local rows so the response is consistent
+      for (const row of rows) {
+        if (staleBusinessIds.includes(row.id as string)) row.crawl_status = 'failed';
+      }
+    }
+  }
 
   const businesses = await Promise.all(
     rows.map(async b => {

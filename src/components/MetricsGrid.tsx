@@ -167,7 +167,7 @@ export function MetricsGrid({ business }: MetricsGridProps) {
         subtitle="New Google reviews per 30 days"
         detail="5 reviews/month = 100 · 0 = losing ground"
         source="Google Places"
-        noData={aiScore.weeklyDelta === null ? 'Insufficient data' : undefined}
+        noData={!googleData || googleData.recentReviews.length === 0 ? 'Insufficient data' : undefined}
       />
       <MetricCard
         emoji="⭐"

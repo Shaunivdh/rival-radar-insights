@@ -1,4 +1,4 @@
-import type { SerpData } from '@/types';
+import type { SerpData, AIVisibility } from '@/types';
 
 interface SerpApiLocalResult {
   position: number;
@@ -114,6 +114,64 @@ export async function getRankingData(
     sitelinks: false,
     adsAboveResults,
     searchTerm,
+  };
+}
+
+interface SerpApiWebResponse {
+  ai_overview?: {
+    text_blocks?: Array<{ snippet?: string; type?: string }>;
+    sources?: Array<{ title?: string; link?: string }>;
+  };
+  error?: string;
+}
+
+export async function checkAIPresenceFromSerp(
+  primaryService: string,
+  location: string,
+  businessName: string,
+  domain: string,
+  apiKey: string
+): Promise<AIVisibility> {
+  const queries = [
+    `best ${primaryService} in ${location}`,
+    `top ${primaryService} near ${location}`,
+  ];
+
+  const nameLower = businessName.toLowerCase();
+  const domainLower = normalizeDomain(domain);
+  let mentionCount = 0;
+
+  for (const q of queries) {
+    try {
+      const res = await fetch(
+        `https://serpapi.com/search.json?engine=google&q=${encodeURIComponent(q)}&gl=gb&hl=en&api_key=${apiKey}`
+      );
+      if (!res.ok) continue;
+      const json = await res.json() as SerpApiWebResponse;
+      if (json.error) { console.warn('[ai-presence] SerpApi error:', json.error); continue; }
+
+      const overview = json.ai_overview;
+      if (!overview) continue;
+
+      const allText = [
+        ...(overview.text_blocks ?? []).map((b) => b.snippet ?? ''),
+        ...(overview.sources ?? []).map((s) => `${s.title ?? ''} ${s.link ?? ''}`),
+      ].join(' ').toLowerCase();
+
+      if (allText.includes(nameLower) || allText.includes(domainLower)) {
+        mentionCount++;
+      }
+    } catch (e) {
+      console.warn('[ai-presence] query failed:', e);
+    }
+  }
+
+  const scoreMap: Record<number, number> = { 0: 0, 1: 50, 2: 100 };
+  return {
+    aiPresenceScore: scoreMap[mentionCount] ?? 0,
+    mentionCount,
+    totalPrompts: queries.length,
+    tested_at: new Date().toISOString(),
   };
 }
 

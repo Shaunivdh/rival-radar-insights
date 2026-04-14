@@ -223,9 +223,9 @@ export async function extractAndPersistSignals(
 
   const { error: updateError } = await supabaseAdmin
     .from('businesses')
-    .update({ crawl_status: 'complete', last_crawled_at: new Date().toISOString() })
+    .update({ last_crawled_at: new Date().toISOString() })
     .eq('id', businessId);
-  if (updateError) throw new Error(`Failed to mark business complete: ${updateError.message}`);
+  if (updateError) throw new Error(`Failed to update last_crawled_at: ${updateError.message}`);
 
   await supabaseAdmin
     .from('crawl_jobs')

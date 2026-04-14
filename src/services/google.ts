@@ -14,7 +14,7 @@ function mapPlaceToGoogleData(place: Record<string, unknown>): GoogleData {
     address: place.formattedAddress as string ?? '',
     phoneNumber: place.nationalPhoneNumber as string ?? '',
     openingHours: (place.regularOpeningHours as Record<string, unknown>)?.weekdayDescriptions as string[] ?? [],
-    recentReviews: ((place.reviews as unknown[]) ?? []).slice(0, 3).map((r: Record<string, unknown>) => ({
+    recentReviews: ((place.reviews as unknown[]) ?? []).slice(0, 5).map((r: Record<string, unknown>) => ({
       rating: r.rating as number,
       text: (r.text as Record<string, unknown>)?.text as string ?? '',
       time: r.publishTime ? new Date(r.publishTime as string).getTime() : 0,

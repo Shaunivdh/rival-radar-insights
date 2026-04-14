@@ -8,7 +8,8 @@ import {
 import { checkDirectSignals } from '@/lib/crawl/direct-checks';
 import { supabaseAdmin } from '@/lib/supabase/server';
 import { fetchGoogleData, fetchSerpData, fetchTrustpilotData } from '@/actions/enrichment';
-import { generatePriorityActions, generateChangeSummary, checkAIPresence } from '@/services/ai';
+import { generatePriorityActions, generateChangeSummary } from '@/services/ai';
+import { checkAIPresenceFromSerp } from '@/services/serp';
 import { calculateScores, recomputeOverallScore } from '@/services/scores';
 import { fetchPageSpeedData } from '@/services/pagespeed';
 import { diffSignals } from '@/services/diff';
@@ -226,7 +227,9 @@ export const crawlBusinessFunction = inngest.createFunction(
     await step.run('check-ai-visibility', async () => {
       if (!meta.primaryService || !meta.location) return;
       try {
-        const visibility = await checkAIPresence(meta.primaryService, meta.location, meta.name, meta.domain);
+        const apiKey = process.env.SERP_API_KEY;
+        if (!apiKey) { console.warn('[check-ai-visibility] SERP_API_KEY not set, skipping'); return; }
+        const visibility = await checkAIPresenceFromSerp(meta.primaryService, meta.location, meta.name, meta.domain, apiKey);
         const { error } = await supabaseAdmin.from('businesses').update({ ai_visibility: visibility }).eq('id', businessId);
         if (error) {
           console.error(`[check-ai-visibility] DB write failed for business ${businessId}:`, error);
@@ -238,15 +241,16 @@ export const crawlBusinessFunction = inngest.createFunction(
       }
     });
 
-    // Step 7: PageSpeed Insights (mobile + desktop)
+    // Step 7: PageSpeed Insights (mobile + desktop) — marks crawl_status complete
     await step.run('enrich-pagespeed', async () => {
       try {
         const pagespeedData = await fetchPageSpeedData(normalizeUrl(meta.url));
-        await updateBusiness(businessId, { pagespeedData });
+        await updateBusiness(businessId, { pagespeedData, crawlStatus: 'complete' });
         console.log(`[enrich-pagespeed] mobile=${pagespeedData.mobile.performanceScore} desktop=${pagespeedData.desktop.performanceScore} for ${businessId}`);
       } catch (e) {
         console.error(`[enrich-pagespeed] Failed for business ${businessId}:`, e instanceof Error ? e.message : e);
-        // non-fatal — PSI may be rate-limited or URL unreachable
+        // non-fatal — PSI may be rate-limited or URL unreachable; still mark complete
+        await updateBusiness(businessId, { crawlStatus: 'complete' });
       }
     });
 
@@ -541,6 +545,7 @@ export const crawlBusinessFunction = inngest.createFunction(
         googleData: null,
         serpData: null,
         trustpilotData: null,
+        pagespeedData: null,
         aiScore: null,
         aiVisibility: null,
         enrichmentErrors: null,

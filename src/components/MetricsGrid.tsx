@@ -75,7 +75,7 @@ function psiSubtitle(m: PageSpeedMetrics) {
 }
 
 export function MetricsGrid({ business }: MetricsGridProps) {
-  const { aiScore, googleData, serpData, aiVisibility, pagespeedData, enrichmentErrors, trustpilotData } = business;
+  const { aiScore, googleData, serpData, aiVisibility, pagespeedData, enrichmentErrors } = business;
   if (!aiScore) return null;
 
   const getErr = (score: number, key: keyof NonNullable<typeof enrichmentErrors>) =>
@@ -168,17 +168,6 @@ export function MetricsGrid({ business }: MetricsGridProps) {
         detail="5 reviews/month = 100 · 0 = losing ground"
         source="Google Places"
         noData={!googleData || googleData.recentReviews.length === 0 ? 'Insufficient data' : undefined}
-      />
-      <MetricCard
-        emoji="⭐"
-        title="Review Velocity (Trustpilot)"
-        score={aiScore.trustpilotVelocityScore ?? 0}
-        subtitle={trustpilotData?.trustpilotReviewCount != null
-          ? `${trustpilotData.trustpilotRating?.toFixed(1) ?? '?'}★ · ${trustpilotData.trustpilotReviewCount.toLocaleString()} reviews`
-          : 'Not found on Trustpilot'}
-        detail="5 reviews/month = 100 · 0 = losing ground"
-        source="Trustpilot (CF Crawl)"
-        noData={aiScore.trustpilotVelocityScore === null ? 'Not found on Trustpilot' : undefined}
       />
       <MetricCard
         emoji="📱"

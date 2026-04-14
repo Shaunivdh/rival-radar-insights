@@ -14,14 +14,12 @@ const METRICS: { key: keyof NonNullable<Business['aiScore']>; emoji: string; lab
   { key: 'gbpCompletenessScore',      emoji: '📋', label: 'GBP Completeness' },
   { key: 'aiPresenceScore',           emoji: '🤖', label: 'AI Presence' },
   { key: 'reviewVelocityScore',       emoji: '⚡', label: 'Review Velocity (G)' },
-  { key: 'trustpilotVelocityScore',   emoji: '⭐', label: 'Review Velocity (TP)' },
 ];
 
 const GOOGLE_METRICS = new Set<typeof METRICS[number]['key']>(['reputationScore', 'gbpCompletenessScore', 'reviewVelocityScore']);
 
 function isDataMissing(key: keyof NonNullable<Business['aiScore']>, biz: Business): boolean {
   if (GOOGLE_METRICS.has(key)) return biz.googleData === null;
-  if (key === 'trustpilotVelocityScore') return biz.trustpilotData === null;
   if (key === 'localVisibilityScore') return biz.serpData === null;
   if (key === 'websiteHealthScore') return biz.signals === null;
   if (key === 'aiPresenceScore') return biz.aiVisibility === null;

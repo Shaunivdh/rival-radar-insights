@@ -15,7 +15,6 @@ export async function saveScoreSnapshot(
     gbp_completeness_score: scores.gbpCompletenessScore,
     ai_presence_score: scores.aiPresenceScore,
     review_velocity_score: scores.reviewVelocityScore,
-    trustpilot_velocity_score: scores.trustpilotVelocityScore ?? null,
   });
 }
 

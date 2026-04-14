@@ -47,7 +47,6 @@ function mapBusiness(
     signals,
     googleData: (b.google_data as Business['googleData']) ?? null,
     serpData: (b.serp_data as Business['serpData']) ?? null,
-    trustpilotData: (b.trustpilot_data as Business['trustpilotData']) ?? null,
     aiScore: (b.ai_score as AIHealthScore) ?? null,
     aiVisibility: (b.ai_visibility as AIVisibility) ?? null,
     pagespeedData: (b.pagespeed_data as PageSpeedData) ?? null,
@@ -191,7 +190,6 @@ export async function updateBusiness(
   if (partial.aiScore !== undefined) row.ai_score = partial.aiScore;
   if (partial.googleData !== undefined) row.google_data = partial.googleData;
   if (partial.serpData !== undefined) row.serp_data = partial.serpData;
-  if (partial.trustpilotData !== undefined) row.trustpilot_data = partial.trustpilotData;
   if (partial.aiVisibility !== undefined) row.ai_visibility = partial.aiVisibility;
   if (partial.pagespeedData !== undefined) row.pagespeed_data = partial.pagespeedData;
   if (extras?.googlePlaceId !== undefined) row.google_place_id = extras.googlePlaceId;

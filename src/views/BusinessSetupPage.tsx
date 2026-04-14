@@ -21,7 +21,6 @@ const emptyBusiness = (): Business => ({
   signals: null,
   googleData: null,
   serpData: null,
-  trustpilotData: null,
   pagespeedData: null,
   aiScore: null,
   aiVisibility: null,

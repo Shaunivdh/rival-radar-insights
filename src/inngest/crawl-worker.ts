@@ -7,7 +7,7 @@ import {
 } from '@/lib/crawl/orchestrator';
 import { checkDirectSignals } from '@/lib/crawl/direct-checks';
 import { supabaseAdmin } from '@/lib/supabase/server';
-import { fetchGoogleData, fetchSerpData, fetchTrustpilotData } from '@/actions/enrichment';
+import { fetchGoogleData, fetchSerpData } from '@/actions/enrichment';
 import { generatePriorityActions, generateChangeSummary } from '@/services/ai';
 import { checkAIPresenceFromSerp } from '@/services/serp';
 import { calculateScores, recomputeOverallScore } from '@/services/scores';
@@ -214,15 +214,6 @@ export const crawlBusinessFunction = inngest.createFunction(
       }
     });
 
-    await step.run('enrich-trustpilot', async () => {
-      try {
-        await fetchTrustpilotData(businessId, meta.url);
-      } catch (e) {
-        console.error(`[enrich-trustpilot] Failed for business ${businessId}:`, e instanceof Error ? e.message : e);
-        // Trustpilot is optional — no enrichment error written
-      }
-    });
-
     // Step 6: AI search visibility check
     await step.run('check-ai-visibility', async () => {
       if (!meta.primaryService || !meta.location) return;
@@ -290,10 +281,10 @@ export const crawlBusinessFunction = inngest.createFunction(
 
     // Step 9: Calculate deterministic health score
     await step.run('calculate-scores', async () => {
-      const [{ data: biz }, { data: sig }, { data: googleHistory }, { data: trustpilotHistory }] = await Promise.all([
+      const [{ data: biz }, { data: sig }, { data: googleHistory }] = await Promise.all([
         supabaseAdmin
           .from('businesses')
-          .select('google_data, serp_data, ai_visibility, pagespeed_data, trustpilot_data')
+          .select('google_data, serp_data, ai_visibility, pagespeed_data')
           .eq('id', businessId)
           .single(),
         supabaseAdmin
@@ -305,12 +296,6 @@ export const crawlBusinessFunction = inngest.createFunction(
           .maybeSingle(),
         supabaseAdmin
           .from('google_data')
-          .select('review_count, fetched_at')
-          .eq('business_id', businessId)
-          .order('fetched_at', { ascending: false })
-          .limit(2),
-        supabaseAdmin
-          .from('trustpilot_data')
           .select('review_count, fetched_at')
           .eq('business_id', businessId)
           .order('fetched_at', { ascending: false })
@@ -333,17 +318,7 @@ export const crawlBusinessFunction = inngest.createFunction(
         daysBetween = msApart / 86400000;
       }
 
-      let previousTrustpilotReviewCount: number | undefined;
-      let trustpilotDaysBetween: number | undefined;
-      if (trustpilotHistory && trustpilotHistory.length >= 2) {
-        const msApart =
-          new Date(trustpilotHistory[0].fetched_at as string).getTime() -
-          new Date(trustpilotHistory[1].fetched_at as string).getTime();
-        previousTrustpilotReviewCount = trustpilotHistory[1].review_count as number;
-        trustpilotDaysBetween = msApart / 86400000;
-      }
-
-      console.log(`[calculate-scores] business ${businessId} — google_data:`, biz.google_data != null, '| serp_data:', biz.serp_data != null, '| trustpilot_data:', biz.trustpilot_data != null);
+      console.log(`[calculate-scores] business ${businessId} — google_data:`, biz.google_data != null, '| serp_data:', biz.serp_data != null);
 
       const aiScore = calculateScores(
         biz.google_data as Parameters<typeof calculateScores>[0],
@@ -353,9 +328,6 @@ export const crawlBusinessFunction = inngest.createFunction(
         previousReviewCount,
         daysBetween,
         biz.pagespeed_data as PageSpeedData | null,
-        biz.trustpilot_data as Parameters<typeof calculateScores>[7],
-        previousTrustpilotReviewCount,
-        trustpilotDaysBetween,
       );
       await updateBusiness(businessId, { aiScore });
       console.log(`[calculate-scores] ai_score saved for business ${businessId}:`, JSON.stringify(aiScore));

@@ -24,7 +24,6 @@ export interface Business {
   signals: ExtractedSignals | null;
   googleData: GoogleData | null;
   serpData: SerpData | null;
-  trustpilotData: TrustpilotData | null;
   aiScore: AIHealthScore | null;
   aiVisibility: AIVisibility | null;
   pagespeedData: PageSpeedData | null;
@@ -113,17 +112,6 @@ export interface SerpData {
   searchTerm: string | null;
 }
 
-export interface TrustpilotData {
-  trustpilotRating: number | null;
-  trustpilotReviewCount: number | null;
-  trustpilotTrustScore: string | null;
-  recentTrustpilotReviews: Array<{
-    rating: number;
-    title: string;
-    date: string;
-  }>;
-}
-
 export interface AIHealthScore {
   overallScore: number;
   weeklyDelta: number | null; // +/- vs 7 days ago
@@ -134,7 +122,6 @@ export interface AIHealthScore {
   gbpCompletenessScore: number;   // Google Business Profile completeness
   aiPresenceScore: number;             // multi-prompt AI mention check (0–100)
   reviewVelocityScore: number;         // Google: new reviews in last 30d
-  trustpilotVelocityScore: number | null; // Trustpilot: new reviews in last 30d (null = not found)
 
   summary?: string;
   generatedAt: string;
@@ -150,7 +137,6 @@ export interface ScoreSnapshot {
   gbpCompletenessScore: number;
   aiPresenceScore: number;
   reviewVelocityScore: number;
-  trustpilotVelocityScore: number | null;
   snapshotAt: string;
 }
 

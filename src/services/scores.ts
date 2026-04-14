@@ -1,4 +1,4 @@
-import type { GoogleData, SerpData, AIVisibility, AIHealthScore, ExtractedSignals, PageSpeedData, TrustpilotData } from '@/types';
+import type { GoogleData, SerpData, AIVisibility, AIHealthScore, ExtractedSignals, PageSpeedData } from '@/types';
 
 /**
  * Website health score derived from crawl signals.
@@ -105,26 +105,22 @@ export function computeReviewVelocityScore(
 
 /**
  * Recompute overallScore from component scores using fixed weights.
- * reviewVelocity split: Google 2.5% + Trustpilot 2.5% (if available).
- * If trustpilotVelocityScore is null, Google gets the full 5%.
  */
 export function recomputeOverallScore(score: AIHealthScore): number {
-  const hasTP = score.trustpilotVelocityScore !== null && score.trustpilotVelocityScore !== undefined;
   return Math.round(
     score.reputationScore * 0.25 +
     score.localVisibilityScore * 0.25 +
     score.websiteHealthScore * 0.20 +
     score.gbpCompletenessScore * 0.15 +
     score.aiPresenceScore * 0.10 +
-    score.reviewVelocityScore * (hasTP ? 0.025 : 0.05) +
-    (hasTP ? score.trustpilotVelocityScore! * 0.025 : 0)
+    score.reviewVelocityScore * 0.05
   );
 }
 
 /**
  * Deterministic score calculation — no AI involved.
  * Weights: reputation=25, localVisibility=25, websiteHealth=20,
- *          gbpCompleteness=15, aiPresence=10, reviewVelocity=2.5 (Google) + 2.5 (Trustpilot)
+ *          gbpCompleteness=15, aiPresence=10, reviewVelocity=5
  */
 export function calculateScores(
   googleData: GoogleData | null,
@@ -134,9 +130,6 @@ export function calculateScores(
   previousReviewCount?: number,
   daysBetween?: number,
   pagespeedData?: PageSpeedData | null,
-  trustpilotData?: TrustpilotData | null,
-  previousTrustpilotReviewCount?: number,
-  trustpilotDaysBetween?: number,
 ): AIHealthScore {
   const reputationScore = computeReputationScore(googleData);
 
@@ -160,27 +153,14 @@ export function calculateScores(
     googleData?.recentReviews
   );
 
-  const trustpilotVelocityScore = trustpilotData?.trustpilotReviewCount != null
-    ? computeReviewVelocityScore(
-        trustpilotData.trustpilotReviewCount,
-        previousTrustpilotReviewCount,
-        trustpilotDaysBetween,
-        trustpilotData.recentTrustpilotReviews
-          .map((r) => ({ time: new Date(r.date).getTime() }))
-          .filter((r) => !isNaN(r.time))
-      )
-    : null;
-
   // Weighted average that EXCLUDES null components (unknown ≠ zero)
-  // reviewVelocity split 0.05 → Google 0.025 + Trustpilot 0.025
   const components: Array<{ score: number | null; weight: number }> = [
-    { score: reputationScore,         weight: 0.25 },
-    { score: localVisibilityScore,    weight: 0.25 },
-    { score: websiteHealthScore,      weight: 0.20 },
-    { score: gbpCompletenessScore,    weight: 0.15 },
-    { score: aiPresenceScore,         weight: 0.10 },
-    { score: reviewVelocityScore,     weight: 0.025 },
-    { score: trustpilotVelocityScore, weight: 0.025 },
+    { score: reputationScore,      weight: 0.25 },
+    { score: localVisibilityScore, weight: 0.25 },
+    { score: websiteHealthScore,   weight: 0.20 },
+    { score: gbpCompletenessScore, weight: 0.15 },
+    { score: aiPresenceScore,      weight: 0.10 },
+    { score: reviewVelocityScore,  weight: 0.05 },
   ];
 
   const available = components.filter((c) => c.score !== null);
@@ -200,7 +180,6 @@ export function calculateScores(
     gbpCompletenessScore,
     aiPresenceScore,
     reviewVelocityScore: reviewVelocityScore ?? 0,
-    trustpilotVelocityScore,
     generatedAt: new Date().toISOString(),
   };
 }

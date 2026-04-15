@@ -32,6 +32,8 @@ const Dashboard = () => {
   const [addError, setAddError] = useState('');
   const [addLoading, setAddLoading] = useState(false);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const wasScanningRef = useRef(false);
+  const trackedProjectIdRef = useRef<string | null>(null);
 
   const allBusinesses = project ? [project.ownBusiness, ...project.competitors] : [];
   const isScanning = allBusinesses.some((b) => b.crawlStatus === 'pending' || b.crawlStatus === 'running');
@@ -74,7 +76,13 @@ const Dashboard = () => {
   };
 
   useEffect(() => {
-    if (!project || isDemoMode || !isScanning) return;
+    if (!project || isDemoMode) return;
+
+    // Reset scan tracking when the project changes
+    if (trackedProjectIdRef.current !== project.id) {
+      trackedProjectIdRef.current = project.id;
+      wasScanningRef.current = false;
+    }
 
     const poll = async () => {
       const result = await syncProject(project.id);
@@ -82,9 +90,20 @@ const Dashboard = () => {
       if (result.priorityActions?.length) setPriorityActions(result.priorityActions);
     };
 
-    poll();
-    intervalRef.current = setInterval(poll, 5000);
-    return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
+    if (isScanning) {
+      wasScanningRef.current = true;
+      poll();
+      intervalRef.current = setInterval(poll, 5000);
+      return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
+    }
+
+    // Scanning just finished — one trailing poll to catch any in-flight state changes.
+    // Delay matches the crawl system's own poll interval so we don't read mid-transition.
+    if (wasScanningRef.current) {
+      wasScanningRef.current = false;
+      const timer = setTimeout(poll, 5000);
+      return () => clearTimeout(timer);
+    }
   }, [isScanning, project?.id, isDemoMode]);
 
   if (!project) return null;

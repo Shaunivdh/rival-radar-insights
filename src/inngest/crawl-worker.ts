@@ -98,7 +98,6 @@ export const crawlBusinessFunction = inngest.createFunction(
     }
 
     if (crawlStatus !== 'completed') {
-      await step.run('mark-failed', () => markCrawlFailed(businessId, jobId));
       throw new Error(`Crawl ended with status: ${crawlStatus} after ${attempts} attempts`);
     }
 

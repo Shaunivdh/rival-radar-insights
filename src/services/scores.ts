@@ -80,27 +80,39 @@ export function computeGBPCompletenessScore(googleData: GoogleData | null): numb
 
 /**
  * Review velocity score: new reviews per 30 days, scaled so 5/30d = 100.
- * Falls back to counting recentReviews timestamps within last 30 days when no historical data.
+ * Falls back to counting recentReviews timestamps within last 90 days when no historical data.
+ * Applies a reply rate bonus (up to +20) when owners respond to reviews.
  * Returns null if no data at all (excluded from weighted average).
  */
 export function computeReviewVelocityScore(
   currentReviewCount: number,
   previousReviewCount?: number,
   daysBetween?: number,
-  recentReviews?: Array<{ time: number }>
+  recentReviews?: Array<{ time: number; ownerReply?: string }>
 ): number | null {
+  let base: number | null = null;
+
   if (previousReviewCount !== undefined && daysBetween !== undefined && daysBetween > 0) {
     const newReviews = Math.max(0, currentReviewCount - previousReviewCount);
     const velocityPer30d = (newReviews / daysBetween) * 30;
-    return Math.min(100, Math.max(0, Math.round((velocityPer30d / 5) * 100)));
-  }
-  if (recentReviews && recentReviews.length > 0) {
+    base = Math.round((velocityPer30d / 5) * 100);
+  } else if (recentReviews && recentReviews.length > 0) {
     const cutoff90 = Date.now() - 90 * 24 * 60 * 60 * 1000;
     const count = recentReviews.filter((r) => r.time > cutoff90).length;
     const per30d = (count / 90) * 30;
-    return Math.min(100, Math.max(0, Math.round((per30d / 5) * 100)));
+    base = Math.round((per30d / 5) * 100);
   }
-  return null;
+
+  if (base === null) return null;
+
+  // Reply rate bonus: up to +20 points based on % of reviews with an owner reply
+  let bonus = 0;
+  if (recentReviews && recentReviews.length > 0) {
+    const replyRate = recentReviews.filter((r) => r.ownerReply).length / recentReviews.length;
+    bonus = Math.round(replyRate * 20);
+  }
+
+  return Math.min(100, Math.max(0, base + bonus));
 }
 
 /**

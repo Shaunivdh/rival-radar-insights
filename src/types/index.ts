@@ -27,6 +27,7 @@ export interface Business {
   aiScore: AIHealthScore | null;
   aiVisibility: AIVisibility | null;
   pagespeedData: PageSpeedData | null;
+  reviewSentiment: ReviewSentiment | null;
   enrichmentErrors: { google?: string; serp?: string; crawl?: string } | null;
   previousSignals: ExtractedSignals | null;
   changeEvents: ChangeEvent[];
@@ -95,6 +96,7 @@ export interface GoogleData {
     text: string;
     time: number;
     authorName: string;
+    ownerReply?: string;
   }>;
   photos: number;
   priceLevel: number | null;
@@ -209,6 +211,13 @@ export interface PageSpeedData {
   mobile: PageSpeedMetrics;
   desktop: PageSpeedMetrics;
   fetchedAt: string;
+}
+
+export interface ReviewSentiment {
+  positiveThemes: string[];   // top 3 things customers praise
+  negativeThemes: string[];   // top 3 complaints
+  summary: string;            // ≤15 words
+  generatedAt: string;
 }
 
 export interface AppSettings {

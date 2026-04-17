@@ -19,6 +19,7 @@ function mapPlaceToGoogleData(place: Record<string, unknown>): GoogleData {
       text: (r.text as Record<string, unknown>)?.text as string ?? '',
       time: r.publishTime ? new Date(r.publishTime as string).getTime() : 0,
       authorName: (r.authorAttribution as Record<string, unknown>)?.displayName as string ?? '',
+      ownerReply: (r.ownerResponse as Record<string, unknown>)?.text as string ?? undefined,
     })),
     photos: place.photos?.length ?? 0,
     priceLevel: place.priceLevel ?? null,

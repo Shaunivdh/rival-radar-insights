@@ -5,9 +5,10 @@ import { useRivalRadarStore } from '@/store/rivalradar';
 import { syncProject } from '@/actions/projects';
 import { DemoBanner } from '@/components/DemoBanner';
 import { BenchmarkTable } from '@/components/BenchmarkTable';
+import { CompetitorComparisonCard } from '@/components/CompetitorComparisonCard';
 import { PriorityActionsPanel } from '@/components/PriorityActionsPanel';
 import { ChangeEventCard } from '@/components/Badges';
-import { MetricsGrid } from '@/components/MetricsGrid';
+import { BusinessScoreCard } from '@/components/BusinessScoreCard';
 import { Bell, TrendingUp, Loader2, CheckCircle2, XCircle, Clock, RefreshCw, Plus, X } from 'lucide-react';
 import { triggerInitialScans, triggerSingleScan, rescanAll, addCompetitor } from '@/actions/projects';
 import { useState } from 'react';
@@ -176,38 +177,24 @@ const Dashboard = () => {
       )}
 
       {/* Own business snapshot */}
-      <div className="card-surface">
-        <div className="flex items-start justify-between">
-          <div>
-            <h1 className="text-2xl font-semibold text-foreground">{own.name}</h1>
-            <p className="text-sm text-muted-foreground mt-0.5">{own.url}</p>
-          </div>
-          <div className="flex items-start gap-3">
-            {isDev && !isDemoMode && !isScanning && (
-              <button
-                onClick={handleRescan}
-                disabled={rescanning}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border text-xs font-medium hover:bg-muted disabled:opacity-50"
-              >
-                <RefreshCw className={`w-3.5 h-3.5 ${rescanning ? 'animate-spin' : ''}`} />
-                {rescanning ? 'Starting…' : 'Re-scan All'}
-              </button>
-            )}
-            <div className="text-right">
-              <p className="metric-label">Overall Score</p>
-              <p className="metric-value">{own.aiScore?.overallScore ?? '—'}</p>
-            </div>
-          </div>
-        </div>
-        {own.aiScore && (
-          <div className="mt-4">
-            <MetricsGrid business={own} />
+      <div className="relative">
+        {isDev && !isDemoMode && !isScanning && (
+          <div className="absolute top-4 right-4 z-10">
+            <button
+              onClick={handleRescan}
+              disabled={rescanning}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border text-xs font-medium hover:bg-muted disabled:opacity-50 bg-background"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${rescanning ? 'animate-spin' : ''}`} />
+              {rescanning ? 'Starting…' : 'Re-scan All'}
+            </button>
           </div>
         )}
+        <BusinessScoreCard own={own} competitors={project.competitors} />
       </div>
 
-      <div>
-        <div className="flex items-center justify-between mb-3">
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
           <h2 className="text-base font-semibold text-foreground flex items-center gap-2">
             <TrendingUp className="w-4 h-4 text-primary" />
             Competitor Benchmark
@@ -222,8 +209,11 @@ const Dashboard = () => {
             </button>
           )}
         </div>
-        <BenchmarkTable />
-        <p className="text-xs text-gray-400 mt-2">↑↓ weekly change vs 7 days ago</p>
+        <CompetitorComparisonCard />
+        <div className="overflow-x-auto">
+          <BenchmarkTable />
+        </div>
+        <p className="text-xs text-gray-400">↑↓ weekly change vs 7 days ago</p>
       </div>
 
       <PriorityActionsPanel />

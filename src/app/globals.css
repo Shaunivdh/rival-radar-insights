@@ -6,7 +6,7 @@
 
 @layer base {
   :root {
-    --background: 233 33% 96%;
+    --background: 233 20% 92%;
     --foreground: 240 43% 14%;
 
     --card: 0 0% 100%;
@@ -93,6 +93,20 @@
   }
 
   .card-surface {
-    @apply bg-card rounded-xl border border-border p-5 shadow-sm;
+    @apply bg-white rounded-xl border-0 p-5;
+    box-shadow: 0 2px 16px rgba(0, 0, 0, 0.06), 0 1px 4px rgba(0, 0, 0, 0.03);
+  }
+
+  .neu {
+    @apply bg-white rounded-xl;
+    box-shadow: 0 4px 30px rgba(0, 0, 0, 0.08), 0 1px 8px rgba(0, 0, 0, 0.04);
+    border: 1px solid rgba(0, 0, 0, 0.04) !important;
+  }
+
+  .neu-flat {
+    background: #ffffff !important;
+    border-radius: 0.75rem !important;
+    border: none !important;
+    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.14), 0 1px 8px rgba(0, 0, 0, 0.08) !important;
   }
 }

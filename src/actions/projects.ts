@@ -4,7 +4,7 @@ import { cookies } from 'next/headers';
 import { supabaseAdmin } from '@/lib/supabase/server';
 import { inngest } from '@/inngest/client';
 import { calculateScores } from '@/services/scores';
-import type { Project, Business, ExtractedSignals, AIHealthScore, PriorityAction, ChangeEvent, AIVisibility, PageSpeedData } from '@/types';
+import type { Project, Business, ExtractedSignals, AIHealthScore, PriorityAction, ChangeEvent, AIVisibility, PageSpeedData, ReviewSentiment } from '@/types';
 import { normalizeUrl, extractDomain } from '@/lib/url';
 
 // ── Auth helper ───────────────────────────────────────────────────────────────
@@ -50,6 +50,7 @@ function mapBusiness(
     aiScore: (b.ai_score as AIHealthScore) ?? null,
     aiVisibility: (b.ai_visibility as AIVisibility) ?? null,
     pagespeedData: (b.pagespeed_data as PageSpeedData) ?? null,
+    reviewSentiment: (b.review_sentiment as ReviewSentiment) ?? null,
     enrichmentErrors: (b.enrichment_errors as Business['enrichmentErrors']) ?? null,
     previousSignals: null,
     changeEvents,
@@ -179,7 +180,7 @@ export async function getProject(userId: string): Promise<Project | null> {
 
 export async function updateBusiness(
   businessId: string,
-  partial: Partial<Pick<Business, 'crawlStatus' | 'crawlJobId' | 'lastCrawledAt' | 'aiScore' | 'googleData' | 'serpData' | 'trustpilotData' | 'aiVisibility' | 'pagespeedData'>>,
+  partial: Partial<Pick<Business, 'crawlStatus' | 'crawlJobId' | 'lastCrawledAt' | 'aiScore' | 'googleData' | 'serpData' | 'aiVisibility' | 'pagespeedData' | 'reviewSentiment'>>,
   extras?: { googlePlaceId?: string }
 ): Promise<void> {
   const row: Record<string, unknown> = {};
@@ -192,6 +193,7 @@ export async function updateBusiness(
   if (partial.serpData !== undefined) row.serp_data = partial.serpData;
   if (partial.aiVisibility !== undefined) row.ai_visibility = partial.aiVisibility;
   if (partial.pagespeedData !== undefined) row.pagespeed_data = partial.pagespeedData;
+  if (partial.reviewSentiment !== undefined) row.review_sentiment = partial.reviewSentiment;
   if (extras?.googlePlaceId !== undefined) row.google_place_id = extras.googlePlaceId;
 
   const { error } = await supabaseAdmin.from('businesses').update(row).eq('id', businessId);

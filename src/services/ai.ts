@@ -1,5 +1,5 @@
 import Anthropic from '@anthropic-ai/sdk';
-import type { ExtractedSignals, PriorityAction, ChangeSummary, Business } from '@/types';
+import type { ExtractedSignals, PriorityAction, ChangeSummary, Business, ReviewSentiment } from '@/types';
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
@@ -33,6 +33,28 @@ async function askClaude<T>(prompt: string): Promise<T> {
   const text = (msg.content[0] as { type: string; text: string }).text.trim();
   const json = text.replace(/^```(?:json)?\n?/, '').replace(/\n?```$/, '');
   return JSON.parse(json) as T;
+}
+
+export async function generateReviewSentiment(
+  reviews: Array<{ rating: number; text: string }>
+): Promise<ReviewSentiment | null> {
+  if (!reviews.length) return null;
+  const texts = reviews
+    .filter((r) => r.text?.trim())
+    .slice(0, 20)
+    .map((r) => `[${r.rating}★] ${r.text.trim()}`)
+    .join('\n');
+  if (!texts) return null;
+  const prompt = `Analyse these customer reviews and return JSON only.
+Schema: {"positiveThemes":["string","string","string"],"negativeThemes":["string","string","string"],"summary":"string"}
+Rules: positiveThemes = top 3 praised topics (2-4 words each), negativeThemes = top 3 complaint topics (2-4 words each, empty array if none), summary = ≤15 words.
+Reviews:\n${texts}`;
+  try {
+    const result = await askClaude<Omit<ReviewSentiment, 'generatedAt'>>(prompt);
+    return { ...result, generatedAt: new Date().toISOString() };
+  } catch {
+    return null;
+  }
 }
 
 export async function generatePriorityActions(own: Business, competitors: Business[]): Promise<PriorityAction[]> {

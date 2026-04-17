@@ -8,7 +8,7 @@ import {
 import { checkDirectSignals } from '@/lib/crawl/direct-checks';
 import { supabaseAdmin } from '@/lib/supabase/server';
 import { fetchGoogleData, fetchSerpData } from '@/actions/enrichment';
-import { generatePriorityActions, generateChangeSummary } from '@/services/ai';
+import { generatePriorityActions, generateChangeSummary, generateReviewSentiment } from '@/services/ai';
 import { checkAIPresenceFromSerp } from '@/services/serp';
 import { calculateScores, recomputeOverallScore } from '@/services/scores';
 import { fetchPageSpeedData } from '@/services/pagespeed';
@@ -330,6 +330,21 @@ export const crawlBusinessFunction = inngest.createFunction(
       console.log(`[calculate-scores] ai_score saved for business ${businessId}:`, JSON.stringify(aiScore));
     });
 
+    // Step 7b: Generate review sentiment
+    await step.run('generate-review-sentiment', async () => {
+      const { data: biz } = await supabaseAdmin
+        .from('businesses')
+        .select('google_data')
+        .eq('id', businessId)
+        .single();
+      const reviews = (biz?.google_data as { recentReviews?: Array<{ rating: number; text: string }> } | null)?.recentReviews ?? [];
+      const sentiment = await generateReviewSentiment(reviews);
+      if (sentiment) {
+        await updateBusiness(businessId, { reviewSentiment: sentiment });
+        console.log(`[review-sentiment] saved for business ${businessId}`);
+      }
+    });
+
     // Step 8: Apply score decay if no recent google_data
     await step.run('apply-score-decay', async () => {
       const thirtyDaysAgo = new Date(Date.now() - 30 * 86400000).toISOString();
@@ -392,7 +407,6 @@ export const crawlBusinessFunction = inngest.createFunction(
           gbp_completeness_score: updatedScore.gbpCompletenessScore,
           ai_presence_score: updatedScore.aiPresenceScore,
           review_velocity_score: updatedScore.reviewVelocityScore,
-          trustpilot_velocity_score: updatedScore.trustpilotVelocityScore ?? null,
           generated_at: new Date().toISOString(),
         },
         { onConflict: 'business_id' }
@@ -513,10 +527,10 @@ export const crawlBusinessFunction = inngest.createFunction(
         signals: b.signals,
         googleData: null,
         serpData: null,
-        trustpilotData: null,
         pagespeedData: null,
         aiScore: null,
         aiVisibility: null,
+        reviewSentiment: null,
         enrichmentErrors: null,
         previousSignals: null,
         changeEvents: [],

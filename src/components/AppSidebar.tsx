@@ -1,7 +1,7 @@
 'use client';
 
 import { useRouter, usePathname } from 'next/navigation';
-import { LayoutDashboard, Users, Bell, Settings, Zap, LogOut, Building2, Lightbulb } from 'lucide-react';
+import { LayoutDashboard, Users, Bell, Settings, Zap, LogOut, Building2, Lightbulb, HelpCircle } from 'lucide-react';
 import { Logo } from '@/components/Logo';
 import { cn } from '@/lib/utils';
 import { useRivalRadarStore } from '@/store/rivalradar';
@@ -13,6 +13,7 @@ const navItems = [
   { label: 'Competitors', path: '/competitors', icon: Users },
   { label: 'Changes', path: '/changes', icon: Bell },
   { label: 'Settings', path: '/settings', icon: Settings },
+  { label: 'Help center', path: '/help', icon: HelpCircle },
 ];
 
 export const AppSidebar = () => {

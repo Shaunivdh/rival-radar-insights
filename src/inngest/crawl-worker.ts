@@ -262,7 +262,7 @@ export const crawlBusinessFunction = inngest.createFunction(
 
       if (!diff.hasChanges) return;
 
-      const summary = await generateChangeSummary(meta.name, previous, current);
+      const summary = await generateChangeSummary(meta.name, previous, current, !meta.isOwnBusiness);
       if (!summary.hasSignificantChanges) return;
 
       const event: ChangeEvent = {

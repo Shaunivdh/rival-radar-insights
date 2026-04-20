@@ -69,16 +69,37 @@ Competitors: ${JSON.stringify(competitors.map((c) => ({ name: c.name, signals: c
 export async function generateChangeSummary(
   name: string,
   before: ExtractedSignals,
-  after: ExtractedSignals
+  after: ExtractedSignals,
+  isCompetitor: boolean
 ): Promise<ChangeSummary> {
-  const strip = (s: ExtractedSignals): ExtractedSignals => ({
-    ...s,
-    seo: s.seo,
-  });
-  const prompt = `Summarise website changes for "${name}". Return JSON only.
+  // Only send the fields that actually changed to reduce tokens
+  const changedBefore: Partial<ExtractedSignals> = {};
+  const changedAfter: Partial<ExtractedSignals> = {};
+  for (const key of Object.keys(after) as (keyof ExtractedSignals)[]) {
+    if (JSON.stringify(before[key]) !== JSON.stringify(after[key])) {
+      (changedBefore as Record<string, unknown>)[key] = before[key];
+      (changedAfter as Record<string, unknown>)[key] = after[key];
+    }
+  }
+
+  const framing = isCompetitor
+    ? `You are a competitive intelligence assistant. A competitor called "${name}" has made changes to their website. Your job is to tell the business owner what changed and why it matters to them — frame it as an opportunity or a threat, in plain English. Be direct and advisory.`
+    : `You are a website monitoring assistant. The business owner's own website ("${name}") has changed since the last scan. Your job is to clearly describe what changed and flag anything that could help or hurt their online presence. Be concise and helpful.`;
+
+  const prompt = `${framing}
+
+Return JSON only.
 Schema: {"hasSignificantChanges":boolean,"severity":"high"|"medium"|"low","summary":"string","changes":[{"category":"string","description":"string","significance":"string"}]}
-Summary max 15 words. Max 5 changes.
-Before: ${JSON.stringify(strip(before))}
-After: ${JSON.stringify(strip(after))}`;
+
+Rules:
+- summary: max 20 words, plain English, written as if speaking to the business owner
+- description: explain the change and why it matters, not just what changed
+- significance: one of "high" | "medium" | "low"
+- severity: high = directly affects leads/rankings/trust, medium = noticeable improvement/regression, low = minor
+- Max 5 changes
+
+Before: ${JSON.stringify(changedBefore)}
+After: ${JSON.stringify(changedAfter)}`;
+
   return askClaude<ChangeSummary>(prompt);
 }

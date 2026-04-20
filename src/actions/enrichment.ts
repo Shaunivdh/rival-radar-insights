@@ -31,6 +31,23 @@ export async function fetchGoogleData(
     );
   }
 
+  // Merge new reviews with existing ones (accumulate over time, dedup by authorName+time)
+  const { data: existing } = await supabaseAdmin
+    .from('businesses')
+    .select('google_data')
+    .eq('id', businessId)
+    .single();
+
+  const existingReviews: typeof googleData.recentReviews =
+    (existing?.google_data as { recentReviews?: typeof googleData.recentReviews } | null)?.recentReviews ?? [];
+
+  const newKeys = new Set(googleData.recentReviews.map((r) => `${r.authorName}|${r.time}`));
+  const merged = [
+    ...googleData.recentReviews,
+    ...existingReviews.filter((r) => !newKeys.has(`${r.authorName}|${r.time}`)),
+  ];
+  googleData = { ...googleData, recentReviews: merged };
+
   // Persist place ID alongside google_data — on fallback path this caches it for future crawls
   await updateBusiness(
     businessId,

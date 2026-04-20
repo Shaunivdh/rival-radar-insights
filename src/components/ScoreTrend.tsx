@@ -1,32 +1,8 @@
 'use client';
 
+import { motion } from 'framer-motion';
+import { Sparkles, CalendarClock } from 'lucide-react';
 import { useRivalRadarStore } from '@/store/rivalradar';
-import {
-  LineChart,
-  Line,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  ResponsiveContainer,
-  Tooltip,
-} from 'recharts';
-
-function generateTrendData(currentScore: number, topCompScore: number) {
-  const data = [];
-  for (let i = 0; i < 12; i++) {
-    const t = i / 11;
-    const noise = Math.sin(i * 1.3) * 3 + Math.sin(i * 0.7) * 2;
-    const compNoise = Math.sin(i * 1.1) * 2 + Math.sin(i * 0.9) * 1.5;
-    const startOwn = Math.max(20, currentScore - 14);
-    const startComp = Math.max(20, topCompScore - 9);
-    data.push({
-      week: `W${i + 1}`,
-      you: Math.round(Math.min(100, startOwn + (currentScore - startOwn) * t + noise)),
-      competitor: Math.round(Math.min(100, startComp + (topCompScore - startComp) * t + compNoise)),
-    });
-  }
-  return data;
-}
 
 export function ScoreTrend() {
   const { project } = useRivalRadarStore();
@@ -42,50 +18,84 @@ export function ScoreTrend() {
 
   if (!topCompScore) return null;
 
-  const data = generateTrendData(ownScore, topCompScore);
-  const yMin = Math.max(20, Math.min(...data.map((d) => Math.min(d.you, d.competitor))) - 10);
-
   return (
-    <div className="card-surface">
-      <div className="flex items-start justify-between mb-5">
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: 0.2 }}
+      className="rounded-2xl bg-gradient-to-br from-violet-50 via-white to-indigo-50 dark:from-violet-950/30 dark:via-background dark:to-indigo-950/20 p-8 border border-primary/10 shadow-sm"
+    >
+      <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
         <div>
-          <h2 className="text-base font-semibold text-foreground">Score Trend</h2>
-          <p className="text-xs text-muted-foreground mt-0.5">Last 12 weeks · Overall score</p>
+          <h3 className="font-display text-lg font-semibold">Score Trend</h3>
+          <p className="text-xs text-muted-foreground mt-0.5">Week 1 · Baseline established</p>
         </div>
-        <div className="flex items-center gap-5 text-xs text-muted-foreground">
-          <div className="flex items-center gap-1.5">
-            <div className="w-6 h-0.5 rounded bg-[#5B4EE8]" />
-            <span>You</span>
+        <div className="flex items-center gap-2 rounded-full bg-background/70 backdrop-blur px-3 py-1.5 text-xs font-medium text-primary border border-primary/15">
+          <Sparkles className="w-3.5 h-3.5" />
+          Tracking started
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+        <motion.div
+          initial={{ opacity: 0, scale: 0.96 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ delay: 0.3 }}
+          className="rounded-xl bg-background/80 backdrop-blur p-5 border border-border/40"
+        >
+          <div className="flex items-center gap-2 mb-2">
+            <span className="w-2 h-2 rounded-full bg-primary" />
+            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Your Score</p>
           </div>
-          <div className="flex items-center gap-1.5">
-            <div className="w-6 h-0.5 rounded bg-[#F59E0B]" />
-            <span>Top Competitor</span>
+          <p className="font-display text-4xl font-bold text-foreground">{ownScore}</p>
+          <p className="text-xs text-muted-foreground mt-1.5">Starting baseline this week</p>
+        </motion.div>
+
+        <motion.div
+          initial={{ opacity: 0, scale: 0.96 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ delay: 0.4 }}
+          className="rounded-xl bg-background/80 backdrop-blur p-5 border border-border/40"
+        >
+          <div className="flex items-center gap-2 mb-2">
+            <span className="w-2 h-2 rounded-full bg-accent" />
+            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Top Competitor</p>
+          </div>
+          <p className="font-display text-4xl font-bold text-foreground">{topCompScore}</p>
+          <p className="text-xs text-muted-foreground mt-1.5">Their baseline this week</p>
+        </motion.div>
+      </div>
+
+      <div className="rounded-xl bg-background/60 backdrop-blur border border-dashed border-primary/20 p-5">
+        <div className="flex items-end justify-between gap-2 h-20 mb-4">
+          {Array.from({ length: 12 }).map((_, i) => (
+            <motion.div
+              key={i}
+              initial={{ height: 0, opacity: 0 }}
+              animate={{
+                height: i === 0 ? '70%' : `${20 + (i % 4) * 8}%`,
+                opacity: i === 0 ? 1 : 0.25,
+              }}
+              transition={{ delay: 0.5 + i * 0.04, duration: 0.5 }}
+              className={`flex-1 rounded-t-md ${i === 0 ? 'bg-gradient-to-t from-violet-600 to-indigo-400' : 'bg-muted-foreground/20'}`}
+            />
+          ))}
+        </div>
+        <div className="flex items-start gap-3">
+          <div className="rounded-lg bg-primary/10 p-2 shrink-0">
+            <CalendarClock className="w-4 h-4 text-primary" />
+          </div>
+          <div>
+            <p className="text-sm font-medium text-foreground">
+              Your trend chart unlocks as we gather more data
+            </p>
+            <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
+              Scoutly scans your business and competitors every week. Come back next Monday to see
+              your first movement — and a richer chart with every week that passes.
+            </p>
           </div>
         </div>
       </div>
-      <ResponsiveContainer width="100%" height={220}>
-        <LineChart data={data} margin={{ top: 4, right: 4, left: -24, bottom: 0 }}>
-          <CartesianGrid strokeDasharray="3 3" stroke="#F3F4F6" vertical={false} />
-          <XAxis
-            dataKey="week"
-            tick={{ fontSize: 11, fill: '#9CA3AF' }}
-            axisLine={false}
-            tickLine={false}
-          />
-          <YAxis
-            domain={[yMin, 100]}
-            tick={{ fontSize: 11, fill: '#9CA3AF' }}
-            axisLine={false}
-            tickLine={false}
-          />
-          <Tooltip
-            contentStyle={{ borderRadius: '8px', border: '1px solid #E5E7EB', fontSize: 12, padding: '6px 10px' }}
-            labelStyle={{ fontWeight: 600, marginBottom: 2 }}
-          />
-          <Line type="monotone" dataKey="you" stroke="#5B4EE8" strokeWidth={2} dot={false} name="You" />
-          <Line type="monotone" dataKey="competitor" stroke="#F59E0B" strokeWidth={2} dot={false} name="Top Competitor" />
-        </LineChart>
-      </ResponsiveContainer>
-    </div>
+    </motion.div>
   );
 }

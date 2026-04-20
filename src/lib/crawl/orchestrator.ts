@@ -83,6 +83,13 @@ export async function startBusinessCrawl(
     .eq('id', businessId);
   if (statusError) throw new Error(`Failed to update crawl status: ${statusError.message}`);
 
+  // Supersede any pre-existing running jobs so the stale check doesn't false-positive on retry
+  await supabaseAdmin
+    .from('crawl_jobs')
+    .update({ status: 'failed', completed_at: new Date().toISOString() })
+    .eq('business_id', businessId)
+    .eq('status', 'running');
+
   await supabaseAdmin.from('crawl_jobs').insert({
     business_id: businessId,
     cf_job_id: jobId,

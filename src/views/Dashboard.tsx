@@ -4,15 +4,15 @@ import { useEffect, useRef } from 'react';
 import { useRivalRadarStore } from '@/store/rivalradar';
 import { syncProject } from '@/actions/projects';
 import { DemoBanner } from '@/components/DemoBanner';
-import { BenchmarkTable } from '@/components/BenchmarkTable';
 import { CompetitorComparisonCard } from '@/components/CompetitorComparisonCard';
 import { PriorityActionsPanel } from '@/components/PriorityActionsPanel';
-import { ChangeEventCard } from '@/components/Badges';
 import { BusinessScoreCard } from '@/components/BusinessScoreCard';
-import { Bell, TrendingUp, Loader2, CheckCircle2, XCircle, Clock, RefreshCw, Plus, X } from 'lucide-react';
-import { triggerInitialScans, triggerSingleScan, rescanAll, addCompetitor } from '@/actions/projects';
+import { TrendingUp, TrendingDown, Star, Bot, Bell, Loader2, CheckCircle2, XCircle, Clock, RefreshCw, Plus, X } from 'lucide-react';
+import { triggerSingleScan, rescanAll, addCompetitor } from '@/actions/projects';
 import { useState } from 'react';
 import type { ChangeEvent as CE } from '@/types';
+import { DashboardGreeting } from '@/components/DashboardGreeting';
+import { ScoreTrend } from '@/components/ScoreTrend';
 
 const STATUS_ICON: Record<string, React.ReactNode> = {
   idle: <Clock className="w-3.5 h-3.5 text-muted-foreground" />,
@@ -114,6 +114,24 @@ const Dashboard = () => {
     .flatMap((c) => c.changeEvents.map((e) => ({ ...e, competitorName: c.name })))
     .sort((a, b) => b.detectedAt - a.detectedAt);
 
+  function alertIcon(summary: string) {
+    const s = summary.toLowerCase();
+    if (s.includes('search') || s.includes('local') || s.includes('ranking') || s.includes('climbing')) return <TrendingUp className="w-4 h-4 text-orange-500" />;
+    if (s.includes('review') || s.includes('rating') || s.includes('star')) return <Star className="w-4 h-4 text-yellow-500" />;
+    if (s.includes('ai') || s.includes('gpt') || s.includes('mention') || s.includes('chatgpt')) return <Bot className="w-4 h-4 text-blue-500" />;
+    if (s.includes('down') || s.includes('error') || s.includes('outage') || s.includes('500')) return <TrendingDown className="w-4 h-4 text-green-600" />;
+    return <Bell className="w-4 h-4 text-muted-foreground" />;
+  }
+
+  function alertIconBg(summary: string) {
+    const s = summary.toLowerCase();
+    if (s.includes('search') || s.includes('local') || s.includes('ranking') || s.includes('climbing')) return 'bg-orange-50';
+    if (s.includes('review') || s.includes('rating') || s.includes('star')) return 'bg-yellow-50';
+    if (s.includes('ai') || s.includes('gpt') || s.includes('mention') || s.includes('chatgpt')) return 'bg-blue-50';
+    if (s.includes('down') || s.includes('error') || s.includes('outage') || s.includes('500')) return 'bg-green-50';
+    return 'bg-muted';
+  }
+
   return (
     <div className="space-y-6">
       <DemoBanner />
@@ -176,28 +194,79 @@ const Dashboard = () => {
         </div>
       )}
 
-      {/* Own business snapshot */}
-      <div className="relative">
-        {isDev && !isDemoMode && !isScanning && (
-          <div className="absolute top-4 right-4 z-10">
-            <button
-              onClick={handleRescan}
-              disabled={rescanning}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border text-xs font-medium hover:bg-muted disabled:opacity-50 bg-background"
-            >
-              <RefreshCw className={`w-3.5 h-3.5 ${rescanning ? 'animate-spin' : ''}`} />
-              {rescanning ? 'Starting…' : 'Re-scan All'}
-            </button>
+      {/* Greeting */}
+      <DashboardGreeting />
+
+      {/* Score overview + right column */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
+        <div className="lg:col-span-2 relative">
+          {isDev && !isDemoMode && !isScanning && (
+            <div className="absolute top-4 right-4 z-10">
+              <button
+                onClick={handleRescan}
+                disabled={rescanning}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border text-xs font-medium hover:bg-muted disabled:opacity-50 bg-background"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${rescanning ? 'animate-spin' : ''}`} />
+                {rescanning ? 'Starting…' : 'Re-scan All'}
+              </button>
+            </div>
+          )}
+          <BusinessScoreCard own={own} competitors={project.competitors} />
+        </div>
+
+        {/* Right column: priority actions + what's happening */}
+        <div className="space-y-6">
+          <PriorityActionsPanel />
+
+          {/* What's happening */}
+          <div className="card-surface">
+            <div className="mb-4">
+              <h2 className="text-base font-semibold text-foreground">What's happening around you</h2>
+              <p className="text-xs text-muted-foreground mt-0.5">Friendly heads-ups from this week</p>
+            </div>
+            {allChanges.length > 0 ? (
+              <div className="space-y-4">
+                {allChanges.slice(0, 5).map((event) => (
+                  <div key={event.id} className="flex gap-3">
+                    <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${alertIconBg(event.summary)}`}>
+                      {alertIcon(event.summary)}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-baseline gap-2 flex-wrap">
+                        <p className="text-sm font-semibold text-foreground leading-snug">{event.competitorName}</p>
+                        <span className="text-[11px] text-muted-foreground shrink-0">
+                          {(() => {
+                            const diff = Date.now() - event.detectedAt;
+                            const h = Math.floor(diff / 3600000);
+                            const d = Math.floor(diff / 86400000);
+                            if (h < 1) return 'Just now';
+                            if (h < 24) return `${h}h ago`;
+                            return `${d}d ago`;
+                          })()}
+                        </span>
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">{event.summary}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground text-center py-6">No changes detected yet</p>
+            )}
           </div>
-        )}
-        <BusinessScoreCard own={own} competitors={project.competitors} />
+        </div>
       </div>
 
+      {/* Score trend */}
+      <ScoreTrend />
+
+      {/* Competitors */}
       <div className="space-y-3">
         <div className="flex items-center justify-between">
           <h2 className="text-base font-semibold text-foreground flex items-center gap-2">
             <TrendingUp className="w-4 h-4 text-primary" />
-            Competitor Benchmark
+            Competitors
           </h2>
           {!isDemoMode && project.competitors.length < 5 && (
             <button
@@ -210,30 +279,6 @@ const Dashboard = () => {
           )}
         </div>
         <CompetitorComparisonCard />
-        <div className="overflow-x-auto">
-          <BenchmarkTable />
-        </div>
-        <p className="text-xs text-gray-400">↑↓ weekly change vs 7 days ago</p>
-      </div>
-
-      <PriorityActionsPanel />
-
-      <div>
-        <h2 className="text-base font-semibold text-foreground mb-3 flex items-center gap-2">
-          <Bell className="w-4 h-4 text-primary" />
-          Recent Changes
-        </h2>
-        {allChanges.length > 0 ? (
-          <div className="space-y-3">
-            {allChanges.map((event) => (
-              <ChangeEventCard key={event.id} event={event} competitorName={event.competitorName} />
-            ))}
-          </div>
-        ) : (
-          <div className="card-surface text-center py-8">
-            <p className="text-sm text-muted-foreground">No changes detected yet</p>
-          </div>
-        )}
       </div>
       {showAddModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">

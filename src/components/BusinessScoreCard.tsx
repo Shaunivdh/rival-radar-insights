@@ -110,17 +110,31 @@ export function BusinessScoreCard({ own, competitors }: Props) {
       {/* Header row */}
       <div className="flex items-start justify-between gap-4">
         <div>
-          <p className="text-[10px] font-semibold tracking-widest text-muted-foreground uppercase mb-1">Your Business</p>
-          <h1 className="text-2xl font-bold text-gray-900">{own.name}</h1>
+          <p className="text-[10px] font-semibold tracking-widest text-muted-foreground uppercase mb-1">How you're doing</p>
+          <h1 className="text-xl font-bold text-gray-900">{own.name}</h1>
           <p className="text-sm text-gray-500 mt-0.5">
-            {own.domain}
+            {own.googleData?.address
+              ? <>{own.googleData.address}</>
+              : <>{own.domain}</>}
             {own.lastCrawledAt && (
-              <> &middot; {timeAgo(own.lastCrawledAt)}</>
+              <> &middot; Last checked {timeAgo(own.lastCrawledAt).replace('Updated ', '')}</>
             )}
           </p>
         </div>
         {score && <CircleScore score={score.overallScore} />}
       </div>
+
+      {/* Score summary blurb */}
+      {score && (
+        <p className="text-sm text-gray-600 leading-relaxed">
+          {score.overallScore >= 70
+            ? <>You're <span className="font-semibold text-gray-800">performing well</span> in your area. Keep up the momentum and focus on your top priority actions.</>
+            : score.overallScore >= 45
+            ? <>You're <span className="font-semibold text-gray-800">solidly mid-pack</span> in your area — with the biggest room to grow on your lower-scoring signals. Let's tackle that together.</>
+            : <>There's <span className="font-semibold text-gray-800">real room to grow</span> your local visibility. Start with the priority actions on the right to move the needle quickly.</>
+          }
+        </p>
+      )}
 
       {/* Metric rows */}
       {score && (

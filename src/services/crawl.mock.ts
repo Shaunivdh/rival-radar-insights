@@ -46,5 +46,5 @@ export async function startIncrementalCrawl(
   _modifiedSince: number,
   credentials: { accountId: string; apiToken: string }
 ): Promise<string> {
-  return startCrawl(url, { maxDepth: 2, maxPages: 10, render: false, outputFormats: ['json', 'markdown'] }, credentials);
+  return startCrawl(url, { maxPages: 10, render: false }, credentials);
 }

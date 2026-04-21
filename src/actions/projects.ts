@@ -5,7 +5,7 @@ import { supabaseAdmin } from '@/lib/supabase/server';
 import { inngest } from '@/inngest/client';
 import { calculateScores } from '@/services/scores';
 import type { Project, Business, ExtractedSignals, AIHealthScore, PriorityAction, ChangeEvent, AIVisibility, PageSpeedData, ReviewSentiment } from '@/types';
-import { normalizeUrl, extractDomain } from '@/lib/url';
+import { normalizeUrl, extractDomain, isValidUrl } from '@/lib/url';
 
 // ── Auth helper ───────────────────────────────────────────────────────────────
 
@@ -77,6 +77,10 @@ export async function createProject(
   competitors: Pick<Business, 'name' | 'url' | 'domain'>[]
 ): Promise<Project> {
   const userId = await getSessionUserId();
+
+  const allUrls = [ownBusiness.url, ...competitors.map(c => c.url)];
+  const invalidUrl = allUrls.find(u => !isValidUrl(u));
+  if (invalidUrl) throw new Error(`Invalid website URL: ${invalidUrl}`);
 
   const { data: project, error: projectError } = await supabaseAdmin
     .from('projects')
@@ -413,6 +417,7 @@ export async function addCompetitor(
     .eq('is_own_business', false);
 
   if ((existing?.length ?? 0) >= 5) throw new Error('Maximum of 5 competitors allowed');
+  if (!isValidUrl(competitor.url)) throw new Error('Please enter a valid website URL (e.g. example.com)');
 
   const normalized = {
     ...competitor,

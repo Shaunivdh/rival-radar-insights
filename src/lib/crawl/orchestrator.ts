@@ -8,7 +8,7 @@ import { normalizeUrl } from '@/lib/url';
 import type { RawCrawlResult } from '@/types';
 
 const MAX_PRIORITY_PAGES = parseInt(process.env.CRAWL_PRIORITY_PAGES ?? '5', 10);
-const MAX_TOTAL_PAGES = parseInt(process.env.CRAWL_MAX_PAGES ?? '15', 10);
+const MAX_TOTAL_PAGES = parseInt(process.env.CRAWL_MAX_PAGES ?? '20', 10);
 
 const EXTRACTION_PROMPT =
   'Analyse the raw HTML of this page and return a JSON object with these exact keys. ' +
@@ -85,11 +85,9 @@ export async function startBusinessCrawl(
     : await startCrawl(
         normalizedUrl,
         {
-          maxDepth: 3,
           maxPages: Math.max(1, MAX_TOTAL_PAGES - MAX_PRIORITY_PAGES),
           render: true,
           waitUntil: 'networkidle0',
-          outputFormats: ['json', 'markdown', 'html'],
           jsonOptions: { prompt: EXTRACTION_PROMPT },
         },
         credentials
@@ -167,7 +165,7 @@ export async function extractAndPersistSignals(
     if (!rootHtml) {
       console.warn(`[crawl] Root page HTML is empty for job ${jobId} — multi-page enrichment will be skipped`);
     }
-    const extraLimit = Math.min(MAX_PRIORITY_PAGES, Math.max(MAX_PRIORITY_PAGES, MAX_TOTAL_PAGES - rootResult.pages.length));
+    const extraLimit = Math.min(MAX_PRIORITY_PAGES, MAX_TOTAL_PAGES - rootResult.pages.length);
 
     if (rootHtml && extraLimit > 0) {
       let priorityLinks = extractPriorityLinks(rootHtml, url, extraLimit);
@@ -201,10 +199,15 @@ export async function extractAndPersistSignals(
   // Deduplicate pages by URL (single-page sites can produce duplicates via priority crawls)
   const seenUrls = new Set<string>();
   const dedupedPages = rawResult.pages.filter(p => {
-    const key = p.url ? new URL(p.url).origin + new URL(p.url).pathname.replace(/\/$/, '') : '';
-    if (seenUrls.has(key)) return false;
-    seenUrls.add(key);
-    return true;
+    try {
+      const parsed = new URL(p.url);
+      const key = parsed.origin + parsed.pathname.replace(/\/$/, '');
+      if (seenUrls.has(key)) return false;
+      seenUrls.add(key);
+      return true;
+    } catch {
+      return true; // keep pages with unparseable URLs rather than crashing
+    }
   });
   if (dedupedPages.length < rawResult.pages.length) {
     console.log(`[crawl] Deduped ${rawResult.pages.length - dedupedPages.length} duplicate pages`);

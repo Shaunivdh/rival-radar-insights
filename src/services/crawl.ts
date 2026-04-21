@@ -41,6 +41,7 @@ export function extractPriorityLinks(html: string, baseUrl: string, limit: numbe
   }
 
   return scored
+    .filter(s => s.score > 0)
     .sort((a, b) => b.score - a.score || a.url.localeCompare(b.url))
     .slice(0, limit)
     .map(s => s.url);
@@ -57,7 +58,7 @@ export async function crawlSinglePage(
 ): Promise<RawCrawlResult['pages'][0] | null> {
   let jobId: string;
   try {
-    jobId = await startCrawl(url, { maxPages: 1, render: true, waitUntil: 'networkidle0', outputFormats: ['json', 'html'], jsonOptions: { prompt } }, credentials);
+    jobId = await startCrawl(url, { maxPages: 1, render: true, waitUntil: 'networkidle0', jsonOptions: { prompt } }, credentials);
   } catch (e) {
     console.warn(`[crawlSinglePage] Failed to start crawl for ${url}:`, e);
     return null;
@@ -165,10 +166,8 @@ export async function startIncrementalCrawl(
   return startCrawl(
     url,
     {
-      maxDepth: 2,
       maxPages: 10,
       render: false,
-      outputFormats: ['json', 'markdown'],
       modifiedSince,
     },
     credentials

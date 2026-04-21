@@ -58,7 +58,7 @@ export async function crawlSinglePage(
 ): Promise<RawCrawlResult['pages'][0] | null> {
   let jobId: string;
   try {
-    jobId = await startCrawl(url, { maxPages: 1, render: true, waitUntil: 'networkidle0', jsonOptions: { prompt } }, credentials);
+    jobId = await startCrawl(url, { maxPages: 1, render: true, jsonOptions: { prompt } }, credentials);
   } catch (e) {
     console.warn(`[crawlSinglePage] Failed to start crawl for ${url}:`, e);
     return null;
@@ -96,22 +96,26 @@ export async function startCrawl(
 ): Promise<string> {
   if (USE_MOCK) return mock!.startCrawl(url, options, credentials);
 
+  const body = {
+    url,
+    render: options.render ?? false,
+    limit: options.maxPages ?? 20,
+    ...(options.jsonOptions ? { jsonOptions: options.jsonOptions } : {}),
+    ...(options.modifiedSince ? { modifiedSince: Math.floor(options.modifiedSince / 1000) } : {}),
+  };
+  console.log(`[crawl] startCrawl request:`, JSON.stringify(body));
+
   const res = await fetch(`${cfBase(credentials.accountId)}/crawl`, {
     method: 'POST',
     headers: cfHeaders(credentials.apiToken),
-    body: JSON.stringify({
-      url,
-      render: options.render ?? false,
-      limit: options.maxPages ?? 20,
-      ...(options.waitUntil ? { waitUntil: options.waitUntil } : {}),
-      ...(options.jsonOptions ? { jsonOptions: options.jsonOptions } : {}),
-      ...(options.modifiedSince ? { modifiedSince: Math.floor(options.modifiedSince / 1000) } : {}),
-    }),
+    body: JSON.stringify(body),
   });
 
-  if (!res.ok) throw new Error(`CF crawl start failed: ${res.status} ${await res.text()}`);
+  const resText = await res.text();
+  if (!res.ok) throw new Error(`CF crawl start failed: ${res.status} ${resText}`);
 
-  const data = (await res.json()) as { success: boolean; result: string };
+  const data = JSON.parse(resText) as { success: boolean; result: string };
+  console.log(`[crawl] startCrawl response: jobId=${data.result} success=${data.success}`);
   if (!data.success) throw new Error('CF crawl start: success=false');
   return data.result;
 }
@@ -129,6 +133,7 @@ export async function pollCrawlStatus(
   if (!res.ok) throw new Error(`CF poll failed: ${res.status}`);
 
   const data = (await res.json()) as { success: boolean; result: { status: string } };
+  console.log(`[crawl] pollCrawlStatus jobId=${jobId} status=${data.result.status}`);
   return { status: data.result.status };
 }
 
@@ -160,15 +165,16 @@ export async function getCrawlResults(
 
 export async function startIncrementalCrawl(
   url: string,
-  modifiedSince: number,
+  _modifiedSince: number,
   credentials: CrawlCredentials
 ): Promise<string> {
+  // NOTE: modifiedSince causes CF crawl jobs to hang indefinitely in "running" state.
+  // Use a lightweight re-crawl instead (fewer pages, no render).
   return startCrawl(
     url,
     {
       maxPages: 10,
       render: false,
-      modifiedSince,
     },
     credentials
   );

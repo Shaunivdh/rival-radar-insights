@@ -5,12 +5,26 @@ const NEW_PLACES_BASE = 'https://places.googleapis.com/v1/places';
 const PLACE_FIELD_MASK = 'id,displayName,rating,userRatingCount,formattedAddress,nationalPhoneNumber,regularOpeningHours,reviews,priceLevel,types,photos,location,websiteUri,editorialSummary,generativeSummary';
 const SEARCH_FIELD_MASK = `places.${PLACE_FIELD_MASK.split(',').join(',places.')}`;
 
+// Generic Google Place types that carry no useful business-specific information
+const GENERIC_TYPES = new Set(['point_of_interest', 'establishment', 'store', 'business', 'premise', 'food', 'health']);
+
+// When multiple specific types are present, prefer the more descriptive/canonical one.
+// Lower index = higher priority. hair_care is a sub-type of beauty_salon; spa is also covered by beauty_salon.
+const TYPE_PRIORITY: string[] = ['beauty_salon', 'nail_salon', 'spa', 'gym', 'dentist', 'doctor', 'lawyer', 'restaurant', 'cafe', 'bakery', 'bar', 'hotel', 'lodging'];
+
+function pickBusinessCategory(types: string[]): string {
+  const specific = types.filter(t => !GENERIC_TYPES.has(t));
+  if (specific.length === 0) return types[0] ?? '';
+  const prioritised = specific.find(t => TYPE_PRIORITY.includes(t));
+  return prioritised ?? specific[0];
+}
+
 function mapPlaceToGoogleData(place: Record<string, unknown>): GoogleData {
   return {
     placeId: place.id as string ?? '',
     googleRating: place.rating as number ?? 0,
     reviewCount: place.userRatingCount as number ?? 0,
-    businessCategory: (place.types as string[])?.[0] ?? '',
+    businessCategory: pickBusinessCategory((place.types as string[]) ?? []),
     address: place.formattedAddress as string ?? '',
     phoneNumber: place.nationalPhoneNumber as string ?? '',
     openingHours: (place.regularOpeningHours as Record<string, unknown>)?.weekdayDescriptions as string[] ?? [],

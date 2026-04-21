@@ -169,7 +169,6 @@ export interface Change {
 export interface CrawlOptions {
   maxPages?: number;
   render?: boolean;
-  waitUntil?: string | string[];
   jsonOptions?: { prompt: string };
   modifiedSince?: number;
 }

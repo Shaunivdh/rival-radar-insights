@@ -79,9 +79,11 @@ export const crawlBusinessFunction = inngest.createFunction(
     };
 
     // Step 1: Start crawl, returns CF job ID
+    console.log(`[crawl-worker] Starting ${mode} crawl for business ${businessId}`);
     const jobId = await step.run('start-crawl', () =>
       startBusinessCrawl(businessId, mode)
     );
+    console.log(`[crawl-worker] Started crawl jobId=${jobId} for business ${businessId} mode=${mode}`);
 
     // Step 2: Poll until complete or failed
     let crawlStatus = 'running';
@@ -91,6 +93,9 @@ export const crawlBusinessFunction = inngest.createFunction(
       crawlStatus = await step.run(`poll-status-${attempts}`, () =>
         checkCrawlStatus(businessId, jobId)
       );
+      if (attempts % 10 === 0) {
+        console.log(`[crawl-worker] Poll attempt ${attempts}/${MAX_POLL_ATTEMPTS} for jobId=${jobId}: status=${crawlStatus}`);
+      }
       attempts++;
       if (crawlStatus === 'running') {
         await step.sleep(`poll-wait-${attempts}`, POLL_INTERVAL);
@@ -98,8 +103,10 @@ export const crawlBusinessFunction = inngest.createFunction(
     }
 
     if (crawlStatus !== 'completed') {
+      console.error(`[crawl-worker] Crawl failed: jobId=${jobId} finalStatus=${crawlStatus} attempts=${attempts} mode=${mode} businessId=${businessId}`);
       throw new Error(`Crawl ended with status: ${crawlStatus} after ${attempts} attempts`);
     }
+    console.log(`[crawl-worker] Crawl completed: jobId=${jobId} after ${attempts} polls`);
 
     // Step 3: Extract signals and persist, then override seo fields via direct HTTP checks
     await step.run('persist-signals', async () => {

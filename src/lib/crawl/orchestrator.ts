@@ -8,7 +8,7 @@ import { normalizeUrl } from '@/lib/url';
 import type { RawCrawlResult } from '@/types';
 
 const MAX_PRIORITY_PAGES = parseInt(process.env.CRAWL_PRIORITY_PAGES ?? '5', 10);
-const MAX_TOTAL_PAGES = parseInt(process.env.CRAWL_MAX_PAGES ?? '20', 10);
+const MAX_TOTAL_PAGES = parseInt(process.env.CRAWL_MAX_PAGES ?? '15', 10);
 
 const EXTRACTION_PROMPT =
   'Analyse the raw HTML of this page and return a JSON object with these exact keys. ' +
@@ -87,7 +87,6 @@ export async function startBusinessCrawl(
         {
           maxPages: Math.max(1, MAX_TOTAL_PAGES - MAX_PRIORITY_PAGES),
           render: true,
-          waitUntil: 'networkidle0',
           jsonOptions: { prompt: EXTRACTION_PROMPT },
         },
         credentials
@@ -230,12 +229,20 @@ export async function extractAndPersistSignals(
 
   // Always apply deterministic HTML parsing on top of AI-extracted json.
   // AI often returns empty strings for metadata fields even when the HTML contains them.
+  // For array fields, union-merge so neither AI nor deterministic results are lost.
+  const MERGE_ARRAY_KEYS = ['servicesListed', 'serviceAreasMentioned', 'h1Tags', 'accreditations', 'certifications', 'awardsAndMemberships', 'reviewPlatformsLinked', 'guaranteesMentioned', 'ctaText', 'socialLinksPresent', 'schemaMarkupTypes'];
   rawResult = {
     ...rawResult,
     pages: rawResult.pages.map(p => {
       if (!p.html) return p;
       const parsed = parseHtmlSignals(p.html, p.url);
-      return { ...p, json: { ...(p.json ?? {}), ...parsed } };
+      const aiJson = (p.json ?? {}) as Record<string, unknown>;
+      const merged: Record<string, unknown> = { ...aiJson, ...parsed };
+      for (const key of MERGE_ARRAY_KEYS) {
+        const a = aiJson[key], b = (parsed as Record<string, unknown>)[key];
+        if (Array.isArray(a) && Array.isArray(b)) merged[key] = [...new Set([...a, ...b])];
+      }
+      return { ...p, json: merged };
     }),
   };
 

@@ -1,9 +1,11 @@
 import Anthropic from '@anthropic-ai/sdk';
 import type { ExtractedSignals, PriorityAction, ChangeSummary, Business, ReviewSentiment } from '@/types';
 
+const SKIP_AI = process.env.SKIP_AI_CALLS === 'true';
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
 export async function extractPageSignals(html: string, prompt: string): Promise<Record<string, unknown>> {
+  if (SKIP_AI) return {};
   const stripped = html
     .replace(/<script\b(?![^>]*type=["']application\/ld\+json["'])[^>]*>[\s\S]*?<\/script>/gi, '')
     .replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi, '')
@@ -12,7 +14,7 @@ export async function extractPageSignals(html: string, prompt: string): Promise<
   try {
     const msg = await client.messages.create({
       model: 'claude-haiku-4-5-20251001',
-      max_tokens: 1500,
+      max_tokens: 4000,
       messages: [{ role: 'user', content: `${prompt}\n\nHTML:\n${stripped}\n\nReturn JSON only, no markdown.` }],
     });
     const text = (msg.content[0] as { type: string; text: string }).text.trim();
@@ -38,6 +40,7 @@ async function askClaude<T>(prompt: string): Promise<T> {
 export async function generateReviewSentiment(
   reviews: Array<{ rating: number; text: string }>
 ): Promise<ReviewSentiment | null> {
+  if (SKIP_AI) return null;
   if (!reviews.length) return null;
   const texts = reviews
     .filter((r) => r.text?.trim())
@@ -58,6 +61,7 @@ Reviews:\n${texts}`;
 }
 
 export async function generatePriorityActions(own: Business, competitors: Business[]): Promise<PriorityAction[]> {
+  if (SKIP_AI) return [];
   const prompt = `Compare this business against competitors and return 3-5 priority actions as JSON array only.
 Schema per item: {"priority":1|2|3,"category":"string","action":"string","reason":"string","competitorReference":"string","estimatedImpact":"high"|"medium"|"low","timeframe":"string"}
 Own: ${JSON.stringify({ name: own.name, signals: own.signals })}
@@ -72,6 +76,7 @@ export async function generateChangeSummary(
   after: ExtractedSignals,
   isCompetitor: boolean
 ): Promise<ChangeSummary> {
+  if (SKIP_AI) return { hasSignificantChanges: false, severity: 'low', summary: '', changes: [] };
   // Only send the fields that actually changed to reduce tokens
   const changedBefore: Partial<ExtractedSignals> = {};
   const changedAfter: Partial<ExtractedSignals> = {};

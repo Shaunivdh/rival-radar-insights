@@ -160,6 +160,9 @@ export async function checkAIPresenceFromSerp(
   _domain: string,
   _serpApiKey: string
 ): Promise<AIVisibility> {
+  if (process.env.SKIP_AI_CALLS === 'true') {
+    return { aiPresenceScore: 0, mentionCount: 0, totalPrompts: 0, tested_at: new Date().toISOString() };
+  }
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) {
     console.warn('[ai-presence] ANTHROPIC_API_KEY not set, skipping');

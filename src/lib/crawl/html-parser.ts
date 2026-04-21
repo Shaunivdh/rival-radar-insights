@@ -36,7 +36,7 @@ export function parseHtmlSignals(html: string, baseUrl?: string): Record<string,
   signals.canonicalTagsPresent = /<link[^>]+rel=["']canonical["'][^>]*>/i.test(html);
 
   // Schema markup types from ld+json (AI strips these, so parse here)
-  const ldJsonMatches = [...html.matchAll(/<script[^>]+type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi)];
+  const ldJsonMatches = [...html.matchAll(/<script[^>]+type=["']?application\/ld\+json["']?[^>]*>([\s\S]*?)<\/script\s*>/gi)];
   const schemaTypes = new Set<string>();
   for (const match of ldJsonMatches) {
     try {
@@ -51,6 +51,32 @@ export function parseHtmlSignals(html: string, baseUrl?: string): Record<string,
     } catch { /* ignore malformed JSON */ }
   }
   if (schemaTypes.size > 0) signals.schemaMarkupTypes = [...schemaTypes];
+
+  // Services listed — deterministic fallback: H1 comma/pipe splits, short H2/H3 headings, schema.org Service names
+  const GENERIC_HEADINGS = /^(about|contact|home|gallery|blog|news|team|faq|pricing|reviews|testimonials|get in touch|find us|opening hours|book now|book online|free quote|welcome|our story|location|locations|login|sign up|our services|our treatments|what we do|what we offer)$/i;
+  const h1Text = [...html.matchAll(/<h1[^>]*>([\s\S]*?)<\/h1>/gi)].map(m => m[1].replace(/<[^>]+>/g, '').trim()).filter(Boolean);
+  const servicesFromH1: string[] = [];
+  for (const h1 of h1Text) {
+    const parts = h1.split(/[,|]/).map(s => s.replace(/&amp;/g, '&').trim()).filter(s => s.length >= 2 && s.split(/\s+/).length <= 5);
+    if (parts.length >= 2) servicesFromH1.push(...parts);
+  }
+  const shortH2H3 = [...html.matchAll(/<h[23][^>]*>([\s\S]*?)<\/h[23]>/gi)]
+    .map(m => m[1].replace(/<[^>]+>/g, '').trim())
+    .filter(t => t && t.split(/\s+/).length <= 4 && t.length < 50 && !GENERIC_HEADINGS.test(t));
+  const schemaServiceNames: string[] = [];
+  for (const match of ldJsonMatches) {
+    try {
+      const walk = (obj: unknown): void => {
+        if (!obj || typeof obj !== 'object') return;
+        const o = obj as Record<string, unknown>;
+        if (['Service', 'Product', 'Offer'].includes(o['@type'] as string) && typeof o.name === 'string') schemaServiceNames.push(o.name);
+        for (const v of Object.values(o)) Array.isArray(v) ? v.forEach(walk) : walk(v);
+      };
+      walk(JSON.parse(match[1]));
+    } catch { /* ignore */ }
+  }
+  const detectedServices = [...new Set([...servicesFromH1, ...schemaServiceNames, ...shortH2H3])].slice(0, 30);
+  if (detectedServices.length > 0) signals.servicesListed = detectedServices;
 
   // Alt tag coverage
   const imgMatches = [...html.matchAll(/<img[^>]+>/gi)];
@@ -247,6 +273,45 @@ export function parseHtmlSignals(html: string, baseUrl?: string): Record<string,
     return true; // relative paths like /page, ./page, ../page
   });
   signals.internalLinkCount = internalLinks.length;
+
+  // Booking system — known appointment/booking providers embedded or linked in the page
+  const BOOKING_PROVIDERS: [string, RegExp][] = [
+    ['Fresha', /fresha\.com/i],
+    ['Treatwell', /treatwell\.co\.uk|treatwell\.com/i],
+    ['Vagaro', /vagaro\.com/i],
+    ['Timely', /timely\.is/i],
+    ['Acuity Scheduling', /acuityscheduling\.com/i],
+    ['Calendly', /calendly\.com/i],
+    ['SimplyBook', /simplybook\.(me|it)/i],
+    ['Booksy', /booksy\.com/i],
+    ['Mindbody', /mindbodyonline\.com|mindbody\.io/i],
+    ['Square Appointments', /squareup\.com\/appointments/i],
+    ['Setmore', /setmore\.com/i],
+    ['Phorest', /phorest\.com/i],
+    ['Shortcuts', /shortcuts\.net/i],
+    ['Timeprime', /timeprime\.com/i],
+    ['Jane App', /jane\.app/i],
+  ];
+  const bookingProvider = BOOKING_PROVIDERS.find(([, re]) => re.test(html));
+  if (bookingProvider) {
+    signals.hasBookingSystem = true;
+    signals.bookingProvider = bookingProvider[0];
+  }
+
+  // Call to action — common CTA phrases in buttons, links, or prominent text
+  const CTA_RE = /\b(book\s*(now|online|an?\s+appointment|a\s+session|today)|get\s*(a\s+)?(free\s+)?(quote|estimate|consultation)|request\s*(a\s+)?(quote|appointment|callback|call back)|schedule\s*(an?\s+)?(appointment|consultation|visit)|reserve\s*(now|your\s+spot)|free\s+consultation|contact\s+us\s+today|call\s+us\s+now|get\s+started|start\s+today|claim\s+offer|try\s+(it\s+)?free)\b/i;
+  const ctaMatches = [...html.matchAll(/<(?:button|a)\b[^>]*>([\s\S]*?)<\/(?:button|a)>/gi)]
+    .map(m => m[1].replace(/<[^>]+>/g, '').trim())
+    .filter(t => t && CTA_RE.test(t));
+  if (ctaMatches.length > 0 || CTA_RE.test(text)) {
+    signals.hasCallToAction = true;
+    if (ctaMatches.length > 0) signals.ctaText = [...new Set(ctaMatches)].slice(0, 5);
+  }
+
+  // Phone number prominent — tel: link present, or phone in a heading/header element
+  signals.hasPhoneNumberProminent =
+    /href=["']tel:/i.test(html) ||
+    /<(?:h[1-4]|header)[^>]*>[\s\S]*?\b(?:\+44[\s\d]{9,12}|0[1-9]\d{8,10}|\(\d{3,5}\)\s*[\d\s\-]{7,})\b[\s\S]*?<\/(?:h[1-4]|header)>/i.test(html);
 
   return signals;
 }

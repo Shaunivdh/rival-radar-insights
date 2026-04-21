@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { useRivalRadarStore } from '@/store/rivalradar';
 import { addCompetitor } from '@/actions/projects';
@@ -86,6 +87,8 @@ type ArchivedEntry = { biz: Business; archivedAt: string };
 
 const CompetitorsList = () => {
   const { project, addCompetitorToStore } = useRivalRadarStore();
+  const searchParams = useSearchParams();
+  const debugMode = process.env.NODE_ENV === 'development' && searchParams.get('debug') === 'true';
   const [search, setSearch] = useState('');
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState({ name: '', url: '' });
@@ -482,6 +485,102 @@ const CompetitorsList = () => {
           )}
         </div>
       )}
+
+      {/* DEV DEBUG — raw DB snapshot, visible at ?debug=true in development only */}
+      {debugMode && (() => {
+        const allBiz = [
+          { biz: own, label: 'YOU' },
+          ...project.competitors.map((c) => ({ biz: c, label: c.name })),
+        ];
+        const cols: { key: keyof Business; label: string }[] = [
+          { key: 'signals',        label: 'Signals'    },
+          { key: 'googleData',     label: 'Google'     },
+          { key: 'serpData',       label: 'SERP'       },
+          { key: 'aiScore',        label: 'AI Score'   },
+          { key: 'aiVisibility',   label: 'AI Vis'     },
+          { key: 'pagespeedData',  label: 'PageSpeed'  },
+          { key: 'reviewSentiment',label: 'Sentiment'  },
+        ];
+        const ok = (v: unknown) => v != null;
+        return (
+          <div className="mt-10 space-y-6">
+            {/* Audit matrix */}
+            <div className="p-4 rounded-xl border border-dashed border-yellow-400 bg-yellow-50/5">
+              <p className="text-xs font-mono text-yellow-500 mb-3 uppercase tracking-widest">
+                [DEV] Data coverage audit
+              </p>
+              <div className="overflow-x-auto">
+                <table className="text-xs font-mono w-full border-collapse">
+                  <thead>
+                    <tr>
+                      <th className="text-left pr-4 pb-2 text-muted-foreground">Business</th>
+                      <th className="text-left pr-3 pb-2 text-muted-foreground">Status</th>
+                      {cols.map((c) => (
+                        <th key={c.key} className="px-3 pb-2 text-muted-foreground">{c.label}</th>
+                      ))}
+                      <th className="pl-3 pb-2 text-muted-foreground">Errors</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {allBiz.map(({ biz, label }) => {
+                      const filled = cols.filter((c) => ok(biz[c.key])).length;
+                      return (
+                        <tr key={biz.id} className="border-t border-border/30">
+                          <td className="pr-4 py-1.5 text-yellow-400 font-semibold whitespace-nowrap">{label}</td>
+                          <td className="pr-3 py-1.5 whitespace-nowrap">
+                            <span className={
+                              biz.crawlStatus === 'complete' ? 'text-green-500' :
+                              biz.crawlStatus === 'failed'   ? 'text-red-500'   :
+                              biz.crawlStatus === 'running'  ? 'text-blue-400'  :
+                              'text-muted-foreground'
+                            }>
+                              {biz.crawlStatus}
+                            </span>
+                          </td>
+                          {cols.map((c) => (
+                            <td key={c.key} className="px-3 py-1.5 text-center">
+                              {ok(biz[c.key]) ? '✓' : <span className="text-red-500">✗</span>}
+                            </td>
+                          ))}
+                          <td className="pl-3 py-1.5">
+                            {biz.enrichmentErrors
+                              ? <span className="text-red-400">{Object.keys(biz.enrichmentErrors).join(', ')}</span>
+                              : <span className="text-muted-foreground">—</span>}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                    {/* Summary row */}
+                    <tr className="border-t-2 border-yellow-400/40">
+                      <td colSpan={2} className="pt-2 text-muted-foreground">Coverage</td>
+                      {cols.map((c) => {
+                        const n = allBiz.filter(({ biz }) => ok(biz[c.key])).length;
+                        return (
+                          <td key={c.key} className="px-3 pt-2 text-center">
+                            <span className={n === allBiz.length ? 'text-green-500' : 'text-yellow-400'}>
+                              {n}/{allBiz.length}
+                            </span>
+                          </td>
+                        );
+                      })}
+                      <td />
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+            {/* Raw JSON */}
+            <div className="p-4 rounded-xl border border-dashed border-yellow-400/40 bg-yellow-50/5">
+              <p className="text-xs font-mono text-yellow-500/70 mb-3 uppercase tracking-widest">
+                [DEV] Raw project data
+              </p>
+              <pre className="text-xs font-mono text-muted-foreground overflow-auto max-h-[600px] whitespace-pre-wrap break-all">
+                {JSON.stringify(project, null, 2)}
+              </pre>
+            </div>
+          </div>
+        );
+      })()}
     </motion.div>
   );
 };

@@ -2,7 +2,7 @@
  * Parse deterministic SEO signals directly from raw HTML.
  * More reliable than AI extraction for structured metadata fields.
  */
-export function parseHtmlSignals(html: string): Record<string, unknown> {
+export function parseHtmlSignals(html: string, baseUrl?: string): Record<string, unknown> {
   const signals: Record<string, unknown> = {};
   // Strip HTML tags for content-based pattern matching (handles inline tags like <strong>ISO</strong> 9001)
   const text = html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ');
@@ -231,6 +231,22 @@ export function parseHtmlSignals(html: string): Record<string, unknown> {
   const guaranteeMatches = [...text.matchAll(/(\d+[\s\-](?:day|month|year)[\s\-](?:money[\s\-]back\s+)?guarantee|satisfaction\s+guarantee|workmanship\s+guarantee)/gi)];
   const guarantees = [...new Set(guaranteeMatches.map(m => m[0].trim()))];
   if (guarantees.length > 0) signals.guaranteesMentioned = guarantees;
+
+  // Internal link count
+  let baseHostname: string | null = null;
+  if (baseUrl) {
+    try { baseHostname = new URL(baseUrl).hostname; } catch { /* ignore */ }
+  }
+  const allHrefs = [...html.matchAll(/href=["']([^"'#][^"']*?)["']/gi)].map(m => m[1]);
+  const internalLinks = allHrefs.filter(href => {
+    if (/^(mailto|tel|javascript):/i.test(href)) return false;
+    if (/^https?:\/\//i.test(href)) {
+      if (!baseHostname) return false;
+      try { return new URL(href).hostname === baseHostname; } catch { return false; }
+    }
+    return true; // relative paths like /page, ./page, ../page
+  });
+  signals.internalLinkCount = internalLinks.length;
 
   return signals;
 }

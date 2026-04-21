@@ -22,7 +22,9 @@ const EXTRACTION_PROMPT =
   'teamPageExists: true if the page IS a team/about-us/meet-the-team page, or if there is a prominent nav link to one (e.g. href contains /team, /aboutus, /about-us, /about, /meet-us, /our-team, /people). ' +
   'insuranceMentioned: true if any form of insurance is mentioned (public liability, professional indemnity, fully insured, etc.). ' +
   'guaranteesMentioned: string array of explicit guarantees or warranties mentioned (e.g. "30-day money-back guarantee", "12-month workmanship guarantee"). ' +
-  'Other keys: title (page title), metaDescription (meta description), h1Tags (array of h1 text), hasSitemap (bool), hasRobotsTxt (bool), internalLinkCount (number), canonicalTagsPresent (bool), altTagCoverage ("full"|"partial"|"none"), servicesListed (string array), serviceAreasMentioned (string array), hasPortfolio (bool), portfolioItemCount (number), hasContactForm (bool — true if the page contains a <form> element with input fields, a "Contact Us" form, or any embedded form widget regardless of label), hasBookingSystem (bool), bookingProvider (string or null), hasCallToAction (bool), ctaText (string array), hasNewsletterSignup (bool), socialLinksPresent (string array), hasPhoneNumberProminent (bool), newServicesDetected (string array), removedServicesDetected (string array), newTechIntegrations (string array), recentAnnouncementsOrNews (array of {title,date,summary}), recentHiringSignals (string array), newLocationsOrExpansion (string array). ' +
+  'servicesListed: string array of every distinct service, treatment, or offering explicitly named on the page; look in nav menus, section headings (h2/h3), list items (li), pricing tables, service cards, and any block labelled "services", "treatments", "what we offer", "our work", or similar; use the exact names as written on the page (e.g. "Swedish Massage", "Gel Nails", "Boiler Service", "Wedding Photography"); return [] only if no services are mentioned anywhere. ' +
+  'serviceAreasMentioned: string array of geographic locations, towns, counties, or regions explicitly mentioned as service areas; look in footer, "areas we cover", "we serve", address blocks, or page copy. ' +
+  'Other keys: title (page title), metaDescription (meta description), h1Tags (array of h1 text), hasSitemap (bool), hasRobotsTxt (bool), internalLinkCount (number), canonicalTagsPresent (bool), altTagCoverage ("full"|"partial"|"none"), hasPortfolio (bool), portfolioItemCount (number), hasContactForm (bool — true if the page contains a <form> element with input fields, a "Contact Us" form, or any embedded form widget regardless of label), hasBookingSystem (bool), bookingProvider (string or null), hasCallToAction (bool), ctaText (string array), hasNewsletterSignup (bool), socialLinksPresent (string array), hasPhoneNumberProminent (bool), newServicesDetected (string array), removedServicesDetected (string array), newTechIntegrations (string array), recentAnnouncementsOrNews (array of {title,date,summary}), recentHiringSignals (string array), newLocationsOrExpansion (string array). ' +
   'sectorSpecific: an object containing sector-specific signals — only populate fields that are clearly evidenced on the page, leave others null or omit them. ' +
   'sectorSpecific.cqcRating: string or null — the CQC inspection rating if explicitly stated (e.g. "Outstanding", "Good", "Requires Improvement", "Inadequate"); look for CQC badge, rating banner, or inspection report link. ' +
   'sectorSpecific.ofstedRating: string or null — the Ofsted inspection rating if explicitly stated (e.g. "Outstanding", "Good", "Requires Improvement", "Inadequate"); look for Ofsted badge, rating text, or inspection report link. ' +
@@ -34,6 +36,21 @@ const EXTRACTION_PROMPT =
   'sectorSpecific.dvsaApproved: bool or null — true if DVSA approval or an Approved Driving Instructor (ADI) badge is mentioned. ' +
   'sectorSpecific.passRates: string or null — any stated pass rate or first-time pass rate percentage (e.g. "72% first-time pass rate"); return the raw string as found. ' +
   'sectorSpecific.ageRangesCovered: string array — age ranges or year groups catered for, relevant to nurseries, childminders, or tutors (e.g. "0-5 years", "Key Stage 1", "6 weeks to 5 years").';
+const UNUSABLE_TITLES = ['one moment, please', 'just a moment', 'attention required', 'access denied', 'page not found', '404 not found', 'error 404', '403 forbidden'];
+
+function isUnusablePage(html: string): boolean {
+  if (!html || html.length < 300) return true;
+  const lower = html.toLowerCase();
+  const titleMatch = lower.match(/<title[^>]*>([\s\S]*?)<\/title>/);
+  const title = titleMatch?.[1]?.trim().toLowerCase() ?? '';
+  if (UNUSABLE_TITLES.some(t => title.includes(t))) return true;
+  // 404 in h1 is a strong signal
+  const h1Match = lower.match(/<h1[^>]*>([\s\S]*?)<\/h1>/);
+  const h1 = h1Match?.[1]?.trim() ?? '';
+  if (/^\s*404\s*$/.test(h1)) return true;
+  return false;
+}
+
 function getCredentials(): CrawlCredentials {
   const accountId = process.env.CF_ACCOUNT_ID;
   const apiToken = process.env.CF_API_TOKEN;
@@ -71,6 +88,7 @@ export async function startBusinessCrawl(
           maxDepth: 3,
           maxPages: Math.max(1, MAX_TOTAL_PAGES - MAX_PRIORITY_PAGES),
           render: true,
+          waitUntil: 'networkidle0',
           outputFormats: ['json', 'markdown', 'html'],
           jsonOptions: { prompt: EXTRACTION_PROMPT },
         },
@@ -129,6 +147,23 @@ export async function extractAndPersistSignals(
   let rawResult: RawCrawlResult = rootResult;
   if (!cached && url && rootResult.pages.length > 0) {
     const rootHtml = rootResult.pages[0]?.html ?? '';
+
+    // Detect bot-check / redirect pages and retry once before proceeding
+    if (rootHtml && isUnusablePage(rootHtml)) {
+      console.warn(`[crawl] Root page for job ${jobId} looks like a bot-check or error page — retrying root URL`);
+      await new Promise(r => setTimeout(r, 5000));
+      const retryPage = await crawlSinglePage(url, EXTRACTION_PROMPT, credentials);
+      if (retryPage && !isUnusablePage(retryPage.html ?? '')) {
+        console.log(`[crawl] Retry succeeded for ${url}`);
+        rawResult = { status: 'completed', pages: [retryPage, ...rootResult.pages.slice(1)] };
+      } else {
+        console.warn(`[crawl] Retry also returned unusable page for ${url} — flagging in DB`);
+        await supabaseAdmin.from('businesses').update({
+          enrichment_errors: { crawl: 'This website could not be crawled — it may use bot protection or be temporarily unavailable. Re-scanning may resolve this.' }
+        }).eq('id', businessId);
+      }
+    }
+
     if (!rootHtml) {
       console.warn(`[crawl] Root page HTML is empty for job ${jobId} — multi-page enrichment will be skipped`);
     }
@@ -150,7 +185,7 @@ export async function extractAndPersistSignals(
         const extraPages = await Promise.all(
           priorityLinks.map(link => crawlSinglePage(link, EXTRACTION_PROMPT, credentials))
         );
-        const validPages = extraPages.filter((p): p is RawCrawlResult['pages'][0] => p !== null);
+        const validPages = extraPages.filter((p): p is RawCrawlResult['pages'][0] => p !== null && !isUnusablePage(p.html ?? ''));
 
         if (validPages.length > 0) {
           rawResult = { status: 'completed', pages: [...rootResult.pages, ...validPages] };
@@ -196,7 +231,7 @@ export async function extractAndPersistSignals(
     ...rawResult,
     pages: rawResult.pages.map(p => {
       if (!p.html) return p;
-      const parsed = parseHtmlSignals(p.html);
+      const parsed = parseHtmlSignals(p.html, p.url);
       return { ...p, json: { ...(p.json ?? {}), ...parsed } };
     }),
   };

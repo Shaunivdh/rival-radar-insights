@@ -57,7 +57,7 @@ export async function crawlSinglePage(
 ): Promise<RawCrawlResult['pages'][0] | null> {
   let jobId: string;
   try {
-    jobId = await startCrawl(url, { maxPages: 1, render: true, outputFormats: ['json', 'html'], jsonOptions: { prompt } }, credentials);
+    jobId = await startCrawl(url, { maxPages: 1, render: true, waitUntil: 'networkidle0', outputFormats: ['json', 'html'], jsonOptions: { prompt } }, credentials);
   } catch (e) {
     console.warn(`[crawlSinglePage] Failed to start crawl for ${url}:`, e);
     return null;
@@ -102,6 +102,7 @@ export async function startCrawl(
       url,
       render: options.render ?? false,
       limit: options.maxPages ?? 20,
+      ...(options.waitUntil ? { waitUntil: options.waitUntil } : {}),
       ...(options.jsonOptions ? { jsonOptions: options.jsonOptions } : {}),
       ...(options.modifiedSince ? { modifiedSince: Math.floor(options.modifiedSince / 1000) } : {}),
     }),

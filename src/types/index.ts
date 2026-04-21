@@ -171,6 +171,8 @@ export interface CrawlOptions {
   render?: boolean;
   jsonOptions?: { prompt: string };
   modifiedSince?: number;
+  gotoOptions?: { waitUntil?: string; timeout?: number };
+  waitForSelector?: { selector: string; timeout?: number; visible?: boolean };
 }
 
 export interface RawCrawlResult {

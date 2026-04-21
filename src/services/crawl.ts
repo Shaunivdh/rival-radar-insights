@@ -54,11 +54,12 @@ export function extractPriorityLinks(html: string, baseUrl: string, limit: numbe
 export async function crawlSinglePage(
   url: string,
   prompt: string,
-  credentials: CrawlCredentials
+  credentials: CrawlCredentials,
+  extraOptions?: Pick<CrawlOptions, 'gotoOptions' | 'waitForSelector'>
 ): Promise<RawCrawlResult['pages'][0] | null> {
   let jobId: string;
   try {
-    jobId = await startCrawl(url, { maxPages: 1, render: true, jsonOptions: { prompt } }, credentials);
+    jobId = await startCrawl(url, { maxPages: 1, render: true, jsonOptions: { prompt }, ...extraOptions }, credentials);
   } catch (e) {
     console.warn(`[crawlSinglePage] Failed to start crawl for ${url}:`, e);
     return null;
@@ -102,6 +103,8 @@ export async function startCrawl(
     limit: options.maxPages ?? 20,
     ...(options.jsonOptions ? { jsonOptions: options.jsonOptions } : {}),
     ...(options.modifiedSince ? { modifiedSince: Math.floor(options.modifiedSince / 1000) } : {}),
+    ...(options.gotoOptions ? { gotoOptions: options.gotoOptions } : {}),
+    ...(options.waitForSelector ? { waitForSelector: options.waitForSelector } : {}),
   };
   console.log(`[crawl] startCrawl request:`, JSON.stringify(body));
 

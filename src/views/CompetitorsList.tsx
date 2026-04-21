@@ -4,12 +4,12 @@ import { useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { useRivalRadarStore } from '@/store/rivalradar';
-import { addCompetitor } from '@/actions/projects';
+import { addCompetitor, triggerSingleScan } from '@/actions/projects';
 import type { Business } from '@/types';
 import {
   Plus, Search, TrendingUp, TrendingDown, Minus, Star,
   Globe, MapPin, ExternalLink, Eye, Trophy, Target,
-  AlertCircle, Archive, ArchiveRestore, Clock, Trash2,
+  AlertCircle, Archive, ArchiveRestore, Clock, Trash2, RefreshCw,
 } from 'lucide-react';
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter,
@@ -85,10 +85,12 @@ const extractCity = (address: string | undefined) => {
 
 type ArchivedEntry = { biz: Business; archivedAt: string };
 
+const isDev = process.env.NODE_ENV === 'development';
+
 const CompetitorsList = () => {
-  const { project, addCompetitorToStore } = useRivalRadarStore();
+  const { project, addCompetitorToStore, syncBusinesses } = useRivalRadarStore();
   const searchParams = useSearchParams();
-  const debugMode = process.env.NODE_ENV === 'development' && searchParams.get('debug') === 'true';
+  const debugMode = isDev && searchParams.get('debug') === 'true';
   const [search, setSearch] = useState('');
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState({ name: '', url: '' });
@@ -96,6 +98,14 @@ const CompetitorsList = () => {
   const [adding, setAdding] = useState(false);
   const [archived, setArchived] = useState<ArchivedEntry[]>([]);
   const [showArchived, setShowArchived] = useState(false);
+  const [rescanningId, setRescanningId] = useState<string | null>(null);
+
+  const handleRescanOne = async (businessId: string) => {
+    setRescanningId(businessId);
+    await triggerSingleScan(businessId);
+    syncBusinesses([{ id: businessId, crawlStatus: 'pending', signals: null, aiScore: null }]);
+    setRescanningId(null);
+  };
 
   if (!project) return null;
 
@@ -322,8 +332,24 @@ const CompetitorsList = () => {
                     {score ?? '—'}
                   </div>
 
-                  {/* Archive */}
+                  {/* Dev rescan + Archive */}
                   <TooltipProvider delayDuration={200}>
+                    {isDev && (
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleRescanOne(c.id)}
+                            disabled={rescanningId === c.id}
+                            className="text-muted-foreground hover:text-yellow-500 disabled:opacity-50"
+                          >
+                            <RefreshCw className={`w-4 h-4 ${rescanningId === c.id ? 'animate-spin' : ''}`} />
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>[DEV] Re-scan this competitor</TooltipContent>
+                      </Tooltip>
+                    )}
                     <Tooltip>
                       <TooltipTrigger asChild>
                         <Button

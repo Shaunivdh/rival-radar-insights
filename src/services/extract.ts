@@ -2,10 +2,16 @@ import type { RawCrawlResult, ExtractedSignals } from '@/types';
 
 type PageJson = Record<string, unknown>;
 
-function pickStr(pages: PageJson[], key: string, fallback = ''): string {
+/** Titles that indicate a bot challenge or loading screen — not real site content. */
+const CHALLENGE_TITLES = ['one moment, please', 'just a moment', 'attention required', 'access denied'];
+
+function pickStr(pages: PageJson[], key: string, fallback = '', skipChallengeTitles = false): string {
   for (const p of pages) {
     const v = p[key];
-    if (typeof v === 'string' && v) return v;
+    if (typeof v === 'string' && v) {
+      if (skipChallengeTitles && CHALLENGE_TITLES.some(t => v.toLowerCase().includes(t))) continue;
+      return v;
+    }
   }
   return fallback;
 }
@@ -70,12 +76,12 @@ export async function extractSignals(rawResult: RawCrawlResult): Promise<Extract
 
   return {
     seo: {
-      title: pickStr(pages, 'title'),
+      title: pickStr(pages, 'title', '', true),
       metaDescription: pickStr(pages, 'metaDescription'),
       h1Tags: mergeStringArrays(pages, 'h1Tags'),
       hasSitemap: pickBool(pages, 'hasSitemap'),
       hasRobotsTxt: pickBool(pages, 'hasRobotsTxt'),
-      internalLinkCount: pickNum(pages, 'internalLinkCount', 0) ?? 0,
+      internalLinkCount: maxNum(pages, 'internalLinkCount'),
       schemaMarkupTypes: mergeStringArrays(pages, 'schemaMarkupTypes'),
       canonicalTagsPresent: pickBool(pages, 'canonicalTagsPresent'),
       altTagCoverage: (pickStr(pages, 'altTagCoverage') as 'full' | 'partial' | 'none') || 'none',

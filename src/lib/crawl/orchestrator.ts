@@ -36,19 +36,120 @@ const EXTRACTION_PROMPT =
   'sectorSpecific.dvsaApproved: bool or null — true if DVSA approval or an Approved Driving Instructor (ADI) badge is mentioned. ' +
   'sectorSpecific.passRates: string or null — any stated pass rate or first-time pass rate percentage (e.g. "72% first-time pass rate"); return the raw string as found. ' +
   'sectorSpecific.ageRangesCovered: string array — age ranges or year groups catered for, relevant to nurseries, childminders, or tutors (e.g. "0-5 years", "Key Stage 1", "6 weeks to 5 years").';
-const UNUSABLE_TITLES = ['one moment, please', 'just a moment', 'attention required', 'access denied', 'page not found', '404 not found', 'error 404', '403 forbidden'];
+const CHALLENGE_TITLES = ['one moment, please', 'just a moment', 'attention required', 'access denied'];
+const ERROR_TITLES = ['page not found', '404 not found', 'error 404', '403 forbidden'];
+const POPUP_SELECTORS = ['.modal', '.popup', '[class*="overlay"]', '[class*="cookie"]', '[class*="consent"]', '[id*="modal"]', '[id*="popup"]', '[id*="overlay"]'];
 
-function isUnusablePage(html: string): boolean {
-  if (!html || html.length < 300) return true;
+// Regex patterns to strip common popup/overlay/challenge elements from rendered HTML.
+// Each pattern removes the full element including children.
+const STRIP_PATTERNS = [
+  // Cloudflare challenge containers
+  /<div[^>]*id=["']challenge[^"']*["'][^>]*>[\s\S]*?<\/div>/gi,
+  /<div[^>]*id=["']cf-[^"']*["'][^>]*>[\s\S]*?<\/div>/gi,
+  // Generic modal/popup/overlay wrappers
+  /<div[^>]*class=["'][^"']*\bmodal\b[^"']*["'][^>]*>[\s\S]*?<\/div>/gi,
+  /<div[^>]*class=["'][^"']*\bpopup\b[^"']*["'][^>]*>[\s\S]*?<\/div>/gi,
+  /<div[^>]*class=["'][^"']*\boverlay\b[^"']*["'][^>]*>[\s\S]*?<\/div>/gi,
+  /<div[^>]*id=["'][^"']*modal[^"']*["'][^>]*>[\s\S]*?<\/div>/gi,
+  /<div[^>]*id=["'][^"']*popup[^"']*["'][^>]*>[\s\S]*?<\/div>/gi,
+  /<div[^>]*id=["'][^"']*overlay[^"']*["'][^>]*>[\s\S]*?<\/div>/gi,
+  // Cookie/consent banners
+  /<div[^>]*class=["'][^"']*\bcookie\b[^"']*["'][^>]*>[\s\S]*?<\/div>/gi,
+  /<div[^>]*class=["'][^"']*\bconsent\b[^"']*["'][^>]*>[\s\S]*?<\/div>/gi,
+  /<div[^>]*id=["'][^"']*cookie[^"']*["'][^>]*>[\s\S]*?<\/div>/gi,
+  /<div[^>]*id=["'][^"']*consent[^"']*["'][^>]*>[\s\S]*?<\/div>/gi,
+];
+
+// Challenge pages often overwrite <title> — these are the real title patterns to restore from <meta> or <og:title>
+function stripPopupOverlays(html: string): { html: string; strippedCount: number } {
+  let stripped = html;
+  let strippedCount = 0;
+  for (const pattern of STRIP_PATTERNS) {
+    const before = stripped;
+    stripped = stripped.replace(pattern, '');
+    if (stripped !== before) strippedCount++;
+  }
+
+  // If the title looks like a challenge page, try to restore from og:title or meta title
+  const lower = stripped.toLowerCase();
+  const titleMatch = lower.match(/<title[^>]*>([\s\S]*?)<\/title>/);
+  const currentTitle = titleMatch?.[1]?.trim() ?? '';
+  if (CHALLENGE_TITLES.some(t => currentTitle.includes(t))) {
+    const ogMatch = html.match(/<meta[^>]*property=["']og:title["'][^>]*content=["']([^"']+)["']/i)
+      ?? html.match(/<meta[^>]*content=["']([^"']+)["'][^>]*property=["']og:title["']/i);
+    if (ogMatch?.[1]) {
+      stripped = stripped.replace(/<title[^>]*>[\s\S]*?<\/title>/i, `<title>${ogMatch[1]}</title>`);
+      strippedCount++;
+    }
+  }
+
+  return { html: stripped, strippedCount };
+}
+
+type BlockReason = 'challenge_or_popup' | 'error_page' | 'empty_html';
+
+interface PageDiagnostics {
+  unusable: boolean;
+  reason: string | null;
+  blockType: BlockReason | null;
+  title: string;
+  h1: string;
+  htmlLength: number;
+  hasPopupSignals: boolean;
+  popupSelectors: string[];
+  internalLinkCount: number;
+}
+
+function diagnosePage(html: string): PageDiagnostics {
+  const base: PageDiagnostics = { unusable: false, reason: null, blockType: null, title: '', h1: '', htmlLength: html?.length ?? 0, hasPopupSignals: false, popupSelectors: [], internalLinkCount: 0 };
+
+  if (!html || html.length < 300) {
+    return { ...base, unusable: true, blockType: 'empty_html', reason: html ? `HTML too short (${html.length} chars)` : 'Empty HTML' };
+  }
+
   const lower = html.toLowerCase();
   const titleMatch = lower.match(/<title[^>]*>([\s\S]*?)<\/title>/);
-  const title = titleMatch?.[1]?.trim().toLowerCase() ?? '';
-  if (UNUSABLE_TITLES.some(t => title.includes(t))) return true;
-  // 404 in h1 is a strong signal
+  base.title = titleMatch?.[1]?.trim() ?? '';
+
   const h1Match = lower.match(/<h1[^>]*>([\s\S]*?)<\/h1>/);
-  const h1 = h1Match?.[1]?.trim() ?? '';
-  if (/^\s*404\s*$/.test(h1)) return true;
-  return false;
+  base.h1 = h1Match?.[1]?.trim() ?? '';
+
+  // Count internal links as a content quality signal
+  const linkMatches = lower.match(/<a\s[^>]*href/g);
+  base.internalLinkCount = linkMatches?.length ?? 0;
+
+  // Check for popup/modal/overlay indicators in HTML
+  const matchedSelectors = POPUP_SELECTORS.filter(sel => {
+    const attr = sel.startsWith('.') ? `class="${sel.slice(1)}` :
+                 sel.startsWith('[') ? sel.replace(/[\[\]]/g, '').replace('*=', '="') : sel;
+    return lower.includes(attr.replace(/"/g, '').toLowerCase());
+  });
+  if (matchedSelectors.length > 0) {
+    base.hasPopupSignals = true;
+    base.popupSelectors = matchedSelectors;
+  }
+
+  // Challenge / bot-protection / popup pages — the HTML content (including h1) is NOT real site content
+  const matchedChallenge = CHALLENGE_TITLES.find(t => base.title.includes(t));
+  if (matchedChallenge) {
+    return { ...base, unusable: true, blockType: 'challenge_or_popup', reason: `Bot challenge or popup blocking page (title: "${base.title}"). Page content (including h1) is from the challenge screen, not the real site.` };
+  }
+
+  // Actual error pages
+  const matchedError = ERROR_TITLES.find(t => base.title.includes(t));
+  if (matchedError) {
+    return { ...base, unusable: true, blockType: 'error_page', reason: `Error page (title: "${base.title}")` };
+  }
+  if (/^\s*404\s*$/.test(base.h1)) {
+    // Only flag as error if the title doesn't suggest a challenge page
+    return { ...base, unusable: true, blockType: 'error_page', reason: `Error page (h1: "404")` };
+  }
+
+  return base;
+}
+
+function isUnusablePage(html: string): boolean {
+  return diagnosePage(html).unusable;
 }
 
 function getCredentials(): CrawlCredentials {
@@ -88,6 +189,7 @@ export async function startBusinessCrawl(
           maxPages: Math.max(1, MAX_TOTAL_PAGES - MAX_PRIORITY_PAGES),
           render: true,
           jsonOptions: { prompt: EXTRACTION_PROMPT },
+          gotoOptions: { waitUntil: 'networkidle0' },
         },
         credentials
       );
@@ -145,29 +247,112 @@ export async function extractAndPersistSignals(
   if (!cached && url && rootResult.pages.length > 0) {
     const rootHtml = rootResult.pages[0]?.html ?? '';
 
-    // Detect bot-check / redirect pages and retry once before proceeding
-    if (rootHtml && isUnusablePage(rootHtml)) {
-      console.warn(`[crawl] Root page for job ${jobId} looks like a bot-check or error page — retrying root URL`);
-      await new Promise(r => setTimeout(r, 5000));
-      const retryPage = await crawlSinglePage(url, EXTRACTION_PROMPT, credentials);
-      if (retryPage && !isUnusablePage(retryPage.html ?? '')) {
-        console.log(`[crawl] Retry succeeded for ${url}`);
-        rawResult = { status: 'completed', pages: [retryPage, ...rootResult.pages.slice(1)] };
-      } else {
-        console.warn(`[crawl] Retry also returned unusable page for ${url} — flagging in DB`);
-        await supabaseAdmin.from('businesses').update({
-          enrichment_errors: { crawl: 'This website could not be crawled — it may use bot protection or be temporarily unavailable. Re-scanning may resolve this.' }
-        }).eq('id', businessId);
+    // Detect bot-check / redirect / popup pages and retry with longer JS wait
+    const rootDiag = diagnosePage(rootHtml);
+    if (rootHtml && rootDiag.unusable) {
+      const diagLog = {
+        url,
+        blockType: rootDiag.blockType,
+        reason: rootDiag.reason,
+        title: rootDiag.title,
+        htmlLength: rootDiag.htmlLength,
+        hasPopupSignals: rootDiag.hasPopupSignals,
+        popupSelectors: rootDiag.popupSelectors,
+        internalLinkCount: rootDiag.internalLinkCount,
+        // Only include h1 for actual error pages — on challenge/popup pages the h1 is from the blocker, not the real site
+        ...(rootDiag.blockType === 'error_page' ? { h1: rootDiag.h1 } : {}),
+      };
+      console.warn(`[crawl] Unusable root page for job ${jobId}:`, JSON.stringify(diagLog));
+
+      // Strip popup/overlay elements from the rendered HTML — real content is likely underneath
+      const { html: strippedHtml, strippedCount } = stripPopupOverlays(rootHtml);
+      const strippedDiag = diagnosePage(strippedHtml);
+
+      if (strippedCount > 0) {
+        console.log(`[crawl] Stripped ${strippedCount} popup/overlay patterns from ${url} (${rootHtml.length} → ${strippedHtml.length} chars)`);
       }
+
+      if (!strippedDiag.unusable && strippedHtml.length > 500) {
+        console.log(`[crawl] Stripped HTML is usable for ${url} — using cleaned version`);
+        rawResult = { status: 'completed', pages: [{ ...rootResult.pages[0], html: strippedHtml }, ...rootResult.pages.slice(1)] };
+      } else {
+        // Stripping didn't help — retry with networkidle0 + longer timeout
+        console.warn(`[crawl] Stripping didn't recover usable content for ${url} — retrying with networkidle0 + 30s timeout`);
+        await new Promise(r => setTimeout(r, 5000));
+        const retryPage = await crawlSinglePage(url, EXTRACTION_PROMPT, credentials, {
+          gotoOptions: { waitUntil: 'networkidle0', timeout: 30000 },
+        });
+
+        // Also try stripping the retry result
+        let retryHtml = retryPage?.html ?? '';
+        if (retryHtml && diagnosePage(retryHtml).unusable) {
+          const retryStripped = stripPopupOverlays(retryHtml);
+          if (retryStripped.strippedCount > 0) {
+            console.log(`[crawl] Stripped ${retryStripped.strippedCount} patterns from retry result for ${url}`);
+            retryHtml = retryStripped.html;
+          }
+        }
+
+        const retryDiag = retryHtml ? diagnosePage(retryHtml) : null;
+        if (retryDiag && !retryDiag.unusable && retryHtml.length > 500) {
+          console.log(`[crawl] Retry succeeded for ${url}`, retryDiag.hasPopupSignals
+            ? `(popup signals still present: ${retryDiag.popupSelectors.join(', ')})`
+            : '(clean page)');
+          rawResult = { status: 'completed', pages: [{ ...rootResult.pages[0], html: retryHtml, ...(retryPage ? { url: retryPage.url } : {}) }, ...rootResult.pages.slice(1)] };
+        } else {
+          const finalDiag = retryDiag ?? strippedDiag;
+          const finalLog = {
+            blockType: finalDiag.blockType,
+            reason: finalDiag.reason,
+            title: finalDiag.title,
+            htmlLength: finalDiag.htmlLength,
+            hasPopupSignals: finalDiag.hasPopupSignals,
+            popupSelectors: finalDiag.popupSelectors,
+            internalLinkCount: finalDiag.internalLinkCount,
+            ...(finalDiag.blockType === 'error_page' ? { h1: finalDiag.h1 } : {}),
+          };
+          console.error(`[crawl] Retry failed for ${url} — page remains unusable:`, JSON.stringify(finalLog));
+
+          const userMessage = finalDiag.blockType === 'challenge_or_popup'
+            ? 'This website has a popup or bot challenge that blocks automated crawling. The page content could not be read.'
+            : finalDiag.blockType === 'error_page'
+            ? 'This website returned an error page. It may be temporarily down or the URL may be incorrect.'
+            : 'This website could not be crawled — it may be temporarily unavailable. Re-scanning may resolve this.';
+
+          await supabaseAdmin.from('businesses').update({
+            enrichment_errors: {
+              crawl: userMessage,
+              crawl_block_type: finalDiag.blockType,
+              crawl_blocked_reason: finalDiag.reason,
+              crawl_popup_detected: finalDiag.hasPopupSignals,
+              crawl_popup_selectors: finalDiag.popupSelectors.length > 0 ? finalDiag.popupSelectors : null,
+            }
+          }).eq('id', businessId);
+
+          // Remove the unusable root page from results so sub-page signals aren't contaminated
+          // by challenge page titles/h1s — sub-pages will provide the real data
+          rawResult = { ...rawResult, pages: rawResult.pages.slice(1) };
+          console.log(`[crawl] Removed unusable root page from results — ${rawResult.pages.length} sub-pages remain`);
+        }
+      }
+    } else if (rootHtml && rootDiag.hasPopupSignals) {
+      // Page is usable but has popup indicators — log as warning for monitoring
+      console.warn(`[crawl] Popup signals detected on ${url} (page still usable):`, JSON.stringify({
+        popupSelectors: rootDiag.popupSelectors,
+        internalLinkCount: rootDiag.internalLinkCount,
+      }));
     }
 
     if (!rootHtml) {
       console.warn(`[crawl] Root page HTML is empty for job ${jobId} — multi-page enrichment will be skipped`);
     }
-    const extraLimit = Math.min(MAX_PRIORITY_PAGES, MAX_TOTAL_PAGES - rootResult.pages.length);
+    const extraLimit = Math.min(MAX_PRIORITY_PAGES, MAX_TOTAL_PAGES - rawResult.pages.length);
 
-    if (rootHtml && extraLimit > 0) {
-      let priorityLinks = extractPriorityLinks(rootHtml, url, extraLimit);
+    // Use root HTML for link extraction; if root was unusable, try the first available sub-page
+    const htmlForLinks = (rootHtml && !rootDiag.unusable) ? rootHtml : rawResult.pages.find(p => p.html)?.html;
+
+    if (htmlForLinks && extraLimit > 0) {
+      let priorityLinks = extractPriorityLinks(htmlForLinks, url, extraLimit);
       console.log(`[crawl] Found ${priorityLinks.length} priority pages to crawl:`, priorityLinks);
 
       // Fallback: if no links found from HTML (JS-rendered nav), probe common paths

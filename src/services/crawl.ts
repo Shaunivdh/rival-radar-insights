@@ -5,6 +5,14 @@ export interface CrawlCredentials {
   apiToken: string;
 }
 
+/** Thrown when the target site blocks CF crawl via Content-Signal directive. */
+export class CrawlDisallowedError extends Error {
+  constructor(url: string, detail: string) {
+    super(`Crawl disallowed by site: ${url} — ${detail}`);
+    this.name = 'CrawlDisallowedError';
+  }
+}
+
 const USE_MOCK = process.env.USE_MOCK_CRAWL === 'true';
 const mock = USE_MOCK ? (require('@/services/crawl.mock') as typeof import('@/services/crawl.mock')) : null;
 
@@ -115,7 +123,12 @@ export async function startCrawl(
   });
 
   const resText = await res.text();
-  if (!res.ok) throw new Error(`CF crawl start failed: ${res.status} ${resText}`);
+  if (!res.ok) {
+    if (res.status === 400 && resText.includes('Content-Signal directive')) {
+      throw new CrawlDisallowedError(url, resText);
+    }
+    throw new Error(`CF crawl start failed: ${res.status} ${resText}`);
+  }
 
   const data = JSON.parse(resText) as { success: boolean; result: string };
   console.log(`[crawl] startCrawl response: jobId=${data.result} success=${data.success}`);
@@ -171,14 +184,47 @@ export async function startIncrementalCrawl(
   _modifiedSince: number,
   credentials: CrawlCredentials
 ): Promise<string> {
-  // NOTE: modifiedSince causes CF crawl jobs to hang indefinitely in "running" state.
-  // Use a lightweight re-crawl instead (fewer pages, no render).
+  // NOTE: modifiedSince was removed (caused CF jobs to hang). render:true is required
+  // because many modern sites (SPAs, React/Vue) return near-empty HTML without JS execution.
+  console.log(`[crawl] startIncrementalCrawl (JS rendering enabled, expect 3-5s per page): ${url}`);
   return startCrawl(
     url,
     {
       maxPages: 10,
-      render: false,
+      render: true,
+      gotoOptions: { waitUntil: 'networkidle0', timeout: 30000 },
     },
     credentials
   );
+}
+
+/**
+ * Fallback: fetch a page directly via HTTP (no JS rendering).
+ * Returns the raw HTML string or null on failure.
+ */
+export async function fetchPageDirect(url: string): Promise<string | null> {
+  try {
+    const res = await fetch(url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (compatible; RivalRadar/1.0)',
+        'Accept': 'text/html',
+      },
+      redirect: 'follow',
+      signal: AbortSignal.timeout(15000),
+    });
+    if (!res.ok) {
+      console.warn(`[fetchPageDirect] ${url} returned ${res.status}`);
+      return null;
+    }
+    const html = await res.text();
+    if (!html || html.length < 300) {
+      console.warn(`[fetchPageDirect] ${url} returned too little content (${html.length} chars)`);
+      return null;
+    }
+    console.log(`[fetchPageDirect] ${url} fetched OK (${html.length} chars)`);
+    return html;
+  } catch (e) {
+    console.warn(`[fetchPageDirect] ${url} failed:`, e instanceof Error ? e.message : e);
+    return null;
+  }
 }

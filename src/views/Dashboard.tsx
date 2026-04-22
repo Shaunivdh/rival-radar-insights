@@ -7,7 +7,7 @@ import { DemoBanner } from '@/components/DemoBanner';
 import { CompetitorComparisonCard } from '@/components/CompetitorComparisonCard';
 import { PriorityActionsPanel } from '@/components/PriorityActionsPanel';
 import { BusinessScoreCard } from '@/components/BusinessScoreCard';
-import { TrendingUp, TrendingDown, Star, Bot, Bell, Loader2, CheckCircle2, XCircle, Clock, RefreshCw, Plus, X } from 'lucide-react';
+import { TrendingUp, TrendingDown, Star, Bot, Bell, Loader2, CheckCircle2, XCircle, Clock, RefreshCw, Plus, X, AlertTriangle } from 'lucide-react';
 import { triggerSingleScan, rescanAll, addCompetitor } from '@/actions/projects';
 import { useState } from 'react';
 import type { ChangeEvent as CE } from '@/types';
@@ -109,6 +109,14 @@ const Dashboard = () => {
 
   if (!project) return null;
 
+  // Detect competitors sharing the same root domain
+  const domainGroups = project.competitors.reduce<Record<string, string[]>>((acc, c) => {
+    const root = c.domain.replace(/^www\./, '');
+    (acc[root] ??= []).push(c.name);
+    return acc;
+  }, {});
+  const duplicateDomains = Object.entries(domainGroups).filter(([, names]) => names.length > 1);
+
   const own = project.ownBusiness;
   const allChanges: (CE & { competitorName: string })[] = project.competitors
     .flatMap((c) => c.changeEvents.map((e) => ({ ...e, competitorName: c.name })))
@@ -135,6 +143,21 @@ const Dashboard = () => {
   return (
     <div className="space-y-6">
       <DemoBanner />
+
+      {/* Duplicate domain warning */}
+      {duplicateDomains.length > 0 && (
+        <div className="card-surface border-amber-200 bg-amber-50 flex items-start gap-3">
+          <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
+          <div className="space-y-1">
+            <p className="text-sm font-semibold text-amber-800">Duplicate competitor domains detected</p>
+            {duplicateDomains.map(([domain, names]) => (
+              <p key={domain} className="text-xs text-amber-700">
+                <span className="font-medium">{names.join(' & ')}</span> share the same domain (<span className="font-mono">{domain}</span>) — their data may overlap.
+              </p>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Scan status panel */}
       {!isDemoMode && (isScanning || noneScanned || anyFailed) && (
@@ -180,6 +203,9 @@ const Dashboard = () => {
                 </div>
                 {b.crawlStatus === 'complete' && b.enrichmentErrors && (
                   <div className="ml-5 flex flex-col gap-0.5">
+                    {b.enrichmentErrors.crawl && (
+                      <span className="text-[11px] text-amber-600">{b.enrichmentErrors.crawl}</span>
+                    )}
                     {b.enrichmentErrors.google && (
                       <span className="text-[11px] text-amber-600">Google data unavailable</span>
                     )}

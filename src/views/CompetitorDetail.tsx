@@ -90,15 +90,16 @@ const CompetitorDetail = () => {
       )}
 
       {/* Enrichment errors */}
-      {biz.enrichmentErrors && (biz.enrichmentErrors.google || biz.enrichmentErrors.serp) && (
+      {biz.enrichmentErrors && (biz.enrichmentErrors.crawl || biz.enrichmentErrors.google || biz.enrichmentErrors.serp) && (
         <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-600 text-xs">
           <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
           <span>
             {[
+              biz.enrichmentErrors.crawl,
               biz.enrichmentErrors.google && 'Google data unavailable',
               biz.enrichmentErrors.serp && 'Search ranking unavailable',
             ].filter(Boolean).join(' · ')}
-            {' '}— scores may be incomplete.
+            {!biz.enrichmentErrors.crawl && ' — scores may be incomplete.'}
           </span>
         </div>
       )}

@@ -4,6 +4,8 @@ import {
   checkCrawlStatus,
   extractAndPersistSignals,
   markCrawlFailed,
+  DIRECT_FETCH_DONE,
+  CRAWL_DISALLOWED,
 } from '@/lib/crawl/orchestrator';
 import { checkDirectSignals } from '@/lib/crawl/direct-checks';
 import { supabaseAdmin } from '@/lib/supabase/server';
@@ -85,6 +87,10 @@ export const crawlBusinessFunction = inngest.createFunction(
     );
     console.log(`[crawl-worker] Started crawl jobId=${jobId} for business ${businessId} mode=${mode}`);
 
+    // If crawl was handled via direct fetch fallback, skip poll + extract
+    const skipCrawlSteps = jobId === DIRECT_FETCH_DONE || jobId === CRAWL_DISALLOWED;
+
+    if (!skipCrawlSteps) {
     // Step 2: Poll until complete or failed
     let crawlStatus = 'running';
     let attempts = 0;
@@ -142,6 +148,7 @@ export const crawlBusinessFunction = inngest.createFunction(
         .update({ seo })
         .eq('id', sigRow.id);
     });
+    } // end skipCrawlSteps
 
     // Step 4: Fetch business + project metadata (name, url, domain, settings)
     const meta = await step.run('fetch-meta', async () => {
@@ -421,13 +428,19 @@ export const crawlBusinessFunction = inngest.createFunction(
     });
 
     // Step 10: Check if any competitor overtook own business in local pack
+    // Only runs once — when ALL businesses in the project have finished crawling
     await step.run('check-threats', async () => {
       const { data: allBiz } = await supabaseAdmin
         .from('businesses')
-        .select('id, is_own_business, serp_data')
+        .select('id, is_own_business, serp_data, crawl_status')
         .eq('project_id', meta.projectId);
 
       if (!allBiz) return;
+
+      const allDone = allBiz.every(
+        (b) => b.crawl_status === 'complete' || b.crawl_status === 'failed'
+      );
+      if (!allDone) return;
 
       const ownBiz = allBiz.find((b) => b.is_own_business);
       if (!ownBiz) return;
@@ -443,8 +456,29 @@ export const crawlBusinessFunction = inngest.createFunction(
 
       if (!overtakers.length) return;
 
+      const since24h = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+
+      // Fetch all threat events recorded in the last 24h to dedup per competitor
+      const { data: recentThreats } = await supabaseAdmin
+        .from('change_events')
+        .select('changes')
+        .eq('business_id', ownBiz.id)
+        .eq('summary', 'Competitor overtook you in local pack')
+        .gte('detected_at', since24h);
+
+      const alreadyRecorded = new Set(
+        (recentThreats ?? []).flatMap((e) =>
+          (e.changes as Array<{ description: string }>).map((c) => {
+            try { return (JSON.parse(c.description) as { competitorId: string }).competitorId; } catch { return null; }
+          })
+        ).filter(Boolean)
+      );
+
       for (const comp of overtakers) {
+        if (alreadyRecorded.has(comp.id)) continue;
+
         const theirPosition = (comp.serp_data as SerpData).localVisabilityPosition!;
+
         const event: ChangeEvent = {
           id: crypto.randomUUID(),
           detectedAt: Date.now(),

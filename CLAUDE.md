@@ -61,16 +61,36 @@ Claude is used only for:
 
 ---
 
-## 6. Crawling System
+## 6. Crawling System (@crawl-rules)
 
-All crawl behaviour is defined in `@crawl-rules`.
+**Architecture:** Queue-based orchestration with multi-stage processing
 
-Do not re-implement crawl logic here.
+### Key Principles
+- Initial crawl: Full page + `gotoOptions: { waitUntil: 'networkidle0' }`
+- Incremental crawl: ALSO full page with JS rendering (NOT static HTML)
+- Multi-page enrichment: Happens AFTER root crawl completes
+- Cache: Written AFTER enrichment, not before
 
-Key principle:
-- Crawl orchestration is queue-based
-- Multi-page enrichment happens after root crawl
-- Cache is written AFTER enrichment
+### Critical: Rendering Requirements
+- **ALL crawls must use `render: true`** — modern educational/business sites are JavaScript-heavy (React, Vue, Angular SPAs)
+- **ALL crawls must use `gotoOptions: { waitUntil: 'networkidle0', timeout: 30000 }`** — ensures JavaScript has time to render before returning HTML
+- Static HTML (`render: false`) causes empty/incomplete pages (~176 chars) with missing signals
+- The `modifiedSince` parameter causes Cloudflare hangs; it is intentionally removed and should NOT be re-added
+
+### Crawl Functions
+- `startCrawl()` — Initial full crawl with JS rendering
+- `startIncrementalCrawl()` — Re-crawl with JS rendering (NOT static HTML)
+- `crawlSinglePage()` — Priority page crawl with JS rendering
+- `fetchPageDirect()` — Fallback HTTP fetch (no JS, used only when crawl fails)
+
+### Detection & Recovery
+- Empty HTML (<500 chars) or challenge pages trigger automatic retry with `waitUntil: 'networkidle0'` + 30s timeout
+- Challenge/popup overlay patterns are stripped from HTML before parsing
+- Unusable pages are logged with diagnostics (title, h1, link count, popup signals)
+- Direct fetch fallback used only when all render attempts fail
+
+### Data Quality Signals
+Do NOT optimize crawl performance at the expense of data quality. A 2-3 second increase in crawl time is acceptable to get complete, usable HTML with all signals (h1 tags, title, links, schema markup).
 
 ---
 
@@ -121,3 +141,19 @@ When responding:
 
 - Ask a question instead of assuming
 - Do not hallucinate schema, APIs, or logic
+
+---
+
+## 11. Known Issues & Workarounds
+
+### Cloudflare API `modifiedSince` Hangs
+- **Status:** Removed from all crawl calls
+- **Why:** Parameter causes CF crawl jobs to hang indefinitely in "running" state
+- **Solution:** Full re-crawls are performed instead; caching optimization can be added later
+- **DO NOT:** Re-introduce `modifiedSince` as a performance optimization
+
+### Empty HTML on JS-Heavy Sites
+- **Root cause:** `render: false` in incremental crawls
+- **Status:** FIXED — all crawls now use `render: true` + `waitUntil: 'networkidle0'`
+- **Impact:** Educational sites (universities, colleges) now crawl correctly
+- **Trade-off:** Incremental crawls take 3-5s instead of 1-2s; data quality gain is worth it

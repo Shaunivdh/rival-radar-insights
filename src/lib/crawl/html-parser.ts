@@ -301,8 +301,16 @@ export function parseHtmlSignals(html: string, baseUrl?: string): Record<string,
   // Call to action — common CTA phrases in buttons, links, or prominent text
   const CTA_RE = /\b(book\s*(now|online|an?\s+appointment|a\s+session|today)|get\s*(a\s+)?(free\s+)?(quote|estimate|consultation)|request\s*(a\s+)?(quote|appointment|callback|call back)|schedule\s*(an?\s+)?(appointment|consultation|visit)|reserve\s*(now|your\s+spot)|free\s+consultation|contact\s+us\s+today|call\s+us\s+now|get\s+started|start\s+today|claim\s+offer|try\s+(it\s+)?free)\b/i;
   const ctaMatches = [...html.matchAll(/<(?:button|a)\b[^>]*>([\s\S]*?)<\/(?:button|a)>/gi)]
-    .map(m => m[1].replace(/<[^>]+>/g, '').trim())
-    .filter(t => t && CTA_RE.test(t));
+    .map(m => {
+      let t = m[1].replace(/<[^>]+>/g, ''); // strip inner tags
+      // If attribute content leaked in via unescaped > in attribute values, take text after last >
+      if (t.includes('>')) t = t.slice(t.lastIndexOf('>') + 1);
+      // Decode HTML entities
+      t = t.replace(/&quot;/gi, '"').replace(/&amp;/gi, '&').replace(/&lt;/gi, '<').replace(/&gt;/gi, '>').replace(/&#\d+;/g, '');
+      // Collapse whitespace (tabs, newlines, multiple spaces)
+      return t.replace(/[\s\t\n\r]+/g, ' ').trim();
+    })
+    .filter(t => t && t.length <= 100 && CTA_RE.test(t));
   if (ctaMatches.length > 0 || CTA_RE.test(text)) {
     signals.hasCallToAction = true;
     if (ctaMatches.length > 0) signals.ctaText = [...new Set(ctaMatches)].slice(0, 5);

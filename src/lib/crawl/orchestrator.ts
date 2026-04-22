@@ -1,5 +1,5 @@
 import { supabaseAdmin } from '@/lib/supabase/server';
-import { startCrawl, startIncrementalCrawl, pollCrawlStatus, getCrawlResults, extractPriorityLinks, crawlSinglePage, type CrawlCredentials } from '@/services/crawl';
+import { startCrawl, startIncrementalCrawl, pollCrawlStatus, getCrawlResults, extractPriorityLinks, crawlSinglePage, fetchPageDirect, CrawlDisallowedError, type CrawlCredentials } from '@/services/crawl';
 import { saveToCache, loadFromCache } from '@/services/crawl.cache';
 import { extractSignals } from '@/services/extract';
 import { extractPageSignals } from '@/services/ai';
@@ -159,6 +159,11 @@ function getCredentials(): CrawlCredentials {
   return { accountId, apiToken };
 }
 
+/** Sentinel jobId returned when direct fetch fallback handled signals inline. */
+export const DIRECT_FETCH_DONE = 'direct-fetch-done';
+/** Sentinel jobId returned when crawl was disallowed and direct fetch also failed. */
+export const CRAWL_DISALLOWED = 'crawl-disallowed';
+
 /** Begin a crawl for a business. Updates crawl_status to 'running'. Returns the CF job ID. */
 export async function startBusinessCrawl(
   businessId: string,
@@ -177,22 +182,59 @@ export async function startBusinessCrawl(
   const credentials = getCredentials();
   const isIncremental = mode === 'incremental' && !!business.last_crawled_at;
 
-  const jobId = isIncremental
-    ? await startIncrementalCrawl(
-        normalizedUrl,
-        new Date(business.last_crawled_at as string).getTime(),
-        credentials
-      )
-    : await startCrawl(
-        normalizedUrl,
-        {
-          maxPages: Math.max(1, MAX_TOTAL_PAGES - MAX_PRIORITY_PAGES),
-          render: true,
-          jsonOptions: { prompt: EXTRACTION_PROMPT },
-          gotoOptions: { waitUntil: 'networkidle0' },
+  let jobId: string;
+  try {
+    jobId = isIncremental
+      ? await startIncrementalCrawl(
+          normalizedUrl,
+          new Date(business.last_crawled_at as string).getTime(),
+          credentials
+        )
+      : await startCrawl(
+          normalizedUrl,
+          {
+            maxPages: Math.max(1, MAX_TOTAL_PAGES - MAX_PRIORITY_PAGES),
+            render: true,
+            jsonOptions: { prompt: EXTRACTION_PROMPT },
+            gotoOptions: { waitUntil: 'networkidle0' },
+          },
+          credentials
+        );
+  } catch (e) {
+    if (e instanceof CrawlDisallowedError) {
+      console.warn(`[crawl] CF crawl disallowed for ${normalizedUrl} — trying direct fetch fallback`);
+      const html = await fetchPageDirect(normalizedUrl);
+
+      if (html) {
+        // Direct fetch succeeded — extract and persist signals inline
+        const directResult: RawCrawlResult = {
+          status: 'completed',
+          pages: [{ url: normalizedUrl, html }],
+        };
+        await extractAndPersistSignals(businessId, DIRECT_FETCH_DONE, directResult);
+
+        // Write a non-blocking warning so the UI can note reduced data quality
+        await supabaseAdmin.from('businesses').update({
+          enrichment_errors: {
+            crawl: 'This website blocks automated crawling. We fetched a basic version of the page, so some data may be incomplete.',
+          },
+        }).eq('id', businessId);
+
+        console.log(`[crawl] Direct fetch fallback succeeded for ${normalizedUrl}`);
+        return DIRECT_FETCH_DONE;
+      }
+
+      // Direct fetch also failed — mark as disallowed
+      console.error(`[crawl] Direct fetch also failed for ${normalizedUrl}`);
+      await supabaseAdmin.from('businesses').update({
+        enrichment_errors: {
+          crawl: 'This website has blocked all automated access. Website data could not be collected for this business.',
         },
-        credentials
-      );
+      }).eq('id', businessId);
+      return CRAWL_DISALLOWED;
+    }
+    throw e; // Re-throw non-disallowed errors
+  }
 
   const { error: statusError } = await supabaseAdmin
     .from('businesses')
@@ -228,7 +270,8 @@ export async function checkCrawlStatus(_businessId: string, jobId: string): Prom
 /** Fetch crawl results, extract signals, persist to DB, and mark the business complete. */
 export async function extractAndPersistSignals(
   businessId: string,
-  jobId: string
+  jobId: string,
+  prefetchedResult?: RawCrawlResult
 ): Promise<void> {
   const credentials = getCredentials();
 
@@ -240,7 +283,7 @@ export async function extractAndPersistSignals(
 
   const url = business?.url ? normalizeUrl(business.url as string) : undefined;
   const cached = url ? loadFromCache(url) : null;
-  const rootResult = cached ?? await getCrawlResults(jobId, credentials);
+  const rootResult = prefetchedResult ?? cached ?? await getCrawlResults(jobId, credentials);
 
   // Multi-page: extract priority links from root HTML and crawl them in parallel
   let rawResult: RawCrawlResult = rootResult;

@@ -15,7 +15,7 @@ const SettingsPage = () => {
   const allBusinesses = project
     ? [project.ownBusiness, ...project.competitors]
     : [];
-  const enrichmentErrorBusinesses = allBusinesses.filter((b) => b.enrichmentErrors && (b.enrichmentErrors.google || b.enrichmentErrors.serp));
+  const enrichmentErrorBusinesses = allBusinesses.filter((b) => b.enrichmentErrors && (b.enrichmentErrors.crawl || b.enrichmentErrors.google || b.enrichmentErrors.serp));
   const router = useRouter();
   const [form, setForm] = useState(settings);
   const [rescanning, setRescanning] = useState(false);
@@ -97,6 +97,9 @@ const SettingsPage = () => {
             {enrichmentErrorBusinesses.map((b) => (
               <div key={b.id} className="text-xs space-y-0.5">
                 <p className="font-medium text-foreground">{b.name}</p>
+                {b.enrichmentErrors?.crawl && (
+                  <p className="text-amber-600">{b.enrichmentErrors.crawl}</p>
+                )}
                 {b.enrichmentErrors?.google && (
                   <p className="text-amber-600">Google data unavailable — {b.enrichmentErrors.google}</p>
                 )}

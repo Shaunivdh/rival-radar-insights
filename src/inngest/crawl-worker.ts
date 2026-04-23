@@ -10,15 +10,14 @@ import {
 import { checkDirectSignals } from '@/lib/crawl/direct-checks';
 import { supabaseAdmin } from '@/lib/supabase/server';
 import { fetchGoogleData, fetchSerpData } from '@/actions/enrichment';
-import { generatePriorityActions, generateChangeSummary, generateReviewSentiment } from '@/services/ai';
-import { checkAIPresenceFromSerp } from '@/services/serp';
+import { generatePriorityActions, generateChangeSummary, generateReviewSentiment, checkAIVisibility } from '@/services/ai';
 import { calculateScores, recomputeOverallScore } from '@/services/scores';
 import { fetchPageSpeedData } from '@/services/pagespeed';
 import { diffSignals } from '@/services/diff';
 import { updateBusiness, saveChangeEvent } from '@/actions/projects';
 import { normalizeUrl } from '@/lib/url';
 import { saveScoreSnapshot, getWeeklyDelta } from '@/lib/supabase/scores';
-import type { ExtractedSignals, Business, ChangeEvent, AIHealthScore, SerpData, PageSpeedData } from '@/types';
+import type { ExtractedSignals, Business, ChangeEvent, AIHealthScore, AIVisibility, SerpData, PageSpeedData } from '@/types';
 
 const MAX_POLL_ATTEMPTS = 120;
 const POLL_INTERVAL = '5s';
@@ -227,11 +226,24 @@ export const crawlBusinessFunction = inngest.createFunction(
       }
     });
 
-    // Step 6: AI search visibility check
+    // Step 6: AI search visibility check (skip if checked within 24h)
     await step.run('check-ai-visibility', async () => {
       if (!meta.primaryService || !meta.location) return;
       try {
-        const visibility = await checkAIPresenceFromSerp(meta.primaryService, meta.location, meta.name, meta.domain, '');
+        const { data: existing } = await supabaseAdmin
+          .from('businesses')
+          .select('ai_visibility')
+          .eq('id', businessId)
+          .single();
+
+        const visibility = await checkAIVisibility(
+          meta.primaryService,
+          meta.location,
+          meta.name,
+          existing?.ai_visibility as AIVisibility | null,
+        );
+        if (!visibility) return; // skipped — still fresh
+
         const { error } = await supabaseAdmin.from('businesses').update({ ai_visibility: visibility }).eq('id', businessId);
         if (error) {
           console.error(`[check-ai-visibility] DB write failed for business ${businessId}:`, error);
@@ -488,6 +500,7 @@ export const crawlBusinessFunction = inngest.createFunction(
             category: 'threat',
             description: JSON.stringify({ competitorId: comp.id, theirPosition, yourPosition: ownPosition }),
             significance: 'high',
+            actionItem: 'Review your Google Business Profile and local SEO to reclaim your local pack position',
           }],
         };
         await saveChangeEvent(ownBiz.id as string, event);
@@ -535,13 +548,20 @@ export const crawlBusinessFunction = inngest.createFunction(
 
       const withSignals = await Promise.all(
         allBiz.map(async (b) => {
-          const { data: sig } = await supabaseAdmin
-            .from('extracted_signals')
-            .select('seo, pricing, trust, content, engagement')
-            .eq('business_id', b.id)
-            .order('scanned_at', { ascending: false })
-            .limit(1)
-            .maybeSingle();
+          const [{ data: sig }, { data: bizRow }] = await Promise.all([
+            supabaseAdmin
+              .from('extracted_signals')
+              .select('seo, pricing, trust, content, engagement')
+              .eq('business_id', b.id)
+              .order('scanned_at', { ascending: false })
+              .limit(1)
+              .maybeSingle(),
+            supabaseAdmin
+              .from('businesses')
+              .select('ai_score, google_data')
+              .eq('id', b.id)
+              .single(),
+          ]);
           const signals = sig?.seo
             ? ({ seo: sig.seo, pricing: sig.pricing, trust: sig.trust, content: sig.content, engagement: sig.engagement } as ExtractedSignals)
             : null;
@@ -550,6 +570,8 @@ export const crawlBusinessFunction = inngest.createFunction(
             name: b.name as string,
             isOwn: b.is_own_business as boolean,
             signals,
+            aiScore: (bizRow?.ai_score as AIHealthScore) ?? null,
+            googleData: bizRow?.google_data ?? null,
           };
         })
       );
@@ -557,7 +579,7 @@ export const crawlBusinessFunction = inngest.createFunction(
       const ownRaw = withSignals.find((b) => b.isOwn);
       if (!ownRaw) return;
 
-      const toPartialBiz = (b: { id: string; name: string; signals: ExtractedSignals | null }): Business => ({
+      const toPartialBiz = (b: { id: string; name: string; signals: ExtractedSignals | null; aiScore: AIHealthScore | null; googleData: unknown }): Business => ({
         id: b.id,
         name: b.name,
         url: '',
@@ -566,10 +588,10 @@ export const crawlBusinessFunction = inngest.createFunction(
         crawlJobId: null,
         crawlStatus: 'complete',
         signals: b.signals,
-        googleData: null,
+        googleData: b.googleData as Business['googleData'],
         serpData: null,
         pagespeedData: null,
-        aiScore: null,
+        aiScore: b.aiScore,
         aiVisibility: null,
         reviewSentiment: null,
         enrichmentErrors: null,

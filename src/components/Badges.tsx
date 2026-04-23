@@ -33,17 +33,30 @@ function timeAgo(ts: number): string {
   return `${Math.floor(days / 30)}mo ago`;
 }
 
-export const ChangeEventCard = ({ event, competitorName }: { event: ChangeEvent; competitorName?: string }) => (
-  <div className="card-surface flex gap-4">
-    <div className="pt-0.5">
-      <SeverityBadge severity={event.severity} />
+export const ChangeEventCard = ({ event, competitorName }: { event: ChangeEvent; competitorName?: string }) => {
+  const actionItems = event.changes?.map((c) => c.actionItem).filter(Boolean) ?? [];
+  return (
+    <div className="card-surface flex gap-4">
+      <div className="pt-0.5">
+        <SeverityBadge severity={event.severity} />
+      </div>
+      <div className="flex-1 min-w-0">
+        {competitorName && (
+          <p className="text-xs font-medium text-primary mb-1">{competitorName}</p>
+        )}
+        <p className="text-sm text-foreground">{event.summary}</p>
+        {actionItems.length > 0 && (
+          <div className="mt-2 space-y-1">
+            {actionItems.map((item, i) => (
+              <p key={i} className="text-xs text-primary/80 flex items-start gap-1.5">
+                <span className="shrink-0 mt-0.5">&rarr;</span>
+                <span>{item}</span>
+              </p>
+            ))}
+          </div>
+        )}
+        <p className="text-xs text-muted-foreground mt-1">{timeAgo(event.detectedAt)}</p>
+      </div>
     </div>
-    <div className="flex-1 min-w-0">
-      {competitorName && (
-        <p className="text-xs font-medium text-primary mb-1">{competitorName}</p>
-      )}
-      <p className="text-sm text-foreground">{event.summary}</p>
-      <p className="text-xs text-muted-foreground mt-1">{timeAgo(event.detectedAt)}</p>
-    </div>
-  </div>
-);
+  );
+};

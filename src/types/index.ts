@@ -164,6 +164,7 @@ export interface Change {
   category: string;
   description: string;
   significance: string;
+  actionItem: string | null;
 }
 
 export interface CrawlOptions {

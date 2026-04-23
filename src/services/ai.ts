@@ -90,7 +90,7 @@ export async function generatePriorityActions(own: Business, competitors: Busine
     ? `This is a ${catConfig.label} business. Prioritise actions that affect: ${catConfig.dashboardPriority.join(', ')}.`
     : '';
 
-  const summariseBiz = (b: Business) => ({
+  const summariseBiz = (b: Business, isOwn = false) => ({
     name: b.name,
     industry: b.googleData?.businessCategory ?? null,
     location: b.googleData?.address ?? null,
@@ -106,11 +106,17 @@ export async function generatePriorityActions(own: Business, competitors: Busine
           reviewVelocity: b.aiScore.reviewVelocityScore,
         }
       : null,
-    signals: b.signals,
+    // For competitors with crawl errors, omit signals to avoid recommendations based on incomplete data.
+    // For own business with crawl errors, still include signals but add a note below.
+    signals: (!isOwn && b.enrichmentErrors?.crawl) ? null : b.signals,
   });
 
+  const ownCrawlIssue = own.enrichmentErrors?.crawl
+    ? '\nNote: There were issues crawling this business\'s website, so website-related data may be incomplete.'
+    : '';
+
   const prompt = `You are Scoutly, an ongoing local business monitor. Based on this week's data, surface the 5 most important actions this business should take right now.
-${industryFocus ? `\n${industryFocus}\n` : ''}
+${industryFocus ? `\n${industryFocus}\n` : ''}${ownCrawlIssue}
 Rules — read carefully before generating:
 - Only recommend actions based on confirmed gaps visible in the data. Do not infer or assume.
 - Never say "you likely qualify" or "if you have" — only act on what the data confirms.
@@ -135,8 +141,8 @@ Priority numbering (critical — violations break the product):
 Schema (JSON array only, no markdown):
 [{"priority":1,"category":"string","effort":"low"|"medium"|"high","action":"string","reason":"string","whyItMatters":"string","steps":["string"],"outcome":"string","competitorReference":"string|null","estimatedImpact":"high"|"medium"|"low","timeframe":"string"}]
 
-Own business: ${JSON.stringify(summariseBiz(own))}
-Competitors: ${JSON.stringify(competitors.map(summariseBiz))}`;
+Own business: ${JSON.stringify(summariseBiz(own, true))}
+Competitors: ${JSON.stringify(competitors.map(b => summariseBiz(b, false)))}`;
 
   try {
     const actions = await askClaude<PriorityAction[]>(prompt, 3000);

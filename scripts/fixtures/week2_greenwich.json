@@ -1,0 +1,1100 @@
+{
+  "id": "66933eb6-de0d-4b90-b019-ce3410b71976",
+  "name": "University of Greenwhich  vs Competitors",
+  "createdAt": 1776853537197,
+  "ownBusiness": {
+    "id": "aab773e5-d5e5-424f-b687-cbc51cd93973",
+    "name": "University of Greenwhich ",
+    "url": "https://www.gre.ac.uk/",
+    "domain": "www.gre.ac.uk",
+    "lastCrawledAt": 1777577003086,
+    "crawlJobId": "90940356-d178-4523-86bd-dd0244bd57bd",
+    "crawlStatus": "complete",
+    "signals": {
+      "seo": {
+        "title": "Welcome to the University of Greenwich, London",
+        "h1Tags": [
+          "University of Greenwich",
+          "In Person Open Day 20 June — Book your place",
+          "Accounting and finance degrees",
+          "Architecture degrees",
+          "Biology and biomedical science degrees",
+          "Business and management degrees",
+          "Chemistry degrees",
+          "Civil engineering degrees",
+          "Computer engineering degrees",
+          "Computer science degrees",
+          "University of Greenwich academic judges Royal Borough of Greenwich business awards",
+          "News",
+          "Gold for Greenwich",
+          "Greenwich hosts Eze Foundation 'Breaking Into' event",
+          "Universities of Greenwich and Kent confirm new multi-university group to go ahead",
+          "New partnership with Bloomberg for Finance students"
+        ],
+        "hasSitemap": true,
+        "hasRobotsTxt": true,
+        "altTagCoverage": "partial",
+        "metaDescription": "University of Greenwich in London and Kent was established in 1890. We are located on the banks of the River Thames in South London. Apply for our degree courses now.",
+        "internalLinkCount": 274,
+        "schemaMarkupTypes": ["Organization", "WebSite"],
+        "canonicalTagsPresent": true
+      },
+      "trust": {
+        "accreditations": ["AMBA"],
+        "certifications": ["RIBA", "ACCA"],
+        "teamPageExists": true,
+        "insuranceMentioned": false,
+        "guaranteesMentioned": [],
+        "awardsAndMemberships": [
+          "s of the Best of Royal Greenwich Business Award",
+          "TEF Gold Award"
+        ],
+        "reviewPlatformsLinked": ["Google Reviews", "Trustpilot"]
+      },
+      "content": {
+        "hasFAQ": true,
+        "hasBlog": true,
+        "hasPortfolio": false,
+        "servicesListed": [
+          "Find your course",
+          "Register for priority clearing",
+          "Priority clearing",
+          "Choose Greenwich",
+          "Popular courses",
+          "We're Gold!",
+          "Events",
+          "How to find us",
+          "Undergraduate study (BA, BSc)",
+          "Postgraduate study (MA, MSc)",
+          "Greenwich Online courses",
+          "Short courses & CPD",
+          "Apprenticeships",
+          "Bloomberg Trading Floor",
+          "Apply now",
+          "Book an event",
+          "Our courses",
+          "Communities and societies",
+          "Research and partnerships",
+          "Our research",
+          "Working with industry",
+          "Our experts",
+          "Further information",
+          "Take a Virtual Tour",
+          "The fascination of biology",
+          "Big Picture Seminar Series",
+          "Early Career Researcher Network",
+          "Why computer science?",
+          "See more",
+          "More like this",
+          "Latest news",
+          "Further links",
+          "Student Support Hub",
+          "FAQ"
+        ],
+        "portfolioItemCount": 0,
+        "serviceAreasMentioned": ["London", "Kent", "South London", "UK", "150 countries", "Greenwich Campus"]
+      },
+      "engagement": {
+        "ctaText": [
+          "Book now",
+          "In Person Open Day 20 June: Book now",
+          "Where new adventures begin: book now",
+          "Download our prospectus"
+        ],
+        "hasContactForm": true,
+        "bookingProvider": null,
+        "hasCallToAction": true,
+        "hasBookingSystem": true,
+        "socialLinksPresent": ["Facebook", "Instagram", "LinkedIn", "YouTube"],
+        "hasNewsletterSignup": true,
+        "hasPhoneNumberProminent": true
+      }
+    },
+    "googleData": {
+      "photos": 10,
+      "address": "Old Royal Naval College, Park Row, London SE10 9LS, UK",
+      "placeId": "ChIJIzVESoQCdkgRCkNlixKBUZ8",
+      "website": "http://gre.ac.uk/",
+      "priceLevel": null,
+      "phoneNumber": "020 8331 8000",
+      "reviewCount": 1119,
+      "googleRating": 4.4,
+      "openingHours": [
+        "Monday: 8:30 AM – 5:00 PM",
+        "Tuesday: 8:30 AM – 5:00 PM",
+        "Wednesday: 8:30 AM – 5:00 PM",
+        "Thursday: 8:30 AM – 5:00 PM",
+        "Friday: 8:30 AM – 5:00 PM",
+        "Saturday: Closed",
+        "Sunday: Closed"
+      ],
+      "recentReviews": [
+        {
+          "text": "Just attended the June open day and was blown away. The staff were welcoming, the campus is breathtaking, and the course advisors really took time to help me pick the right programme. Greenwich is the whole package — stunning location and real academic depth.",
+          "time": 1777532400000,
+          "rating": 5,
+          "authorName": "Priya Nair"
+        },
+        {
+          "text": "The Bloomberg Trading Floor is something else. As a finance student I genuinely feel like I'm training in a real-world environment. Greenwich gives you access to resources most universities can only dream about.",
+          "time": 1777446000000,
+          "rating": 5,
+          "authorName": "Daniel Osei"
+        },
+        {
+          "text": "This is University of Greenwich.\nA wonderful place for walks and photos. As a student of this university, I truly appreciate the huge open space that creates a peaceful atmosphere. The classic architectural style of the buildings is both solemn and beautifully timeless.",
+          "time": 1750707486830,
+          "rating": 5,
+          "authorName": "mohd mudaser mastan khan"
+        },
+        {
+          "text": "The University of Greenwich campus is stunning, beautifully blending historic architecture with lush green spaces. Every corner offers picturesque views that make studying and relaxing here truly inspiring.",
+          "time": 1749116276268,
+          "rating": 5,
+          "authorName": "Mohammed Iqbal"
+        },
+        {
+          "text": "The school is in an amazing location. Greenwich feels like a small town but has all the amenities of a city and easy access to central London. The teachers are nice, the staff are helpful, and I'm very glad I chose this as my school!",
+          "time": 1770680408916,
+          "rating": 5,
+          "authorName": "Anne Malone"
+        }
+      ],
+      "businessCategory": "university"
+    },
+    "serpData": {
+      "sitelinks": false,
+      "searchTerm": "education Greenwich",
+      "adsAboveResults": 0,
+      "featuredSnippet": false,
+      "localPackPresent": true,
+      "knowledgePanelPresent": false,
+      "localVisabilityPosition": 2
+    },
+    "aiScore": {
+      "generatedAt": "2026-04-30T19:00:00.000Z",
+      "weeklyDelta": 5,
+      "overallScore": 80,
+      "aiPresenceScore": 33,
+      "reputationScore": 98,
+      "websiteHealthScore": 88,
+      "reviewVelocityScore": 20,
+      "gbpCompletenessScore": 88,
+      "localVisibilityScore": 90
+    },
+    "aiVisibility": {
+      "tested_at": "2026-04-30T18:45:00.000Z",
+      "mentionCount": 1,
+      "totalPrompts": 3,
+      "aiPresenceScore": 33
+    },
+    "pagespeedData": {
+      "mobile": {
+        "cls": 0.00015,
+        "fcp": 3980.2,
+        "inp": null,
+        "lcp": 6310.5,
+        "performanceScore": 50
+      },
+      "desktop": {
+        "cls": 0.029,
+        "fcp": 950.1,
+        "inp": null,
+        "lcp": 2310.8,
+        "performanceScore": 73
+      },
+      "fetchedAt": "2026-04-30T18:58:00.000Z"
+    },
+    "reviewSentiment": {
+      "summary": "University of Greenwich praised for world-class campus, Bloomberg Trading Floor, and highly supportive open day experience.",
+      "generatedAt": "2026-04-30T18:59:00.000Z",
+      "negativeThemes": [],
+      "positiveThemes": [
+        "Historic architecture preservation",
+        "Peaceful open spaces",
+        "Scenic campus views",
+        "Industry-grade learning facilities"
+      ]
+    },
+    "enrichmentErrors": null,
+    "previousSignals": {
+      "seo": {
+        "title": "Welcome to the University of Greenwich, London",
+        "h1Tags": [
+          "University of Greenwich",
+          "Open Day 15 October",
+          "Accounting and finance degrees",
+          "Architecture degrees",
+          "Biology and biomedical science degrees",
+          "Business and management degrees",
+          "Chemistry degrees",
+          "Civil engineering degrees",
+          "Computer engineering degrees",
+          "Computer science degrees"
+        ],
+        "hasSitemap": true,
+        "hasRobotsTxt": true,
+        "altTagCoverage": "none",
+        "metaDescription": "University of Greenwich in London and Kent was established in 1890. We are located on the banks of the River Thames in South London. Apply for our degree courses now.",
+        "internalLinkCount": 266,
+        "schemaMarkupTypes": [],
+        "canonicalTagsPresent": true
+      },
+      "trust": {
+        "accreditations": [],
+        "certifications": ["RIBA"],
+        "teamPageExists": true,
+        "insuranceMentioned": false,
+        "guaranteesMentioned": [],
+        "awardsAndMemberships": ["s of the Best of Royal Greenwich Business Award"],
+        "reviewPlatformsLinked": ["Google Reviews"]
+      },
+      "content": {
+        "hasFAQ": false,
+        "hasBlog": true,
+        "hasPortfolio": false,
+        "servicesListed": [
+          "Find your course",
+          "Register for priority clearing",
+          "Choose Greenwich",
+          "Popular courses",
+          "Events"
+        ],
+        "portfolioItemCount": 0,
+        "serviceAreasMentioned": ["London", "Kent", "South London", "UK", "150 countries", "Greenwich Campus"]
+      },
+      "engagement": {
+        "ctaText": [
+          "Book now",
+          "Virtual Open Day 29 April Book now",
+          "In Person Open Day 20 June: Book now",
+          "Where new adventures begin: book now"
+        ],
+        "hasContactForm": true,
+        "bookingProvider": null,
+        "hasCallToAction": true,
+        "hasBookingSystem": true,
+        "socialLinksPresent": [],
+        "hasNewsletterSignup": false,
+        "hasPhoneNumberProminent": true
+      }
+    },
+    "changeEvents": [
+      {
+        "id": "f1a23b45-6789-4cde-b012-345678901234",
+        "detectedAt": 1777490400000,
+        "severity": "high",
+        "summary": "You moved up in the local pack",
+        "changes": [
+          {
+            "category": "improvement",
+            "description": "{\"previousPosition\":3,\"newPosition\":2}",
+            "significance": "high"
+          }
+        ]
+      },
+      {
+        "id": "a2b34c56-7890-4def-c123-456789012345",
+        "detectedAt": 1777404000000,
+        "severity": "medium",
+        "summary": "New accreditation detected on website",
+        "changes": [
+          {
+            "category": "improvement",
+            "description": "{\"added\":\"AMBA accreditation\"}",
+            "significance": "medium"
+          }
+        ]
+      }
+    ]
+  },
+  "competitors": [
+    {
+      "id": "51c705f6-fd05-4a32-8b2c-1ee84aa1aa78",
+      "name": "University of West London",
+      "url": "https://www.uwl.ac.uk/",
+      "domain": "www.uwl.ac.uk",
+      "lastCrawledAt": 1777576888230,
+      "crawlJobId": "078186c5-41ab-44a4-a45c-8816f20691bd",
+      "crawlStatus": "complete",
+      "signals": {
+        "seo": {
+          "title": "Discover the Career University | University of West London",
+          "h1Tags": ["Summer open days", "Applications now open for September 2026"],
+          "hasSitemap": false,
+          "hasRobotsTxt": false,
+          "altTagCoverage": "full",
+          "metaDescription": "Welcome to the University of West London (UWL). UWL is the career university and our courses are designed to give you the skills sought by employers.",
+          "internalLinkCount": 312,
+          "schemaMarkupTypes": [],
+          "canonicalTagsPresent": true
+        },
+        "trust": {
+          "accreditations": [],
+          "certifications": [],
+          "teamPageExists": true,
+          "insuranceMentioned": false,
+          "guaranteesMentioned": [],
+          "awardsAndMemberships": [],
+          "reviewPlatformsLinked": ["Google Reviews"]
+        },
+        "content": {
+          "hasFAQ": false,
+          "hasBlog": true,
+          "hasPortfolio": false,
+          "servicesListed": [
+            "Undergraduate",
+            "Postgraduate",
+            "Degree apprenticeships",
+            "Continuing Professional Development (CPD) courses",
+            "Foundation Year",
+            "London location, local community",
+            "Find your course"
+          ],
+          "portfolioItemCount": 0,
+          "serviceAreasMentioned": []
+        },
+        "engagement": {
+          "ctaText": ["Apply now"],
+          "hasContactForm": true,
+          "bookingProvider": null,
+          "hasCallToAction": true,
+          "hasBookingSystem": false,
+          "socialLinksPresent": [],
+          "hasNewsletterSignup": false,
+          "hasPhoneNumberProminent": true
+        }
+      },
+      "googleData": {
+        "photos": 10,
+        "address": "St Mary's Rd, London W5 5RF, UK",
+        "placeId": "ChIJ_V1cA_MNdkgROBTyzDQjL0I",
+        "website": "http://www.uwl.ac.uk/",
+        "priceLevel": null,
+        "phoneNumber": "020 8231 2468",
+        "reviewCount": 571,
+        "googleRating": 3.8,
+        "openingHours": [],
+        "recentReviews": [
+          {
+            "text": "I studied at UWL few years ago. Some of the lecturers are very supportive and others are just nothing to write home about.",
+            "time": 1769610331890,
+            "rating": 1,
+            "authorName": "Paulina Senu"
+          },
+          {
+            "text": "had a very disappointing experience at the University of West London. The university does not seem to take student concerns seriously.",
+            "time": 1771983140295,
+            "rating": 1,
+            "authorName": "Navneet Kaur"
+          }
+        ],
+        "businessCategory": "university"
+      },
+      "serpData": {
+        "sitelinks": false,
+        "searchTerm": "education Greenwich",
+        "adsAboveResults": 0,
+        "featuredSnippet": false,
+        "localPackPresent": true,
+        "knowledgePanelPresent": false,
+        "localVisabilityPosition": 6
+      },
+      "aiScore": {
+        "generatedAt": "2026-04-30T19:00:00.000Z",
+        "weeklyDelta": 2,
+        "overallScore": 56,
+        "aiPresenceScore": 0,
+        "reputationScore": 73,
+        "websiteHealthScore": 58,
+        "reviewVelocityScore": 30,
+        "gbpCompletenessScore": 70,
+        "localVisibilityScore": 50
+      },
+      "aiVisibility": {
+        "tested_at": "2026-04-30T18:30:00.000Z",
+        "mentionCount": 0,
+        "totalPrompts": 3,
+        "aiPresenceScore": 0
+      },
+      "pagespeedData": {
+        "mobile": {
+          "cls": 0.003401,
+          "fcp": 759.68058564492,
+          "inp": null,
+          "lcp": 2407.2546998381467,
+          "performanceScore": 97
+        },
+        "desktop": {
+          "cls": 0.000554,
+          "fcp": 212.7822179256814,
+          "inp": null,
+          "lcp": 689.6370298761357,
+          "performanceScore": 96
+        },
+        "fetchedAt": "2026-04-30T18:58:00.000Z"
+      },
+      "reviewSentiment": {
+        "summary": "University lacks professionalism, support, and fails to address student concerns effectively.",
+        "generatedAt": "2026-04-30T18:59:00.000Z",
+        "negativeThemes": ["Unprofessional staff behavior", "Poor financial support", "Bullying and lack of intervention"],
+        "positiveThemes": ["Supportive individual lecturers", "Good location accessibility", "Some caring staff members"]
+      },
+      "enrichmentErrors": {
+        "crawl": "This website blocks automated crawling. We fetched a basic version of the page, so some data may be incomplete."
+      },
+      "previousSignals": null,
+      "changeEvents": []
+    },
+    {
+      "id": "9223f93b-b4d9-4aa3-b51a-3806715824f7",
+      "name": "New City College",
+      "url": "https://www.ncclondon.ac.uk/",
+      "domain": "www.ncclondon.ac.uk",
+      "lastCrawledAt": 1777578159413,
+      "crawlJobId": "d555a17f-e77f-41f6-8614-33aa97e5cf71",
+      "crawlStatus": "complete",
+      "signals": {
+        "seo": {
+          "title": "New City College | Ofsted Outstanding",
+          "h1Tags": [
+            "New City College",
+            "Applications for NCC",
+            "Open Events",
+            "Course Search Results",
+            "We Are Outstanding.",
+            "Student Achievement Awards",
+            "Age 16-18",
+            "A Levels",
+            "BTEC/Vocational"
+          ],
+          "hasSitemap": true,
+          "hasRobotsTxt": true,
+          "altTagCoverage": "full",
+          "metaDescription": "We are an Ofsted Outstanding college of further education, with campuses in East London and Essex.",
+          "internalLinkCount": 310,
+          "schemaMarkupTypes": [
+            "CollegeOrUniversity",
+            "Organization",
+            "WebSite",
+            "WebPage",
+            "Person",
+            "Article",
+            "ImageObject",
+            "BreadcrumbList",
+            "LocalBusiness"
+          ],
+          "canonicalTagsPresent": true
+        },
+        "trust": {
+          "accreditations": ["OFSTED", "Cyber Essentials"],
+          "certifications": ["City & Guilds"],
+          "teamPageExists": false,
+          "insuranceMentioned": false,
+          "guaranteesMentioned": [],
+          "awardsAndMemberships": [
+            "of the National Beacon Award",
+            "our Science, Technology and Maths A Levels with an Accreditation Award"
+          ],
+          "reviewPlatformsLinked": []
+        },
+        "content": {
+          "hasFAQ": true,
+          "hasBlog": true,
+          "hasPortfolio": false,
+          "servicesListed": [
+            "A Levels",
+            "Vocational courses",
+            "Email Login",
+            "Make Payments Online",
+            "Cherry Tree Cafe",
+            "Epping Wellness Centre",
+            "Libraries",
+            "New City Salons",
+            "New City Fitness",
+            "New City Nursery",
+            "Restaurants"
+          ],
+          "portfolioItemCount": 0,
+          "serviceAreasMentioned": ["East London", "Essex", "Epping", "Hackney", "Redbridge", "Tower Hamlets", "Havering"]
+        },
+        "engagement": {
+          "ctaText": ["Apply Now", "Add more courses", "Book Now"],
+          "hasContactForm": true,
+          "bookingProvider": null,
+          "hasCallToAction": true,
+          "hasBookingSystem": false,
+          "socialLinksPresent": ["Facebook", "Twitter"],
+          "hasNewsletterSignup": false,
+          "hasPhoneNumberProminent": false
+        }
+      },
+      "googleData": {
+        "photos": 10,
+        "address": "Falkirk St, London N1 6HQ, UK",
+        "placeId": "ChIJSVbDibscdkgRfUM91x4gM78",
+        "website": "https://www.ncclondon.ac.uk/hackney-campus",
+        "priceLevel": null,
+        "phoneNumber": "0330 135 9000",
+        "reviewCount": 195,
+        "googleRating": 3.8,
+        "openingHours": [
+          "Monday: 9:00 AM – 5:00 PM",
+          "Tuesday: 9:00 AM – 5:00 PM",
+          "Wednesday: 9:00 AM – 5:00 PM",
+          "Thursday: 9:00 AM – 5:00 PM",
+          "Friday: 9:00 AM – 5:00 PM",
+          "Saturday: Closed",
+          "Sunday: Closed"
+        ],
+        "recentReviews": [
+          {
+            "text": "Great College to learn new skills and very careers driven College,equally tutors are very motivated to get you to do your best.",
+            "time": 1746200167269,
+            "rating": 4,
+            "authorName": "Kimmy"
+          },
+          {
+            "text": "I attended the adult learning evening courses for GCSE Math & English and Electrical Skills- brilliant courses, I learnt so much!",
+            "time": 1756397151283,
+            "rating": 5,
+            "authorName": "Thang Huynh"
+          }
+        ],
+        "businessCategory": "university"
+      },
+      "serpData": {
+        "sitelinks": false,
+        "searchTerm": "education Greenwich",
+        "adsAboveResults": 0,
+        "featuredSnippet": false,
+        "localPackPresent": true,
+        "knowledgePanelPresent": false,
+        "localVisabilityPosition": null
+      },
+      "aiScore": {
+        "generatedAt": "2026-04-30T19:00:00.000Z",
+        "weeklyDelta": 1,
+        "overallScore": 46,
+        "aiPresenceScore": 0,
+        "reputationScore": 58,
+        "websiteHealthScore": 90,
+        "reviewVelocityScore": 10,
+        "gbpCompletenessScore": 85,
+        "localVisibilityScore": 0
+      },
+      "aiVisibility": {
+        "tested_at": "2026-04-30T18:30:00.000Z",
+        "mentionCount": 0,
+        "totalPrompts": 3,
+        "aiPresenceScore": 0
+      },
+      "pagespeedData": {
+        "mobile": {
+          "cls": 0,
+          "fcp": 6153.86239594166,
+          "inp": null,
+          "lcp": 10698.07857446728,
+          "performanceScore": 54
+        },
+        "desktop": {
+          "cls": 0.157754,
+          "fcp": 633.6090085005403,
+          "inp": null,
+          "lcp": 1849.4906774153892,
+          "performanceScore": 59
+        },
+        "fetchedAt": "2026-04-30T18:58:00.000Z"
+      },
+      "reviewSentiment": {
+        "summary": "Mixed experiences: praised for career focus and tutors, criticized for facilities and management.",
+        "generatedAt": "2026-04-30T18:59:00.000Z",
+        "negativeThemes": ["poor infrastructure", "outdated curriculum", "unprofessional staff"],
+        "positiveThemes": ["supportive tutors", "skills development", "career focused"]
+      },
+      "enrichmentErrors": null,
+      "previousSignals": null,
+      "changeEvents": []
+    },
+    {
+      "id": "90708623-43d7-4d62-9d92-55d5ffbc313d",
+      "name": "Westminster Kingsway College",
+      "url": "https://www.capitalccg.ac.uk/westking",
+      "domain": "www.capitalccg.ac.uk",
+      "lastCrawledAt": 1777577050015,
+      "crawlJobId": "cfa8cfe1-fe51-48bb-9833-fa99f61853b8",
+      "crawlStatus": "complete",
+      "signals": {
+        "seo": {
+          "title": "Westminster Kingsway College - Capital City College",
+          "h1Tags": [
+            "Westminster Kingsway College (WestKing)",
+            "Apply for A Levels!",
+            "A Levels Intensive Courses",
+            "Access to Higher Education Courses",
+            "Accounting and Bookkeeping Courses"
+          ],
+          "hasSitemap": true,
+          "hasRobotsTxt": true,
+          "altTagCoverage": "none",
+          "metaDescription": "We are proud to announce a bold new brand identity that unites all our colleges under one logo and offer a wide range of A Levels and vocational courses.",
+          "internalLinkCount": 490,
+          "schemaMarkupTypes": ["WebPage", "ImageObject", "BreadcrumbList", "WebSite", "FAQPage"],
+          "canonicalTagsPresent": true
+        },
+        "trust": {
+          "accreditations": [],
+          "certifications": [],
+          "teamPageExists": true,
+          "insuranceMentioned": false,
+          "guaranteesMentioned": [],
+          "awardsAndMemberships": [],
+          "reviewPlatformsLinked": []
+        },
+        "content": {
+          "hasFAQ": true,
+          "hasBlog": true,
+          "hasPortfolio": false,
+          "servicesListed": [
+            "A Level courses",
+            "T Level courses",
+            "Vocational and technical courses",
+            "Short Courses",
+            "Online short courses",
+            "A Levels Intensive courses",
+            "Access to Higher Education courses",
+            "Higher Education courses"
+          ],
+          "portfolioItemCount": 0,
+          "serviceAreasMentioned": ["London", "King's Cross"]
+        },
+        "engagement": {
+          "ctaText": ["Student Login", "Staff Login", "Applicant Login", "Make a Payment", "Apply/Enrol", "Apply Online"],
+          "hasContactForm": true,
+          "bookingProvider": "MyCollege",
+          "hasCallToAction": true,
+          "hasBookingSystem": true,
+          "socialLinksPresent": ["Facebook"],
+          "hasNewsletterSignup": false,
+          "hasPhoneNumberProminent": false
+        }
+      },
+      "googleData": {
+        "photos": 10,
+        "address": "211 Gray's Inn Rd, London WC1X 8RA, UK",
+        "placeId": "ChIJUfwr9fwadkgRUfcp3anIoMM",
+        "website": "https://www.capitalccg.ac.uk/centres/kings-cross",
+        "priceLevel": null,
+        "phoneNumber": "020 7832 5000",
+        "reviewCount": 166,
+        "googleRating": 3.5,
+        "openingHours": [
+          "Monday: 7:30 AM – 9:00 PM",
+          "Tuesday: 7:30 AM – 9:00 PM",
+          "Wednesday: 7:30 AM – 9:00 PM",
+          "Thursday: 7:30 AM – 9:00 PM",
+          "Friday: 7:30 AM – 6:00 PM",
+          "Saturday: Closed",
+          "Sunday: Closed"
+        ],
+        "recentReviews": [
+          {
+            "text": "Got an A* in Intensive Psychology here and am at a top 5 UK uni now! I have never found an A-Level class easy and fun.",
+            "time": 1765466474121,
+            "rating": 5,
+            "authorName": "hae"
+          },
+          {
+            "text": "I find this College appauling. The manner of which they handle children and young adults with neurodivergency is mortifying.",
+            "time": 1769172964989,
+            "rating": 1,
+            "authorName": "Harry Forrester"
+          }
+        ],
+        "businessCategory": "university"
+      },
+      "serpData": {
+        "sitelinks": false,
+        "searchTerm": "education Greenwich",
+        "adsAboveResults": 0,
+        "featuredSnippet": false,
+        "localPackPresent": true,
+        "knowledgePanelPresent": false,
+        "localVisabilityPosition": null
+      },
+      "aiScore": {
+        "generatedAt": "2026-04-30T19:00:00.000Z",
+        "weeklyDelta": 0,
+        "overallScore": 43,
+        "aiPresenceScore": 0,
+        "reputationScore": 47,
+        "websiteHealthScore": 90,
+        "reviewVelocityScore": 0,
+        "gbpCompletenessScore": 85,
+        "localVisibilityScore": 0
+      },
+      "aiVisibility": {
+        "tested_at": "2026-04-30T18:30:00.000Z",
+        "mentionCount": 0,
+        "totalPrompts": 3,
+        "aiPresenceScore": 0
+      },
+      "pagespeedData": {
+        "mobile": {
+          "cls": 0.044676,
+          "fcp": 6001.033789813091,
+          "inp": null,
+          "lcp": 13576.078694696289,
+          "performanceScore": 41
+        },
+        "desktop": {
+          "cls": 0.000542,
+          "fcp": 1361.0617622774853,
+          "inp": null,
+          "lcp": 1961.0907133450573,
+          "performanceScore": 62
+        },
+        "fetchedAt": "2026-04-30T18:58:00.000Z"
+      },
+      "reviewSentiment": {
+        "summary": "Mixed college with excellent teachers but significant safeguarding and support gaps.",
+        "generatedAt": "2026-04-30T18:59:00.000Z",
+        "negativeThemes": ["Poor neurodivergent support", "Inadequate staff communication", "Dismissive leadership behavior"],
+        "positiveThemes": ["Dedicated subject teachers", "Strong academic results", "Supportive pastoral care"]
+      },
+      "enrichmentErrors": null,
+      "previousSignals": null,
+      "changeEvents": []
+    },
+    {
+      "id": "af36d52a-c181-4cfd-99aa-7de53397379a",
+      "name": "City and Islington College",
+      "url": "https://www.capitalccg.ac.uk/",
+      "domain": "www.capitalccg.ac.uk",
+      "lastCrawledAt": 1777577265676,
+      "crawlJobId": "4e14efba-46e9-465b-88e7-f49286f20f30",
+      "crawlStatus": "complete",
+      "signals": {
+        "seo": {
+          "title": "Capital City College - London's Largest Further Education College",
+          "h1Tags": [
+            "Discover our Further Education Courses in London",
+            "Apply for A Levels!",
+            "A Levels Intensive Courses",
+            "Access to Higher Education Courses",
+            "Accounting and Bookkeeping Courses"
+          ],
+          "hasSitemap": true,
+          "hasRobotsTxt": true,
+          "altTagCoverage": "none",
+          "metaDescription": "Capital City College – London's largest Further Education college, offering A Levels, T Levels, vocational courses, apprenticeships, and higher education.",
+          "internalLinkCount": 483,
+          "schemaMarkupTypes": ["WebPage", "ImageObject", "BreadcrumbList", "WebSite", "CollegeOrUniversity", "FAQPage"],
+          "canonicalTagsPresent": true
+        },
+        "trust": {
+          "accreditations": [],
+          "certifications": ["AAT"],
+          "teamPageExists": true,
+          "insuranceMentioned": false,
+          "guaranteesMentioned": [],
+          "awardsAndMemberships": [],
+          "reviewPlatformsLinked": []
+        },
+        "content": {
+          "hasFAQ": true,
+          "hasBlog": true,
+          "hasPortfolio": false,
+          "servicesListed": [
+            "A Level courses",
+            "T Level courses",
+            "Vocational and technical courses",
+            "Short Courses",
+            "Online short courses",
+            "A Levels Intensive courses",
+            "Access to Higher Education courses",
+            "Higher Education courses"
+          ],
+          "portfolioItemCount": 0,
+          "serviceAreasMentioned": ["London", "King's Cross"]
+        },
+        "engagement": {
+          "ctaText": ["Apply/Enrol", "Student Login", "Staff Login", "Make a Payment", "Apply Online"],
+          "hasContactForm": true,
+          "bookingProvider": "Capital City College - Online Application",
+          "hasCallToAction": true,
+          "hasBookingSystem": true,
+          "socialLinksPresent": ["Facebook", "Twitter/X", "Instagram", "YouTube", "LinkedIn"],
+          "hasNewsletterSignup": false,
+          "hasPhoneNumberProminent": false
+        }
+      },
+      "googleData": {
+        "photos": 10,
+        "address": "283-309 Goswell Rd., London EC1V 7LA, UK",
+        "placeId": "ChIJaffed1sbdkgRkFZnb7svIeU",
+        "website": "https://www.capitalccg.ac.uk/sixth-form",
+        "priceLevel": null,
+        "phoneNumber": "020 7832 5000",
+        "reviewCount": 78,
+        "googleRating": 3.1,
+        "openingHours": [
+          "Monday: 8:30 AM – 6:00 PM",
+          "Tuesday: 8:30 AM – 6:00 PM",
+          "Wednesday: 8:30 AM – 6:00 PM",
+          "Thursday: 8:30 AM – 6:00 PM",
+          "Friday: 8:30 AM – 6:00 PM",
+          "Saturday: Closed",
+          "Sunday: Closed"
+        ],
+        "recentReviews": [
+          {
+            "text": "30 different A level subjects to chose from. Great atmosphere, excellent science and art equipment.",
+            "time": 1765506551307,
+            "rating": 5,
+            "authorName": "Dags N"
+          },
+          {
+            "text": "This college is by far the worst college in the country.",
+            "time": 1632758499285,
+            "rating": 1,
+            "authorName": "Monjur Miah"
+          }
+        ],
+        "businessCategory": "university"
+      },
+      "serpData": {
+        "sitelinks": false,
+        "searchTerm": "education Greenwich",
+        "adsAboveResults": 0,
+        "featuredSnippet": false,
+        "localPackPresent": true,
+        "knowledgePanelPresent": false,
+        "localVisabilityPosition": null
+      },
+      "aiScore": {
+        "generatedAt": "2026-04-30T19:00:00.000Z",
+        "weeklyDelta": 0,
+        "overallScore": 39,
+        "aiPresenceScore": 0,
+        "reputationScore": 32,
+        "websiteHealthScore": 90,
+        "reviewVelocityScore": 0,
+        "gbpCompletenessScore": 85,
+        "localVisibilityScore": 0
+      },
+      "aiVisibility": {
+        "tested_at": "2026-04-30T18:30:00.000Z",
+        "mentionCount": 0,
+        "totalPrompts": 3,
+        "aiPresenceScore": 0
+      },
+      "pagespeedData": {
+        "mobile": {
+          "cls": 0.044676,
+          "fcp": 8498.507901233497,
+          "inp": null,
+          "lcp": 20545.748211640956,
+          "performanceScore": 47
+        },
+        "desktop": {
+          "cls": 0.076194,
+          "fcp": 601.0282281310574,
+          "inp": null,
+          "lcp": 2461.1291979844545,
+          "performanceScore": 54
+        },
+        "fetchedAt": "2026-04-30T18:58:00.000Z"
+      },
+      "reviewSentiment": {
+        "summary": "Mixed reviews. Praised for subjects and facilities; criticized for complaints mishandling and teaching inconsistency.",
+        "generatedAt": "2026-04-30T18:59:00.000Z",
+        "negativeThemes": ["Poor complaint handling", "Frequent class cancellations", "Inadequate teacher support"],
+        "positiveThemes": ["Wide subject selection", "Excellent science equipment", "Great atmosphere"]
+      },
+      "enrichmentErrors": null,
+      "previousSignals": null,
+      "changeEvents": []
+    },
+    {
+      "id": "88c2c04e-b9f8-4dd9-84b2-f5b8b36d4f79",
+      "name": "London Met",
+      "url": "https://www.londonmet.ac.uk/",
+      "domain": "www.londonmet.ac.uk",
+      "lastCrawledAt": 1777576971242,
+      "crawlJobId": "d59e92e4-396e-422b-a3fb-d33b3e386944",
+      "crawlStatus": "complete",
+      "signals": {
+        "seo": {
+          "title": "London Metropolitan University - London Metropolitan University",
+          "h1Tags": [
+            "Welcome to London Met",
+            "US financial aid Loan amounts and types",
+            "Offer pack for students from Ghana",
+            "Sports TherapyBSc (Hons)",
+            "Student Success Stories",
+            "New Student Services Portal Launch"
+          ],
+          "hasSitemap": true,
+          "hasRobotsTxt": true,
+          "altTagCoverage": "partial",
+          "metaDescription": "Based in one of the world's most dynamic cities, London Metropolitan University offers career-focused degrees.",
+          "internalLinkCount": 248,
+          "schemaMarkupTypes": ["Course", "Organization"],
+          "canonicalTagsPresent": true
+        },
+        "trust": {
+          "accreditations": ["Society of Sports Therapists", "CILIP"],
+          "certifications": [],
+          "teamPageExists": true,
+          "insuranceMentioned": true,
+          "guaranteesMentioned": [],
+          "awardsAndMemberships": [],
+          "reviewPlatformsLinked": []
+        },
+        "content": {
+          "hasFAQ": true,
+          "hasBlog": true,
+          "hasPortfolio": false,
+          "servicesListed": [
+            "Suggestions in Courses",
+            "Suggestions in News",
+            "Suggestions in Events",
+            "Study with us",
+            "Dedicated to employability",
+            "Latest news",
+            "Life in London",
+            "Funding information",
+            "Scholarships",
+            "Open days",
+            "Student Services Hub"
+          ],
+          "portfolioItemCount": 0,
+          "serviceAreasMentioned": ["London", "Holloway", "Aldgate"]
+        },
+        "engagement": {
+          "ctaText": ["Book now", "Apply for September 2026"],
+          "hasContactForm": true,
+          "bookingProvider": null,
+          "hasCallToAction": true,
+          "hasBookingSystem": true,
+          "socialLinksPresent": ["Facebook", "Instagram"],
+          "hasNewsletterSignup": false,
+          "hasPhoneNumberProminent": true
+        }
+      },
+      "googleData": {
+        "photos": 10,
+        "address": "166-220 Holloway Rd, London N7 8DB, UK",
+        "placeId": "ChIJI8pjP00DdkgRxzRetudegMM",
+        "website": "https://www.londonmet.ac.uk/",
+        "priceLevel": null,
+        "phoneNumber": "020 7423 0000",
+        "reviewCount": 528,
+        "googleRating": 3.7,
+        "openingHours": [
+          "Monday: 8:00 AM – 11:00 PM",
+          "Tuesday: 8:00 AM – 11:00 PM",
+          "Wednesday: 8:00 AM – 11:00 PM",
+          "Thursday: 8:00 AM – 11:00 PM",
+          "Friday: 8:00 AM – 11:00 PM",
+          "Saturday: 11:00 AM – 6:00 PM",
+          "Sunday: Closed"
+        ],
+        "recentReviews": [
+          {
+            "text": "The new student services portal is a huge improvement. Finally feel like the administration is listening to student feedback. My course enquiry was resolved within 24 hours.",
+            "time": 1777490400000,
+            "rating": 4,
+            "authorName": "Yusuf Bakr"
+          },
+          {
+            "text": "London Met has really turned things around. The faculty in Social Sciences are genuinely world class and my dissertation supervisor has been incredibly supportive.",
+            "time": 1777404000000,
+            "rating": 5,
+            "authorName": "Amara Diallo"
+          },
+          {
+            "text": "Currently studying Criminology at London met has been a very warming experience. The Social Sciences school offers an impressive amount of support.",
+            "time": 1763031989365,
+            "rating": 5,
+            "authorName": "Robert Kamugisha"
+          },
+          {
+            "text": "I had applied for this university and after months I have been told that I can not get in as it's too late.",
+            "time": 1771377614721,
+            "rating": 1,
+            "authorName": "Zelal"
+          }
+        ],
+        "businessCategory": "university"
+      },
+      "serpData": {
+        "sitelinks": false,
+        "searchTerm": "education Greenwich",
+        "adsAboveResults": 0,
+        "featuredSnippet": false,
+        "localPackPresent": true,
+        "knowledgePanelPresent": false,
+        "localVisabilityPosition": 3
+      },
+      "aiScore": {
+        "generatedAt": "2026-04-30T19:00:00.000Z",
+        "weeklyDelta": 4,
+        "overallScore": 68,
+        "aiPresenceScore": 0,
+        "reputationScore": 65,
+        "websiteHealthScore": 92,
+        "reviewVelocityScore": 20,
+        "gbpCompletenessScore": 88,
+        "localVisibilityScore": 80
+      },
+      "aiVisibility": {
+        "tested_at": "2026-04-30T18:30:00.000Z",
+        "mentionCount": 0,
+        "totalPrompts": 3,
+        "aiPresenceScore": 0
+      },
+      "pagespeedData": {
+        "mobile": {
+          "cls": 0.018,
+          "fcp": 2310.5,
+          "inp": null,
+          "lcp": 28400.1,
+          "performanceScore": 43
+        },
+        "desktop": {
+          "cls": 0.51,
+          "fcp": 520.0,
+          "inp": null,
+          "lcp": 4800.2,
+          "performanceScore": 26
+        },
+        "fetchedAt": "2026-04-30T18:58:00.000Z"
+      },
+      "reviewSentiment": {
+        "summary": "Improving admin experience and outstanding Social Sciences faculty drawing positive reviews this week.",
+        "generatedAt": "2026-04-30T18:59:00.000Z",
+        "negativeThemes": ["Slow application processing", "Poor financial aid communication"],
+        "positiveThemes": ["Supportive lecturers", "Improved student services", "Responsive administration"]
+      },
+      "enrichmentErrors": null,
+      "previousSignals": null,
+      "changeEvents": [
+        {
+          "id": "c3d45e67-8901-4fab-d234-567890123456",
+          "detectedAt": 1777490400000,
+          "severity": "high",
+          "summary": "Competitor improved local pack position",
+          "changes": [
+            {
+              "category": "threat",
+              "description": "{\"competitorId\":\"88c2c04e-b9f8-4dd9-84b2-f5b8b36d4f79\",\"previousPosition\":4,\"newPosition\":3}",
+              "significance": "high"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -355,15 +355,23 @@ export async function syncProject(projectId: string): Promise<{
       .limit(10);
 
     if (actions?.length) {
-      priorityActions = actions.map(r => ({
-        priority: r.priority as 1 | 2 | 3,
-        category: r.category,
-        action: r.action,
-        reason: r.reason,
-        competitorReference: r.competitor_reference ?? '',
-        estimatedImpact: r.estimated_impact as PriorityAction['estimatedImpact'],
-        timeframe: r.timeframe,
-      }));
+      // De-duplicate: keep only the most recent action per priority slot
+      const seen = new Set<number>();
+      priorityActions = actions
+        .filter(r => { if (seen.has(r.priority)) return false; seen.add(r.priority); return true; })
+        .map(r => ({
+          priority: r.priority as PriorityAction['priority'],
+          category: r.category,
+          action: r.action,
+          reason: r.reason,
+          whyItMatters: r.why_it_matters ?? '',
+          steps: (r.steps as string[]) ?? [],
+          effort: (r.effort ?? 'medium') as PriorityAction['effort'],
+          outcome: r.outcome ?? '',
+          competitorReference: r.competitor_reference ?? null,
+          estimatedImpact: r.estimated_impact as PriorityAction['estimatedImpact'],
+          timeframe: r.timeframe,
+        }));
     }
   }
 
@@ -441,6 +449,34 @@ export async function addCompetitor(
   });
 
   return mapBusiness({ ...row, crawl_status: 'pending' });
+}
+
+export async function fetchPriorityActions(projectId: string): Promise<PriorityAction[]> {
+  const { data: actions } = await supabaseAdmin
+    .from('priority_actions')
+    .select('*')
+    .eq('project_id', projectId)
+    .order('generated_at', { ascending: false })
+    .limit(10);
+
+  if (!actions?.length) return [];
+
+  const seen = new Set<number>();
+  return actions
+    .filter(r => { if (seen.has(r.priority)) return false; seen.add(r.priority); return true; })
+    .map(r => ({
+      priority: r.priority as PriorityAction['priority'],
+      category: r.category,
+      action: r.action,
+      reason: r.reason,
+      whyItMatters: r.why_it_matters ?? '',
+      steps: (r.steps as string[]) ?? [],
+      effort: (r.effort ?? 'medium') as PriorityAction['effort'],
+      outcome: r.outcome ?? '',
+      competitorReference: r.competitor_reference ?? null,
+      estimatedImpact: r.estimated_impact as PriorityAction['estimatedImpact'],
+      timeframe: r.timeframe,
+    }));
 }
 
 export async function listProjects(userId: string): Promise<Project[]> {

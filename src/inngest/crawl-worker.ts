@@ -18,6 +18,7 @@ import { updateBusiness, saveChangeEvent } from '@/actions/projects';
 import { normalizeUrl } from '@/lib/url';
 import { saveScoreSnapshot, getWeeklyDelta } from '@/lib/supabase/scores';
 import type { ExtractedSignals, Business, ChangeEvent, AIHealthScore, AIVisibility, SerpData, PageSpeedData } from '@/types';
+import type { ServiceCategory } from '@/lib/serviceCategories';
 
 const MAX_POLL_ATTEMPTS = 120;
 const POLL_INTERVAL = '5s';
@@ -602,7 +603,8 @@ export const crawlBusinessFunction = inngest.createFunction(
       try {
         const actions = await generatePriorityActions(
           toPartialBiz(ownRaw),
-          withSignals.filter((b) => !b.isOwn).map((b) => toPartialBiz(b))
+          withSignals.filter((b) => !b.isOwn).map((b) => toPartialBiz(b)),
+          meta.primaryService as ServiceCategory
         );
 
         if (!actions.length) return;

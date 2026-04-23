@@ -143,7 +143,7 @@ export interface ScoreSnapshot {
 }
 
 export interface PriorityAction {
-  priority: 1 | 2 | 3;
+  priority: 1 | 2 | 3 | 4 | 5;
   category: string;
   action: string;
   reason: string;

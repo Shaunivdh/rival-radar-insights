@@ -1,8 +1,18 @@
 import Anthropic from '@anthropic-ai/sdk';
 import type { ExtractedSignals, PriorityAction, ChangeSummary, Business, ReviewSentiment, AIVisibility } from '@/types';
+import { SERVICE_CATEGORIES } from '@/lib/serviceCategories';
+import type { ServiceCategory } from '@/lib/serviceCategories';
 
 const SKIP_AI = process.env.SKIP_AI_CALLS === 'true';
-const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+let _client: Anthropic | null = null;
+function getClient(): Anthropic {
+  if (!_client) {
+    const apiKey = process.env.ANTHROPIC_API_KEY?.trim();
+    if (!apiKey) throw new Error('Missing ANTHROPIC_API_KEY');
+    _client = new Anthropic({ apiKey });
+  }
+  return _client;
+}
 
 export async function extractPageSignals(html: string, prompt: string): Promise<Record<string, unknown>> {
   if (SKIP_AI) return {};
@@ -12,7 +22,7 @@ export async function extractPageSignals(html: string, prompt: string): Promise<
     .replace(/<svg\b[^>]*>[\s\S]*?<\/svg>/gi, '')
     .slice(0, 24000);
   try {
-    const msg = await client.messages.create({
+    const msg = await getClient().messages.create({
       model: 'claude-haiku-4-5-20251001',
       max_tokens: 1024,
       messages: [{ role: 'user', content: `${prompt}\n\nHTML:\n${stripped}\n\nReturn JSON only, no markdown.` }],
@@ -31,7 +41,7 @@ async function askClaude<T>(prompt: string, maxTokens = 512): Promise<T> {
   for (let attempt = 0; attempt < 3; attempt++) {
     if (attempt > 0) await new Promise(r => setTimeout(r, attempt * 5000));
     try {
-      msg = await client.messages.create({
+      msg = await getClient().messages.create({
         model: 'claude-haiku-4-5-20251001',
         max_tokens: maxTokens,
         messages: [{ role: 'user', content: prompt }],
@@ -72,8 +82,13 @@ Reviews:\n${texts}`;
   }
 }
 
-export async function generatePriorityActions(own: Business, competitors: Business[]): Promise<PriorityAction[]> {
+export async function generatePriorityActions(own: Business, competitors: Business[], serviceCategory?: ServiceCategory): Promise<PriorityAction[]> {
   if (SKIP_AI) return [];
+
+  const catConfig = serviceCategory ? SERVICE_CATEGORIES[serviceCategory] : null;
+  const industryFocus = catConfig
+    ? `This is a ${catConfig.label} business. Prioritise actions that affect: ${catConfig.dashboardPriority.join(', ')}.`
+    : '';
 
   const summariseBiz = (b: Business) => ({
     name: b.name,
@@ -94,25 +109,36 @@ export async function generatePriorityActions(own: Business, competitors: Busine
     signals: b.signals,
   });
 
-  const prompt = `You are a local business competitive intelligence analyst. A business owner has paid for competitor analysis — your job is to give them 3-5 specific, actionable priority actions based on real gaps vs their competitors.
-
-Rules:
-- Only recommend actions the business can realistically take
-- Prioritise by score gap: where the competitor has a meaningfully higher score, that is the biggest opportunity
-- Reference a specific competitor by name when they are outperforming in that area
-- Never give generic advice like "get more reviews" — be specific (e.g. "Add a post-job email asking for Google reviews, like [Competitor] who has 2x your review count")
-- action: imperative sentence, max 15 words
-- reason: why this matters competitively, max 20 words
-- timeframe: realistic (e.g. "1 week", "1 month", "ongoing")
+  const prompt = `You are Scoutly, an ongoing local business monitor. Based on this week's data, surface the 5 most important actions this business should take right now.
+${industryFocus ? `\n${industryFocus}\n` : ''}
+Rules — read carefully before generating:
+- Only recommend actions based on confirmed gaps visible in the data. Do not infer, assume, or suggest things that might apply.
+- Never say "you likely qualify" or "if you have" — only act on what the data confirms.
+- No aspirational targets (e.g. "reach 80 reviews in 6 months") — recommend the next step, not the destination.
+- Actions must be immediately doable: things the owner can start this week, not projects that require planning.
+- If a competitor has something the business is missing, name what's missing — not what the competitor achieved.
+- Write like a monitor that noticed something, not an analyst writing a report.
+- No SEO jargon. Plain English only.
+- action: one clear imperative sentence, max 15 words (e.g. "Set up a post-job email asking customers for a Google review.")
+- reason: what gap this closes and why it matters commercially — max 15 words, no jargon
+- category: one of visibility | trust | reviews | conversion | content | alerts
+- Each action must address a different gap — no two actions from the same root cause
 - Output JSON array only, no markdown
 
-Schema per item: {"priority":1|2|3,"category":"string","action":"string","reason":"string","competitorReference":"string|null","estimatedImpact":"high"|"medium"|"low","timeframe":"string"}
+Priority numbering (critical — violations break the product):
+- Unique integers 1–5, no duplicates, no gaps, ordered by impact
+
+Schema: {"priority":1|2|3|4|5,"category":"visibility"|"trust"|"reviews"|"conversion"|"content"|"alerts","action":"string","reason":"string","competitorReference":"string|null","estimatedImpact":"high"|"medium"|"low","timeframe":"string"}
 
 Own business: ${JSON.stringify(summariseBiz(own))}
 Competitors: ${JSON.stringify(competitors.map(summariseBiz))}`;
 
   try {
-    return await askClaude<PriorityAction[]>(prompt, 1024);
+    const actions = await askClaude<PriorityAction[]>(prompt, 1024);
+    // Guarantee unique, sequential priority numbers regardless of model output
+    return actions
+      .sort((a, b) => a.priority - b.priority)
+      .map((action, i) => ({ ...action, priority: (i + 1) as PriorityAction['priority'] }));
   } catch (e) {
     console.warn('[generatePriorityActions] failed:', e);
     return [];
@@ -150,7 +176,7 @@ Rules:
 - summary: max 20 words, plain English, written as if speaking to the business owner
 - description: explain the change and why it matters, not just what changed
 - significance: one of "high" | "medium" | "low"
-- actionItem: a specific, actionable next step the business owner should take in response to this change (max 20 words). For competitors: suggest how to respond (e.g. "Create a similar services page to maintain parity"). For own site: suggest how to capitalise or fix (e.g. "Add customer testimonials to the new page to boost trust"). null only if no action is needed.
+- actionItem: a plain-English next step the business owner should take (max 20 words, no jargon). For competitors: frame as an opportunity or threat response (e.g. "Add your pricing page before they take that traffic"). For own site: frame as a win to build on or a fix (e.g. "Add customer photos to the new page to build trust faster"). null only if no action is needed.
 - severity: high = directly affects leads/rankings/trust, medium = noticeable improvement/regression, low = minor
 - Max 5 changes
 
@@ -223,7 +249,7 @@ export async function checkAIVisibility(
       for (let attempt = 0; attempt < 3; attempt++) {
         if (attempt > 0) await new Promise(r => setTimeout(r, attempt * 10000));
         try {
-          result = await client.messages.create({
+          result = await getClient().messages.create({
             model: 'claude-sonnet-4-6',
             max_tokens: 1000,
             system: 'You are a helpful local business recommendation assistant. When asked about businesses in a specific area, provide specific real business names and brief descriptions. Always include specific names.',

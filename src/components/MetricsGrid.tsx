@@ -8,6 +8,7 @@ interface MetricCardProps {
   subtitle: string;
   detail: string;
   source: string;
+  sourceTooltip?: string;
   error?: string;    // enrichment error — amber warning
   noData?: string;   // "Not yet tested" / "Insufficient data" — grey
 }
@@ -18,7 +19,7 @@ function scoreColor(s: number) {
   return { bar: 'bg-red-500', text: 'text-red-600', bg: 'bg-red-50 dark:bg-red-950/30' };
 }
 
-function MetricCard({ emoji, title, score, subtitle, detail, source, error, noData }: MetricCardProps) {
+function MetricCard({ emoji, title, score, subtitle, detail, source, sourceTooltip, error, noData }: MetricCardProps) {
   const overrideMsg = error ?? noData;
   const colors = overrideMsg
     ? (error
@@ -53,7 +54,17 @@ function MetricCard({ emoji, title, score, subtitle, detail, source, error, noDa
         <p className="text-xs font-medium text-foreground">{subtitle}</p>
         <p className="text-xs text-muted-foreground mt-0.5">{detail}</p>
       </div>
-      <p className="text-[10px] text-muted-foreground/60 uppercase tracking-wide mt-auto">Source: {source}</p>
+      <p className="text-[10px] text-muted-foreground/60 uppercase tracking-wide mt-auto">
+        Source: {source}
+        {sourceTooltip && (
+          <span
+            title={sourceTooltip}
+            className="ml-1 inline-flex items-center justify-center w-3 h-3 rounded-full bg-muted-foreground/30 text-[8px] text-muted-foreground cursor-help leading-none"
+          >
+            ?
+          </span>
+        )}
+      </p>
     </div>
   );
 }
@@ -176,6 +187,7 @@ export function MetricsGrid({ business }: MetricsGridProps) {
         subtitle={pagespeedData ? psiSubtitle(pagespeedData.mobile) : '—'}
         detail="Lighthouse performance · Core Web Vitals"
         source="Google PageSpeed"
+        sourceTooltip="Scores come from Google's PageSpeed Insights API, which runs Lighthouse on Google's servers. Results may differ from a locally-run Lighthouse test due to different network conditions, throttling, and timing."
         noData={!pagespeedData ? 'Not yet scanned' : undefined}
       />
       <MetricCard
@@ -185,6 +197,7 @@ export function MetricsGrid({ business }: MetricsGridProps) {
         subtitle={pagespeedData ? psiSubtitle(pagespeedData.desktop) : '—'}
         detail="Lighthouse performance · Core Web Vitals"
         source="Google PageSpeed"
+        sourceTooltip="Scores come from Google's PageSpeed Insights API, which runs Lighthouse on Google's servers. Results may differ from a locally-run Lighthouse test due to different network conditions, throttling, and timing."
         noData={!pagespeedData ? 'Not yet scanned' : undefined}
       />
     </div>

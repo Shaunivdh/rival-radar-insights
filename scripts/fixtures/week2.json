@@ -1,0 +1,1039 @@
+{
+  "id": "5e073cc3-86d7-4ef1-8ca4-c488e6988ecb",
+  "name": "Evolve IT vs Competitors",
+  "createdAt": 1776857700708,
+  "ownBusiness": {
+    "id": "0c27f7ea-cf17-48ad-99c6-37cbe250f0dd",
+    "name": "Evolve IT",
+    "url": "https://evolvit.co.uk/",
+    "domain": "evolvit.co.uk",
+    "lastCrawledAt": 1777574100000,
+    "crawlJobId": "4f4ff22f-e9c9-4327-9db0-f191fb60d9d7",
+    "crawlStatus": "complete",
+    "signals": {
+      "seo": {
+        "title": "EvolvIT | Strategic IT Partner in Bristol | Managed Service Provider",
+        "h1Tags": [
+          "Strategic IT partner for your business",
+          "EvolvIT Blog",
+          "An SMEs Guide to Cyber Security",
+          "How to Rescue Your Browser From Being Hijacked",
+          "What is VoIP and what could it do for your Bristol business?",
+          "DIY SOS",
+          "The State of Bristol's Tech Industry",
+          "How Bristol is Driving Innovative Tech Growth",
+          "Bristol, The Smarter City",
+          "How to Set Up an IT Infrastructure For Your Small Business"
+        ],
+        "hasSitemap": true,
+        "hasRobotsTxt": true,
+        "altTagCoverage": "partial",
+        "metaDescription": "Tailored IT services to meet your business needs, now &amp; in the future. Managed from one place, just like your own IT department but without all the costs.",
+        "internalLinkCount": 103,
+        "schemaMarkupTypes": [
+          "LocalBusiness",
+          "WebPage",
+          "BreadcrumbList",
+          "WebSite",
+          "Organization",
+          "CollectionPage",
+          "Article",
+          "ImageObject",
+          "Person"
+        ],
+        "canonicalTagsPresent": true
+      },
+      "trust": {
+        "accreditations": [
+          "Cyber Essentials",
+          "ICO",
+          "ISO 27001"
+        ],
+        "certifications": [],
+        "teamPageExists": true,
+        "insuranceMentioned": true,
+        "guaranteesMentioned": [
+          "30 day satisfaction guarantee"
+        ],
+        "awardsAndMemberships": [],
+        "reviewPlatformsLinked": [
+          "Google Reviews"
+        ]
+      },
+      "content": {
+        "hasFAQ": true,
+        "hasBlog": true,
+        "hasPortfolio": true,
+        "servicesListed": [
+          "Outsourced IT Support",
+          "Database Development",
+          "Business Connectivity",
+          "IT Support for Schools",
+          "Computer Support",
+          "Server Support",
+          "Hosted Desktop",
+          "Network Support",
+          "Cloud Backup",
+          "Data Backup",
+          "Cyber Security Services",
+          "Disaster Recovery",
+          "Office 365",
+          "Outsourced IT Department",
+          "Business WiFi Solutions",
+          "VOIP Installation"
+        ],
+        "portfolioItemCount": 0,
+        "serviceAreasMentioned": [
+          "Bristol",
+          "Bath",
+          "South West",
+          "Somerset"
+        ]
+      },
+      "engagement": {
+        "ctaText": [
+          "Online Quote",
+          "Client Login",
+          "Book a Free Consultation"
+        ],
+        "hasContactForm": true,
+        "bookingProvider": "Calendly",
+        "hasCallToAction": true,
+        "hasBookingSystem": true,
+        "socialLinksPresent": [
+          "Facebook",
+          "Twitter",
+          "LinkedIn",
+          "Instagram"
+        ],
+        "hasNewsletterSignup": false,
+        "hasPhoneNumberProminent": true
+      }
+    },
+    "googleData": {
+      "photos": 10,
+      "address": "Castlemead, Lower Castle St, Road, Bristol BS1 3AG, UK",
+      "placeId": "ChIJ0aM6yAKMcUgRJ2Vk_4XuxpY",
+      "website": "http://www.evolvit.co.uk/",
+      "priceLevel": null,
+      "phoneNumber": "0345 880 4554",
+      "reviewCount": 45,
+      "googleRating": 4.8,
+      "openingHours": [
+        "Monday: Open 24 hours",
+        "Tuesday: Open 24 hours",
+        "Wednesday: Open 24 hours",
+        "Thursday: Open 24 hours",
+        "Friday: Open 24 hours",
+        "Saturday: Open 24 hours",
+        "Sunday: Open 24 hours"
+      ],
+      "recentReviews": [
+        {
+          "text": "Just switched to EvolvIT and the onboarding was seamless. Very impressed with the proactive monitoring.",
+          "time": 1777574100000,
+          "rating": 5,
+          "authorName": "James Mitchell"
+        },
+        {
+          "text": "EvolvIT helped us migrate to Microsoft 365 with zero downtime. Highly recommend for Bristol businesses.",
+          "time": 1777487700000,
+          "rating": 5,
+          "authorName": "Sarah Chen"
+        },
+        {
+          "text": "We have enjoyed an excellent service from EvolvIT for 13 years now. Our queries are responded to quickly and efficiently, the team are easy to deal with and are always very helpful.",
+          "time": 1716561525517,
+          "rating": 5,
+          "authorName": "Lorraine Logan"
+        },
+        {
+          "text": "We have been customers of EvolvIT for over 6 years now. Their team are able to respond to any issues we have in an efficient & professional manner.",
+          "time": 1719844691333,
+          "rating": 5,
+          "authorName": "Anna Coverdale"
+        },
+        {
+          "text": "EvolvIT have provided our IT support for nearly 3 years, the team are very knowledge and extremely helpful.",
+          "time": 1716219576422,
+          "rating": 5,
+          "authorName": "Amber Janney"
+        },
+        {
+          "text": "EvolvIT continue to provide a fantastic managed IT service to my company.",
+          "time": 1716300876050,
+          "rating": 5,
+          "authorName": "Adam Rohan"
+        },
+        {
+          "text": "Evolve IT have managed our support across 3 of my companies for the last 2 years.",
+          "time": 1716393833326,
+          "rating": 5,
+          "authorName": "Darren Clapp"
+        }
+      ],
+      "businessCategory": "consultant"
+    },
+    "serpData": {
+      "sitelinks": false,
+      "searchTerm": "it_services Bristol, City of",
+      "adsAboveResults": 0,
+      "featuredSnippet": false,
+      "localPackPresent": true,
+      "knowledgePanelPresent": false,
+      "localVisabilityPosition": null
+    },
+    "aiScore": {
+      "generatedAt": "2026-04-30T18:40:00.000Z",
+      "weeklyDelta": 8,
+      "overallScore": 61,
+      "aiPresenceScore": 67,
+      "reputationScore": 72,
+      "websiteHealthScore": 90,
+      "reviewVelocityScore": 35,
+      "gbpCompletenessScore": 85,
+      "localVisibilityScore": 0
+    },
+    "aiVisibility": {
+      "tested_at": "2026-04-23T18:15:09.249Z",
+      "mentionCount": 2,
+      "totalPrompts": 3,
+      "aiPresenceScore": 67
+    },
+    "pagespeedData": {
+      "mobile": {
+        "cls": 0.001859,
+        "fcp": 2554,
+        "inp": null,
+        "lcp": 2779,
+        "performanceScore": 92
+      },
+      "desktop": {
+        "cls": 0.001479,
+        "fcp": 603,
+        "inp": null,
+        "lcp": 663,
+        "performanceScore": 100
+      },
+      "fetchedAt": "2026-04-23T18:38:22.711Z"
+    },
+    "reviewSentiment": {
+      "summary": "EvolvIT delivers excellent IT support with responsive, knowledgeable team consistently praised.",
+      "generatedAt": "2026-04-23T18:38:43.335Z",
+      "negativeThemes": [],
+      "positiveThemes": [
+        "Quick response time",
+        "Professional knowledgeable team",
+        "Reliable issue resolution"
+      ]
+    },
+    "enrichmentErrors": null,
+    "previousSignals": {
+      "seo": {
+        "title": "EvolvIT | Strategic IT Partner in Bristol | Managed Service Provider",
+        "h1Tags": [
+          "Strategic IT partner for your business",
+          "EvolvIT Blog",
+          "An SMEs Guide to Cyber Security",
+          "How to Rescue Your Browser From Being Hijacked",
+          "What is VoIP and what could it do for your Bristol business?",
+          "DIY SOS",
+          "The State of Bristol's Tech Industry",
+          "How Bristol is Driving Innovative Tech Growth",
+          "Bristol, The Smarter City",
+          "How to Set Up an IT Infrastructure For Your Small Business"
+        ],
+        "hasSitemap": true,
+        "hasRobotsTxt": true,
+        "altTagCoverage": "partial",
+        "metaDescription": "Tailored IT services to meet your business needs, now &amp; in the future. Managed from one place, just like your own IT department but without all the costs.",
+        "internalLinkCount": 103,
+        "schemaMarkupTypes": [
+          "LocalBusiness",
+          "WebPage",
+          "BreadcrumbList",
+          "WebSite",
+          "Organization",
+          "CollectionPage",
+          "Article",
+          "ImageObject",
+          "Person"
+        ],
+        "canonicalTagsPresent": true
+      },
+      "trust": {
+        "accreditations": [
+          "Cyber Essentials",
+          "ICO"
+        ],
+        "certifications": [],
+        "teamPageExists": true,
+        "insuranceMentioned": true,
+        "guaranteesMentioned": [],
+        "awardsAndMemberships": [],
+        "reviewPlatformsLinked": [
+          "Google Reviews"
+        ]
+      },
+      "content": {
+        "hasFAQ": true,
+        "hasBlog": true,
+        "hasPortfolio": true,
+        "servicesListed": [
+          "Outsourced IT Support",
+          "Database Development",
+          "Business Connectivity",
+          "IT Support for Schools",
+          "Computer Support",
+          "Server Support",
+          "Hosted Desktop",
+          "Network Support",
+          "Cloud Backup",
+          "Data Backup",
+          "Cyber Security Services",
+          "Disaster Recovery",
+          "Office 365",
+          "Outsourced IT Department",
+          "Business WiFi Solutions",
+          "VOIP Installation"
+        ],
+        "portfolioItemCount": 0,
+        "serviceAreasMentioned": [
+          "Bristol"
+        ]
+      },
+      "engagement": {
+        "ctaText": [
+          "Online Quote",
+          "Client Login"
+        ],
+        "hasContactForm": true,
+        "bookingProvider": null,
+        "hasCallToAction": true,
+        "hasBookingSystem": false,
+        "socialLinksPresent": [
+          "Facebook",
+          "Twitter",
+          "LinkedIn"
+        ],
+        "hasNewsletterSignup": false,
+        "hasPhoneNumberProminent": true
+      }
+    },
+    "changeEvents": []
+  },
+  "competitors": [
+    {
+      "id": "1165d89d-0bf2-44f2-a9cb-17455ba57ea2",
+      "name": "Netitude",
+      "url": "https://www.netitude.co.uk/",
+      "domain": "www.netitude.co.uk",
+      "lastCrawledAt": 1776969454364,
+      "crawlJobId": "43c73c65-d228-4193-9b74-d680d8f2c5f5",
+      "crawlStatus": "complete",
+      "signals": {
+        "seo": {
+          "title": "Growth Through Technology | Netitude Ltd",
+          "h1Tags": [
+            "Growth Through Technology"
+          ],
+          "hasSitemap": true,
+          "hasRobotsTxt": true,
+          "altTagCoverage": "partial",
+          "metaDescription": "Leaders in Managed IT Services and Support in the South West since 2001.",
+          "internalLinkCount": 116,
+          "schemaMarkupTypes": [
+            "Organization",
+            "VideoObject"
+          ],
+          "canonicalTagsPresent": true
+        },
+        "trust": {
+          "accreditations": [
+            "Cyber Essentials",
+            "ISO 27001",
+            "Microsoft Partner"
+          ],
+          "certifications": [],
+          "teamPageExists": false,
+          "insuranceMentioned": false,
+          "guaranteesMentioned": [
+            "90 Day money back guarantee"
+          ],
+          "awardsAndMemberships": [],
+          "reviewPlatformsLinked": []
+        },
+        "content": {
+          "hasFAQ": true,
+          "hasBlog": true,
+          "hasPortfolio": true,
+          "servicesListed": [
+            "Fully Managed IT Support",
+            "Co-Managed IT Support",
+            "Remote IT Support",
+            "IT Support for Small Business",
+            "Outsourced IT Services",
+            "Email Security Services",
+            "Managed Cyber Security",
+            "Cyber Essentials",
+            "Penetration Testing",
+            "Cyber Security Auditing",
+            "Microsoft 365 Migration",
+            "Backup & Disaster Recovery",
+            "Cloud Telephony"
+          ],
+          "portfolioItemCount": 1,
+          "serviceAreasMentioned": [
+            "South West",
+            "Frome",
+            "Somerset",
+            "Birmingham",
+            "Bristol",
+            "UK",
+            "Derby",
+            "Devon"
+          ]
+        },
+        "engagement": {
+          "ctaText": [
+            "GET IN TOUCH"
+          ],
+          "hasContactForm": true,
+          "bookingProvider": "HubSpot Meetings",
+          "hasCallToAction": true,
+          "hasBookingSystem": true,
+          "socialLinksPresent": [
+            "Facebook",
+            "LinkedIn",
+            "Instagram",
+            "Twitter"
+          ],
+          "hasNewsletterSignup": false,
+          "hasPhoneNumberProminent": true
+        }
+      },
+      "googleData": {
+        "photos": 10,
+        "address": "Unit E5, commerce park, Frome BA11 2RY, UK",
+        "placeId": "ChIJH7pnmJcsckgRPmyiL5NHr_8",
+        "website": "https://www.netitude.co.uk/",
+        "priceLevel": null,
+        "phoneNumber": "0333 241 2323",
+        "reviewCount": 80,
+        "googleRating": 4.9,
+        "openingHours": [
+          "Monday: 8:00 AM – 5:30 PM",
+          "Tuesday: 8:00 AM – 5:30 PM",
+          "Wednesday: 8:00 AM – 5:30 PM",
+          "Thursday: 8:00 AM – 5:30 PM",
+          "Friday: 8:00 AM – 5:30 PM",
+          "Saturday: Closed",
+          "Sunday: Closed"
+        ],
+        "recentReviews": [
+          {
+            "text": "I cannot recommend Netitude highly enough. As a forward-thinking MSP, they have consistently met my business needs.",
+            "time": 1720108075017,
+            "rating": 5,
+            "authorName": "Dan"
+          },
+          {
+            "text": "Always easy to contact you for support and never made to feel stupid for any question I ask",
+            "time": 1765202396284,
+            "rating": 5,
+            "authorName": "Helen Goodchild"
+          }
+        ],
+        "businessCategory": "consultant"
+      },
+      "serpData": {
+        "sitelinks": false,
+        "searchTerm": "it_services Bristol, City of",
+        "adsAboveResults": 0,
+        "featuredSnippet": false,
+        "localPackPresent": true,
+        "knowledgePanelPresent": false,
+        "localVisabilityPosition": null
+      },
+      "aiScore": {
+        "generatedAt": "2026-04-23T18:40:00.321Z",
+        "weeklyDelta": null,
+        "overallScore": 51,
+        "aiPresenceScore": 0,
+        "reputationScore": 80,
+        "websiteHealthScore": 90,
+        "reviewVelocityScore": 0,
+        "gbpCompletenessScore": 85,
+        "localVisibilityScore": 0
+      },
+      "aiVisibility": {
+        "tested_at": "2026-04-23T18:16:36.574Z",
+        "mentionCount": 0,
+        "totalPrompts": 3,
+        "aiPresenceScore": 0
+      },
+      "pagespeedData": {
+        "mobile": {
+          "cls": 0,
+          "fcp": 10749,
+          "inp": null,
+          "lcp": 17866,
+          "performanceScore": 28
+        },
+        "desktop": {
+          "cls": 0.036224,
+          "fcp": 754,
+          "inp": null,
+          "lcp": 1133,
+          "performanceScore": 65
+        },
+        "fetchedAt": "2026-04-23T18:38:20.382Z"
+      },
+      "reviewSentiment": {
+        "summary": "Netitude delivers excellent managed IT support with responsive, knowledgeable engineers.",
+        "generatedAt": "2026-04-23T18:38:43.165Z",
+        "negativeThemes": [],
+        "positiveThemes": [
+          "responsive support availability",
+          "business continuity expertise",
+          "proactive security approach"
+        ]
+      },
+      "enrichmentErrors": null,
+      "previousSignals": null,
+      "changeEvents": []
+    },
+    {
+      "id": "f0bccf22-a104-40a5-80d9-891aa10054d0",
+      "name": "Owen IT",
+      "url": "https://owenit.co.uk/",
+      "domain": "owenit.co.uk",
+      "lastCrawledAt": 1776969557862,
+      "crawlJobId": "af7921b2-5e0a-415c-acc6-fa2c7a2ea2f5",
+      "crawlStatus": "complete",
+      "signals": {
+        "seo": {
+          "title": "OWEN IT",
+          "h1Tags": [
+            "Your business deserves powerful IT."
+          ],
+          "hasSitemap": true,
+          "hasRobotsTxt": true,
+          "altTagCoverage": "full",
+          "metaDescription": "Your business deserves powerful IT. Find out how our Managed Support products can give your business IT peace of mind.",
+          "internalLinkCount": 41,
+          "schemaMarkupTypes": [],
+          "canonicalTagsPresent": true
+        },
+        "trust": {
+          "accreditations": [
+            "Cyber Essentials Certification",
+            "Cyber Essentials",
+            "Microsoft Partner"
+          ],
+          "certifications": [],
+          "teamPageExists": true,
+          "insuranceMentioned": false,
+          "guaranteesMentioned": [],
+          "awardsAndMemberships": [
+            "Microsoft Partner",
+            "Dell Technology Partner",
+            "Carbon Footprint"
+          ],
+          "reviewPlatformsLinked": [
+            "Google Reviews"
+          ]
+        },
+        "content": {
+          "hasFAQ": true,
+          "hasBlog": true,
+          "hasPortfolio": false,
+          "servicesListed": [
+            "Small Business IT Support",
+            "Managed Support",
+            "Bespoke Solutions",
+            "Cyber Security",
+            "Cyber Security Awareness Training",
+            "Small Business Protect"
+          ],
+          "portfolioItemCount": 0,
+          "serviceAreasMentioned": [
+            "Bristol",
+            "UK"
+          ]
+        },
+        "engagement": {
+          "ctaText": [
+            "FIND OUT MORE",
+            "Book a Free Chat",
+            "Call: 01174 220 485",
+            "Get in touch"
+          ],
+          "hasContactForm": true,
+          "bookingProvider": "Growably",
+          "hasCallToAction": true,
+          "hasBookingSystem": true,
+          "socialLinksPresent": [
+            "Facebook",
+            "Twitter",
+            "LinkedIn",
+            "WhatsApp",
+            "Reddit",
+            "Pinterest"
+          ],
+          "hasNewsletterSignup": false,
+          "hasPhoneNumberProminent": true
+        }
+      },
+      "googleData": {
+        "photos": 10,
+        "address": "Unit 19, Filwood Green Business Park, Bristol BS4 1ET, UK",
+        "placeId": "ChIJyVKuOPCOcUgR2_YYiYpLsGw",
+        "website": "https://owenit.co.uk/",
+        "priceLevel": null,
+        "phoneNumber": "0117 422 0485",
+        "reviewCount": 74,
+        "googleRating": 5,
+        "openingHours": [
+          "Monday: 8:30 AM – 5:00 PM",
+          "Tuesday: 8:30 AM – 5:00 PM",
+          "Wednesday: 8:30 AM – 5:00 PM",
+          "Thursday: 8:30 AM – 5:00 PM",
+          "Friday: 8:30 AM – 5:00 PM",
+          "Saturday: Closed",
+          "Sunday: Closed"
+        ],
+        "recentReviews": [
+          {
+            "text": "Working with Owen IT has been a breath of fresh air. Their quote for services was completely transparent.",
+            "time": 1768496915994,
+            "rating": 5,
+            "authorName": "Clare A"
+          },
+          {
+            "text": "The team at Owen IT have been so responsive, helpful and supportive.",
+            "time": 1767869864694,
+            "rating": 5,
+            "authorName": "Sarah Hart"
+          }
+        ],
+        "businessCategory": "consultant"
+      },
+      "serpData": {
+        "sitelinks": false,
+        "searchTerm": "it_services Bristol, City of",
+        "adsAboveResults": 0,
+        "featuredSnippet": false,
+        "localPackPresent": true,
+        "knowledgePanelPresent": false,
+        "localVisabilityPosition": null
+      },
+      "aiScore": {
+        "generatedAt": "2026-04-23T18:40:00.353Z",
+        "weeklyDelta": null,
+        "overallScore": 50,
+        "aiPresenceScore": 0,
+        "reputationScore": 81,
+        "websiteHealthScore": 85,
+        "reviewVelocityScore": 0,
+        "gbpCompletenessScore": 85,
+        "localVisibilityScore": 0
+      },
+      "aiVisibility": {
+        "tested_at": "2026-04-23T18:16:47.447Z",
+        "mentionCount": 0,
+        "totalPrompts": 3,
+        "aiPresenceScore": 0
+      },
+      "pagespeedData": {
+        "mobile": {
+          "cls": 0,
+          "fcp": 13377,
+          "inp": null,
+          "lcp": 23940,
+          "performanceScore": 51
+        },
+        "desktop": {
+          "cls": 0.007266,
+          "fcp": 733,
+          "inp": null,
+          "lcp": 1854,
+          "performanceScore": 68
+        },
+        "fetchedAt": "2026-04-23T18:39:50.651Z"
+      },
+      "reviewSentiment": {
+        "summary": "Owen IT delivers exceptional service with responsive, professional support and transparent communication.",
+        "generatedAt": "2026-04-23T18:39:53.194Z",
+        "negativeThemes": [],
+        "positiveThemes": [
+          "Responsive and proactive",
+          "Professional knowledgeable team",
+          "Transparent communication support"
+        ]
+      },
+      "enrichmentErrors": null,
+      "previousSignals": null,
+      "changeEvents": []
+    },
+    {
+      "id": "05179c0d-4e24-4527-8089-a88be182d690",
+      "name": "Absolutely PC",
+      "url": "https://www.absolutelypc.co.uk/",
+      "domain": "www.absolutelypc.co.uk",
+      "lastCrawledAt": 1776969509202,
+      "crawlJobId": "efa4c623-7ba8-4118-8cf5-97514932b58b",
+      "crawlStatus": "complete",
+      "signals": {
+        "seo": {
+          "title": "Absolutely PC | Business IT Support Bristol | Range of Solutions",
+          "h1Tags": [
+            "Managed IT Support Services You Can Trust In Bristol"
+          ],
+          "hasSitemap": true,
+          "hasRobotsTxt": true,
+          "altTagCoverage": "none",
+          "metaDescription": "Absolutely PC offers reliable IT support in Bristol, ensuring your business operates smoothly with expert solutions.",
+          "internalLinkCount": 162,
+          "schemaMarkupTypes": [
+            "WebPage",
+            "BreadcrumbList",
+            "WebSite",
+            "Organization",
+            "FAQPage",
+            "LocalBusiness",
+            "Article",
+            "ImageObject",
+            "Person"
+          ],
+          "canonicalTagsPresent": true
+        },
+        "trust": {
+          "accreditations": [
+            "Cyber Essentials"
+          ],
+          "certifications": [
+            "Microsoft Certified in Azure Fundamentals"
+          ],
+          "teamPageExists": true,
+          "insuranceMentioned": false,
+          "guaranteesMentioned": [],
+          "awardsAndMemberships": [],
+          "reviewPlatformsLinked": [
+            "Trustpilot"
+          ]
+        },
+        "content": {
+          "hasFAQ": true,
+          "hasBlog": true,
+          "hasPortfolio": true,
+          "servicesListed": [
+            "Managed IT Support",
+            "Backup & Disaster Recovery",
+            "Cloud Services",
+            "Cyber Security",
+            "Cyber Essentials",
+            "Hardware",
+            "Remote Working Solutions",
+            "Networking",
+            "Website Hosting",
+            "Website Design & Development",
+            "Telecoms & Broadband"
+          ],
+          "portfolioItemCount": 5,
+          "serviceAreasMentioned": [
+            "Bristol",
+            "Patchway"
+          ]
+        },
+        "engagement": {
+          "ctaText": [
+            "Call now for support",
+            "Schedule a Consultation",
+            "Get Started",
+            "Get A Free Quote",
+            "Help Desk"
+          ],
+          "hasContactForm": true,
+          "bookingProvider": null,
+          "hasCallToAction": true,
+          "hasBookingSystem": false,
+          "socialLinksPresent": [
+            "Facebook",
+            "Twitter",
+            "Instagram",
+            "LinkedIn",
+            "YouTube"
+          ],
+          "hasNewsletterSignup": false,
+          "hasPhoneNumberProminent": true
+        }
+      },
+      "googleData": {
+        "photos": 10,
+        "address": "Unit 1, Grove Industrial Estate, Gloucester Rd, Patchway, Bristol BS34 5BB, UK",
+        "placeId": "ChIJ_7XlRgiRcUgRuoN0jgqy-aw",
+        "website": "https://www.absolutelypc.co.uk/",
+        "priceLevel": null,
+        "phoneNumber": "0117 975 9523",
+        "reviewCount": 149,
+        "googleRating": 4.9,
+        "openingHours": [
+          "Monday: 8:00 AM – 5:30 PM",
+          "Tuesday: 8:00 AM – 5:30 PM",
+          "Wednesday: 8:00 AM – 5:30 PM",
+          "Thursday: 8:00 AM – 5:30 PM",
+          "Friday: 8:00 AM – 5:30 PM",
+          "Saturday: Closed",
+          "Sunday: Closed"
+        ],
+        "recentReviews": [
+          {
+            "text": "Absolute PC provide our church IT support. They have been consistently on top of everything we've needed.",
+            "time": 1631719749689,
+            "rating": 5,
+            "authorName": "Neil Thorogood"
+          },
+          {
+            "text": "We have been with absolutepc since our inception over 7 years ago but over the last 12 months they've really lost their way.",
+            "time": 1741340515493,
+            "rating": 1,
+            "authorName": "Stuart Choak"
+          }
+        ],
+        "businessCategory": "consultant"
+      },
+      "serpData": {
+        "sitelinks": false,
+        "searchTerm": "it_services Bristol, City of",
+        "adsAboveResults": 0,
+        "featuredSnippet": false,
+        "localPackPresent": true,
+        "knowledgePanelPresent": false,
+        "localVisabilityPosition": null
+      },
+      "aiScore": {
+        "generatedAt": "2026-04-23T18:40:00.355Z",
+        "weeklyDelta": null,
+        "overallScore": 54,
+        "aiPresenceScore": 0,
+        "reputationScore": 91,
+        "websiteHealthScore": 90,
+        "reviewVelocityScore": 0,
+        "gbpCompletenessScore": 85,
+        "localVisibilityScore": 0
+      },
+      "aiVisibility": {
+        "tested_at": "2026-04-23T18:18:55.766Z",
+        "mentionCount": 0,
+        "totalPrompts": 3,
+        "aiPresenceScore": 0
+      },
+      "pagespeedData": {
+        "mobile": {
+          "cls": 0.059217,
+          "fcp": 3014,
+          "inp": null,
+          "lcp": 4432,
+          "performanceScore": 41
+        },
+        "desktop": {
+          "cls": 0.065765,
+          "fcp": 836,
+          "inp": null,
+          "lcp": 1061,
+          "performanceScore": 69
+        },
+        "fetchedAt": "2026-04-23T18:39:11.949Z"
+      },
+      "reviewSentiment": {
+        "summary": "Mostly excellent IT support with responsive team; recent quality decline concerns.",
+        "generatedAt": "2026-04-23T18:39:22.005Z",
+        "negativeThemes": [
+          "Inexperienced junior staff",
+          "Expensive ad hoc services",
+          "Poor transition assistance"
+        ],
+        "positiveThemes": [
+          "Quick response times",
+          "Knowledgeable helpful team",
+          "Comprehensive IT support"
+        ]
+      },
+      "enrichmentErrors": null,
+      "previousSignals": null,
+      "changeEvents": []
+    },
+    {
+      "id": "24418c91-ca2c-4ed6-a10f-65b5b32342cb",
+      "name": "Impact IT Solutions",
+      "url": "https://impactitsolutions.com/",
+      "domain": "impactitsolutions.com",
+      "lastCrawledAt": 1776969420480,
+      "crawlJobId": "4f35fef8-7249-4395-8723-e5ca85e5560e",
+      "crawlStatus": "complete",
+      "signals": {
+        "seo": {
+          "title": "Homepage - Impact IT Solutions",
+          "h1Tags": [
+            "Bristol's leading IT Support Provider"
+          ],
+          "hasSitemap": true,
+          "hasRobotsTxt": true,
+          "altTagCoverage": "none",
+          "metaDescription": "Comprehensive managed IT services, cybersecurity, structured cabling, and compliance to optimise and protect your business infrastructure.",
+          "internalLinkCount": 195,
+          "schemaMarkupTypes": [
+            "WebPage",
+            "ImageObject",
+            "BreadcrumbList",
+            "WebSite",
+            "Organization",
+            "CollectionPage",
+            "Article",
+            "Person"
+          ],
+          "canonicalTagsPresent": true
+        },
+        "trust": {
+          "accreditations": [
+            "Cyber Essentials",
+            "ISO 9001",
+            "ISO 27001",
+            "ISO 45001",
+            "GBC Accredited",
+            "Microsoft Partner"
+          ],
+          "certifications": [],
+          "teamPageExists": true,
+          "insuranceMentioned": true,
+          "guaranteesMentioned": [],
+          "awardsAndMemberships": [],
+          "reviewPlatformsLinked": []
+        },
+        "content": {
+          "hasFAQ": false,
+          "hasBlog": true,
+          "hasPortfolio": true,
+          "servicesListed": [
+            "Managed IT",
+            "Microsoft Security & Compliance",
+            "IT Services",
+            "IT Security",
+            "Cyber Security",
+            "Data Protection",
+            "Penetration Testing",
+            "Dark Web ID",
+            "EDR and Managed SOC",
+            "Cyber Security Training",
+            "Compliance",
+            "Mobile Solutions",
+            "Website Development"
+          ],
+          "portfolioItemCount": 1,
+          "serviceAreasMentioned": []
+        },
+        "engagement": {
+          "ctaText": [],
+          "hasContactForm": true,
+          "bookingProvider": null,
+          "hasCallToAction": true,
+          "hasBookingSystem": false,
+          "socialLinksPresent": [],
+          "hasNewsletterSignup": false,
+          "hasPhoneNumberProminent": true
+        }
+      },
+      "googleData": {
+        "photos": 5,
+        "address": "Unit 27B & 28B, Osprey Court, Hawkfield Business Park, Bristol BS14 0BB, UK",
+        "placeId": "ChIJ038LGY2FcUgRk88z2ny_h0A",
+        "website": "https://impactitsolutions.com/",
+        "priceLevel": null,
+        "phoneNumber": "0117 202 0200",
+        "reviewCount": 22,
+        "googleRating": 4.9,
+        "openingHours": [
+          "Monday: 8:00 AM – 6:00 PM",
+          "Tuesday: 8:00 AM – 6:00 PM",
+          "Wednesday: 8:00 AM – 6:00 PM",
+          "Thursday: 8:00 AM – 6:00 PM",
+          "Friday: 8:00 AM – 4:30 PM",
+          "Saturday: Closed",
+          "Sunday: Closed"
+        ],
+        "recentReviews": [
+          {
+            "text": "Impact have always been such a great help with any issue I've raised over the past 3 years.",
+            "time": 1753895378814,
+            "rating": 5,
+            "authorName": "suzanne hall"
+          },
+          {
+            "text": "Impact IT Solutions have always been extremely helpful and efficient.",
+            "time": 1661955988448,
+            "rating": 5,
+            "authorName": "Jacqueline Lincoln"
+          }
+        ],
+        "businessCategory": "telecommunications_service_provider"
+      },
+      "serpData": {
+        "sitelinks": false,
+        "searchTerm": "it_services Bristol, City of",
+        "adsAboveResults": 0,
+        "featuredSnippet": false,
+        "localPackPresent": true,
+        "knowledgePanelPresent": false,
+        "localVisabilityPosition": null
+      },
+      "aiScore": {
+        "generatedAt": "2026-04-23T18:40:00.358Z",
+        "weeklyDelta": null,
+        "overallScore": 52,
+        "aiPresenceScore": 67,
+        "reputationScore": 57,
+        "websiteHealthScore": 90,
+        "reviewVelocityScore": 0,
+        "gbpCompletenessScore": 85,
+        "localVisibilityScore": 0
+      },
+      "aiVisibility": {
+        "tested_at": "2026-04-23T18:18:24.870Z",
+        "mentionCount": 2,
+        "totalPrompts": 3,
+        "aiPresenceScore": 67
+      },
+      "pagespeedData": {
+        "mobile": {
+          "cls": 0.153528,
+          "fcp": 8005,
+          "inp": null,
+          "lcp": 11381,
+          "performanceScore": 23
+        },
+        "desktop": {
+          "cls": 0.044036,
+          "fcp": 432,
+          "inp": null,
+          "lcp": 622,
+          "performanceScore": 67
+        },
+        "fetchedAt": "2026-04-23T18:37:42.316Z"
+      },
+      "reviewSentiment": {
+        "summary": "Highly praised for exceptional support, quick responses, and technical expertise.",
+        "generatedAt": "2026-04-23T18:37:55.995Z",
+        "negativeThemes": [],
+        "positiveThemes": [
+          "excellent customer support",
+          "responsive quick service",
+          "knowledgeable professional team"
+        ]
+      },
+      "enrichmentErrors": null,
+      "previousSignals": null,
+      "changeEvents": []
+    }
+  ]
+}

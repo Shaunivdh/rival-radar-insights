@@ -7,6 +7,7 @@ import {
   DIRECT_FETCH_DONE,
   CRAWL_DISALLOWED,
 } from '@/lib/crawl/orchestrator';
+import { fetchPageDirect } from '@/services/crawl';
 import { checkDirectSignals } from '@/lib/crawl/direct-checks';
 import { supabaseAdmin } from '@/lib/supabase/server';
 import { fetchGoogleData, fetchSerpData } from '@/actions/enrichment';
@@ -22,6 +23,7 @@ import type { ServiceCategory } from '@/lib/serviceCategories';
 
 const MAX_POLL_ATTEMPTS = 120;
 const POLL_INTERVAL = '5s';
+const DIRECT_FETCH_FALLBACK_ATTEMPTS = 36; // ~3 min before falling back to direct fetch
 
 async function writeEnrichmentError(
   businessId: string,
@@ -103,29 +105,57 @@ export const crawlBusinessFunction = inngest.createFunction(
         console.log(`[crawl-worker] Poll attempt ${attempts}/${MAX_POLL_ATTEMPTS} for jobId=${jobId}: status=${crawlStatus}`);
       }
       attempts++;
+
+      if (crawlStatus === 'running' && attempts === DIRECT_FETCH_FALLBACK_ATTEMPTS) {
+        console.warn(`[crawl-worker] jobId=${jobId} still running after ${attempts} polls (~3 min) — falling back to direct fetch for business ${businessId}`);
+        break;
+      }
+
       if (crawlStatus === 'running') {
         await step.sleep(`poll-wait-${attempts}`, POLL_INTERVAL);
       }
     }
 
-    if (crawlStatus !== 'completed') {
+    const usedDirectFetch = crawlStatus === 'running';
+
+    if (!usedDirectFetch && crawlStatus !== 'completed') {
       console.error(`[crawl-worker] Crawl failed: jobId=${jobId} finalStatus=${crawlStatus} attempts=${attempts} mode=${mode} businessId=${businessId}`);
       throw new Error(`Crawl ended with status: ${crawlStatus} after ${attempts} attempts`);
     }
-    console.log(`[crawl-worker] Crawl completed: jobId=${jobId} after ${attempts} polls`);
+    if (!usedDirectFetch) {
+      console.log(`[crawl-worker] Crawl completed: jobId=${jobId} after ${attempts} polls`);
+    }
 
     // Step 3: Extract signals and persist, then override seo fields via direct HTTP checks
     await step.run('persist-signals', async () => {
-      await extractAndPersistSignals(businessId, jobId);
+      let prefetchedResult: { status: 'completed'; pages: Array<{ url: string; html: string }> } | undefined;
 
-      const { data: bizRow } = await supabaseAdmin
+      if (usedDirectFetch) {
+        const { data: bizRow } = await supabaseAdmin
+          .from('businesses')
+          .select('url')
+          .eq('id', businessId)
+          .single();
+        const html = bizRow?.url ? await fetchPageDirect(bizRow.url as string) : null;
+        if (html) {
+          console.log(`[crawl-worker] Direct fetch succeeded for business ${businessId} (${html.length} chars)`);
+          prefetchedResult = { status: 'completed', pages: [{ url: bizRow!.url as string, html }] };
+        } else {
+          console.warn(`[crawl-worker] Direct fetch also failed for business ${businessId} — skipping signal extraction`);
+          return;
+        }
+      }
+
+      await extractAndPersistSignals(businessId, usedDirectFetch ? DIRECT_FETCH_DONE : jobId, prefetchedResult);
+
+      const { data: urlRow } = await supabaseAdmin
         .from('businesses')
         .select('url')
         .eq('id', businessId)
         .single();
-      if (!bizRow?.url) return;
-      const { hasRobotsTxt, hasSitemap } = await checkDirectSignals(normalizeUrl(bizRow.url as string));
-      console.log(`[direct-checks] ${bizRow.url} robots=${hasRobotsTxt} sitemap=${hasSitemap}`);
+      if (!urlRow?.url) return;
+      const { hasRobotsTxt, hasSitemap } = await checkDirectSignals(normalizeUrl(urlRow.url as string));
+      console.log(`[direct-checks] ${urlRow.url} robots=${hasRobotsTxt} sitemap=${hasSitemap}`);
 
       // Only override if direct check found something the crawl missed
       if (!hasRobotsTxt && !hasSitemap) return;

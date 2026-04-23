@@ -112,29 +112,34 @@ export async function generatePriorityActions(own: Business, competitors: Busine
   const prompt = `You are Scoutly, an ongoing local business monitor. Based on this week's data, surface the 5 most important actions this business should take right now.
 ${industryFocus ? `\n${industryFocus}\n` : ''}
 Rules — read carefully before generating:
-- Only recommend actions based on confirmed gaps visible in the data. Do not infer, assume, or suggest things that might apply.
+- Only recommend actions based on confirmed gaps visible in the data. Do not infer or assume.
 - Never say "you likely qualify" or "if you have" — only act on what the data confirms.
-- No aspirational targets (e.g. "reach 80 reviews in 6 months") — recommend the next step, not the destination.
-- Actions must be immediately doable: things the owner can start this week, not projects that require planning.
-- If a competitor has something the business is missing, name what's missing — not what the competitor achieved.
+- Each action must address a different gap — no two from the same root cause.
 - Write like a monitor that noticed something, not an analyst writing a report.
 - No SEO jargon. Plain English only.
-- action: one clear imperative sentence, max 15 words (e.g. "Set up a post-job email asking customers for a Google review.")
-- reason: what gap this closes and why it matters commercially — max 15 words, no jargon
-- category: one of visibility | trust | reviews | conversion | content | alerts
-- Each action must address a different gap — no two actions from the same root cause
-- Output JSON array only, no markdown
+
+Field rules:
+- action: conversational headline describing the gap in plain English, max 10 words (e.g. "AI assistants don't know you exist")
+- reason: ≤15-word plain-English summary of the gap (used in compact views)
+- whyItMatters: 2–3 sentences explaining the business impact. Reference specific score data where available (e.g. "Your AI presence score is 42/100 — you appeared in 3 out of 10 test prompts."). Mention competitors if relevant.
+- steps: array of 3–5 specific, immediately doable action items the owner can start this week. Each step is a plain-English sentence. No jargon. Be concrete (e.g. specific platform names, page types).
+- outcome: 4–8 word goal statement (e.g. "Appear in AI-powered recommendations")
+- effort: 'low' (< 1 hour), 'medium' (1 day), or 'high' (1+ week)
+- category: one of "AI Visibility" | "Reviews" | "Local SEO" | "Website" | "Trust" | "Conversion"
+- timeframe: realistic time-to-result (e.g. "2–4 weeks", "4–8 weeks")
+- competitorReference: plain-English note about what a named competitor has that this business lacks, or null
 
 Priority numbering (critical — violations break the product):
 - Unique integers 1–5, no duplicates, no gaps, ordered by impact
 
-Schema: {"priority":1|2|3|4|5,"category":"visibility"|"trust"|"reviews"|"conversion"|"content"|"alerts","action":"string","reason":"string","competitorReference":"string|null","estimatedImpact":"high"|"medium"|"low","timeframe":"string"}
+Schema (JSON array only, no markdown):
+[{"priority":1,"category":"string","effort":"low"|"medium"|"high","action":"string","reason":"string","whyItMatters":"string","steps":["string"],"outcome":"string","competitorReference":"string|null","estimatedImpact":"high"|"medium"|"low","timeframe":"string"}]
 
 Own business: ${JSON.stringify(summariseBiz(own))}
 Competitors: ${JSON.stringify(competitors.map(summariseBiz))}`;
 
   try {
-    const actions = await askClaude<PriorityAction[]>(prompt, 1024);
+    const actions = await askClaude<PriorityAction[]>(prompt, 3000);
     // Guarantee unique, sequential priority numbers regardless of model output
     return actions
       .sort((a, b) => a.priority - b.priority)

@@ -145,9 +145,13 @@ export interface ScoreSnapshot {
 export interface PriorityAction {
   priority: 1 | 2 | 3 | 4 | 5;
   category: string;
-  action: string;
-  reason: string;
-  competitorReference: string;
+  effort: 'low' | 'medium' | 'high';
+  action: string;           // conversational headline describing the gap
+  reason: string;           // ≤15-word summary (used in dashboard panel)
+  whyItMatters: string;     // 2–3 sentence paragraph with business impact
+  steps: string[];          // 3–5 specific action items
+  outcome: string;          // goal statement e.g. "Appear in AI recommendations"
+  competitorReference: string | null;
   estimatedImpact: 'high' | 'medium' | 'low';
   timeframe: string;
 }

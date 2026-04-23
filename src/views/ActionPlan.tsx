@@ -7,7 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import {
   Lightbulb, ChevronDown, ChevronUp, Flame, Target, TrendingUp,
-  Zap, Clock, Users, AlertTriangle,
+  Clock, Users,
 } from 'lucide-react';
 import type { PriorityAction } from '@/types';
 
@@ -33,7 +33,13 @@ const IMPACT_CONFIG: Record<PriorityAction['estimatedImpact'], {
   low: { label: 'Quick win', badge: 'bg-green-50 text-green-700 border-green-200' },
 };
 
-const ActionCard = ({ action, index }: { action: PriorityAction; index: number }) => {
+const EFFORT_LABEL: Record<string, string> = {
+  low: 'Low effort',
+  medium: 'Medium effort',
+  high: 'High effort',
+};
+
+const ActionCard = ({ action }: { action: PriorityAction }) => {
   const [expanded, setExpanded] = useState(false);
   const impactCfg = IMPACT_CONFIG[action.estimatedImpact] ?? IMPACT_CONFIG.low;
 
@@ -44,10 +50,13 @@ const ActionCard = ({ action, index }: { action: PriorityAction; index: number }
           onClick={() => setExpanded(!expanded)}
           className="w-full text-left p-5 pb-4"
         >
-          <div className="flex items-start justify-between gap-3 mb-2">
-            <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-              {action.category}
-            </span>
+          <div className="flex items-start justify-between gap-3 mb-3">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-primary/10 text-primary">
+                {action.category}
+              </span>
+              <span className="text-xs text-muted-foreground">{EFFORT_LABEL[action.effort] ?? action.effort}</span>
+            </div>
             <div className="flex items-center gap-2 shrink-0">
               <Badge variant="outline" className={`text-[11px] ${impactCfg.badge}`}>
                 {impactCfg.label}
@@ -57,27 +66,51 @@ const ActionCard = ({ action, index }: { action: PriorityAction; index: number }
                 : <ChevronDown className="w-4 h-4 text-muted-foreground" />}
             </div>
           </div>
-          <h3 className="font-semibold text-sm mb-2 leading-snug">{action.action}</h3>
-          <div className="flex items-start gap-2 p-3 rounded-lg bg-muted/50 text-sm">
-            <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
-            <p className="text-muted-foreground leading-relaxed text-xs">{action.reason}</p>
-          </div>
+
+          <h3 className="font-semibold text-base mb-2 leading-snug">{action.action}</h3>
+          <p className="text-xs text-muted-foreground leading-relaxed">{action.reason}</p>
         </button>
 
         {expanded && (
           <div className="px-5 pb-5 space-y-4 border-t border-border/50 pt-4">
-            {action.competitorReference && (
+            {action.whyItMatters && (
               <div>
-                <h4 className="text-xs font-semibold mb-1.5 flex items-center gap-1.5">
-                  <Users className="w-3.5 h-3.5 text-primary" />
-                  Competitor context
-                </h4>
+                <h4 className="text-xs font-semibold mb-1.5 text-foreground">Why this matters for your business</h4>
+                <p className="text-xs text-muted-foreground leading-relaxed">{action.whyItMatters}</p>
+              </div>
+            )}
+
+            {action.steps?.length > 0 && (
+              <div>
+                <h4 className="text-xs font-semibold mb-2 text-foreground">What to do</h4>
+                <ol className="space-y-2">
+                  {action.steps.map((step, i) => (
+                    <li key={i} className="flex gap-2.5 text-xs text-muted-foreground leading-relaxed">
+                      <span className="shrink-0 w-4 h-4 rounded-full bg-primary/10 text-primary font-semibold text-[10px] flex items-center justify-center mt-0.5">
+                        {i + 1}
+                      </span>
+                      {step}
+                    </li>
+                  ))}
+                </ol>
+              </div>
+            )}
+
+            {action.competitorReference && (
+              <div className="flex items-start gap-2 p-3 rounded-lg bg-muted/50">
+                <Users className="w-3.5 h-3.5 text-primary shrink-0 mt-0.5" />
                 <p className="text-xs text-muted-foreground leading-relaxed">{action.competitorReference}</p>
               </div>
             )}
-            <div className="flex items-center gap-1.5 text-xs text-muted-foreground pt-1">
-              <Clock className="w-3.5 h-3.5" />
-              <span>{action.timeframe}</span>
+
+            <div className="flex items-center justify-between text-xs text-muted-foreground pt-1">
+              {action.outcome && (
+                <span className="font-medium text-foreground">{action.outcome}</span>
+              )}
+              <div className="flex items-center gap-1.5">
+                <Clock className="w-3.5 h-3.5" />
+                <span>{action.timeframe} to see results</span>
+              </div>
             </div>
           </div>
         )}
@@ -159,7 +192,7 @@ const ActionPlan = () => {
             </div>
             <div className="space-y-3">
               {actions.map((action, i) => (
-                <ActionCard key={i} action={action} index={i} />
+                <ActionCard key={i} action={action} />
               ))}
             </div>
           </section>

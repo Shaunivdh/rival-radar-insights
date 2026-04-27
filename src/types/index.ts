@@ -105,7 +105,7 @@ export interface GoogleData {
 }
 
 export interface SerpData {
-  localVisabilityPosition: number | null;
+  localVisibilityPosition: number | null;
   localPackPresent: boolean;
   featuredSnippet: boolean;
   knowledgePanelPresent: boolean;
@@ -154,6 +154,7 @@ export interface PriorityAction {
   competitorReference: string | null;
   estimatedImpact: 'high' | 'medium' | 'low';
   timeframe: string;
+  continuityNote?: string | null; // e.g. "Still outstanding from last week" or "You completed this"
 }
 
 export interface ChangeEvent {

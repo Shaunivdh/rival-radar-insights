@@ -155,8 +155,8 @@ const CompetitorDetail = () => {
               <div>
                 <p className="metric-label">Local Visibility</p>
                 <p className="text-lg font-bold">
-                  {biz.serpData.localVisabilityPosition
-                    ? `#${biz.serpData.localVisabilityPosition} in local visibility`
+                  {biz.serpData.localVisibilityPosition
+                    ? `#${biz.serpData.localVisibilityPosition} in local visibility`
                     : 'Not found in local visibility'}
                 </p>
               </div>

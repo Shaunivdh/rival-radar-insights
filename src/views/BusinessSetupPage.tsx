@@ -25,6 +25,7 @@ const emptyBusiness = (): Business => ({
   aiScore: null,
   aiVisibility: null,
   enrichmentErrors: null,
+  reviewSentiment: null,
   previousSignals: null,
   changeEvents: [],
 });

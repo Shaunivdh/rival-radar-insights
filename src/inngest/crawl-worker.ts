@@ -488,12 +488,12 @@ export const crawlBusinessFunction = inngest.createFunction(
       const ownBiz = allBiz.find((b) => b.is_own_business);
       if (!ownBiz) return;
 
-      const ownPosition = (ownBiz.serp_data as SerpData | null)?.localVisabilityPosition;
+      const ownPosition = (ownBiz.serp_data as SerpData | null)?.localVisibilityPosition;
       if (ownPosition == null) return;
 
       const overtakers = allBiz.filter((b) => {
         if (b.is_own_business) return false;
-        const pos = (b.serp_data as SerpData | null)?.localVisabilityPosition;
+        const pos = (b.serp_data as SerpData | null)?.localVisibilityPosition;
         return pos != null && pos < ownPosition;
       });
 
@@ -520,7 +520,7 @@ export const crawlBusinessFunction = inngest.createFunction(
       for (const comp of overtakers) {
         if (alreadyRecorded.has(comp.id)) continue;
 
-        const theirPosition = (comp.serp_data as SerpData).localVisabilityPosition!;
+        const theirPosition = (comp.serp_data as SerpData).localVisibilityPosition!;
 
         const event: ChangeEvent = {
           id: crypto.randomUUID(),

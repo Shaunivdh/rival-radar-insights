@@ -35,8 +35,8 @@ function mapPlaceToGoogleData(place: Record<string, unknown>): GoogleData {
       authorName: (r.authorAttribution as Record<string, unknown>)?.displayName as string ?? '',
       ownerReply: (r.ownerResponse as Record<string, unknown>)?.text as string ?? undefined,
     })),
-    photos: place.photos?.length ?? 0,
-    priceLevel: place.priceLevel ?? null,
+    photos: (place.photos as unknown[] | undefined)?.length ?? 0,
+    priceLevel: (place.priceLevel as number | undefined) ?? null,
     description: (place.editorialSummary as Record<string, unknown>)?.text as string
       ?? (place.generativeSummary as Record<string, unknown>)?.text as string
       ?? undefined,

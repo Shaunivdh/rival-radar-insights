@@ -1,6 +1,7 @@
 'use server';
 
 import { cookies } from 'next/headers';
+import { createServerClient } from '@supabase/ssr';
 import { supabaseAdmin } from '@/lib/supabase/server';
 import { inngest } from '@/inngest/client';
 import { calculateScores } from '@/services/scores';
@@ -11,22 +12,22 @@ import { normalizeUrl, extractDomain, isValidUrl } from '@/lib/url';
 
 async function getSessionUserId(): Promise<string> {
   const cookieStore = await cookies();
-  const authCookie = cookieStore.getAll().find(
-    c => c.name.startsWith('sb-') && c.name.endsWith('-auth-token')
+
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        getAll() {
+          return cookieStore.getAll();
+        },
+      },
+    }
   );
-  if (!authCookie?.value) throw new Error('Not authenticated');
 
-  let raw = authCookie.value;
-
-  if (raw.startsWith('base64-')) {
-    raw = Buffer.from(raw.slice(7), 'base64').toString('utf-8');
-  }
-  const parsed = JSON.parse(raw);
-  const session = Array.isArray(parsed) ? parsed[0] : parsed;
-  if (!session?.access_token) throw new Error('Not authenticated');
-  const { data } = await supabaseAdmin.auth.getUser(session.access_token);
-  if (!data.user) throw new Error('Not authenticated');
-  return data.user.id;
+  const { data: { user }, error } = await supabase.auth.getUser();
+  if (error || !user) throw new Error('Not authenticated');
+  return user.id;
 }
 
 // ── Row mappers ───────────────────────────────────────────────────────────────
@@ -106,7 +107,11 @@ export async function createProject(
     .insert(businessRows)
     .select();
 
-  if (bizError) throw new Error(bizError.message);
+  if (bizError) {
+    // Clean up orphaned project
+    await supabaseAdmin.from('projects').delete().eq('id', project.id);
+    throw new Error(bizError.message);
+  }
 
   return rowsToProject(project, businesses);
 }

@@ -209,7 +209,7 @@ const HelpPage = () => {
               <Label htmlFor="msg" className="text-xs">Message</Label>
               <Textarea id="msg" placeholder="Tell us what's going on..." rows={3} />
             </div>
-            <Button variant="cta" className="w-full gap-2">
+            <Button className="w-full gap-2 bg-primary text-white hover:bg-primary/90">
               <Send className="w-4 h-4" />Send message
             </Button>
           </CardContent>

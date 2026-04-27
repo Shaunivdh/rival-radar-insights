@@ -154,8 +154,8 @@ export function BusinessScoreCard({ own, competitors }: Props) {
                 ? `${g.googleRating}★ Google rating · ${g.reviewCount} reviews`
                 : 'Based on Google rating and review count';
             } else if (key === 'localVisibilityScore') {
-              tooltip = s?.localVisabilityPosition != null
-                ? `#${s.localVisabilityPosition} in Google local pack`
+              tooltip = s?.localVisibilityPosition != null
+                ? `#${s.localVisibilityPosition} in Google local pack`
                 : s != null ? 'Not found in top 10 local results' : 'No search ranking data yet';
             } else if (key === 'websiteHealthScore') {
               const parts: string[] = [];

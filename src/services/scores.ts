@@ -147,7 +147,7 @@ export function calculateScores(
 
   let localVisibilityScore = 0;
   if (serpData != null) {
-    const pos = serpData.localVisabilityPosition;
+    const pos = serpData.localVisibilityPosition;
     // Granular 1–10 scoring; null = not found in top 10
     if (pos !== null && pos >= 1 && pos <= 10) {
       localVisibilityScore = Math.round(100 - (pos - 1) * 10);

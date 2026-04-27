@@ -326,9 +326,9 @@ const MyBusiness = () => {
               {serp.searchTerm && <CardDescription>How you appear in Google for "{serp.searchTerm}"</CardDescription>}
             </CardHeader>
             <CardContent className="space-y-1">
-              {serp.localVisabilityPosition !== null && (
+              {serp.localVisibilityPosition !== null && (
                 <MetricRow icon={MapPin} label="Local Pack Position" value={
-                  <span className="font-bold text-primary">#{serp.localVisabilityPosition}</span>
+                  <span className="font-bold text-primary">#{serp.localVisibilityPosition}</span>
                 } info="Your position in Google's local 3-pack. Top 3 get the most clicks." />
               )}
               <MetricRow icon={BarChart3} label="Local Pack Present" value={<StatusIcon ok={serp.localPackPresent} />} />

@@ -4,6 +4,8 @@ import { SERVICE_CATEGORIES } from '@/lib/serviceCategories';
 import type { ServiceCategory } from '@/lib/serviceCategories';
 
 const SKIP_AI = process.env.SKIP_AI_CALLS === 'true';
+const AI_MODEL_FAST = process.env.AI_MODEL_FAST ?? 'claude-haiku-4-5-20251001';
+const AI_MODEL_SMART = process.env.AI_MODEL_SMART ?? 'claude-sonnet-4-6';
 let _client: Anthropic | null = null;
 function getClient(): Anthropic {
   if (!_client) {
@@ -23,7 +25,7 @@ export async function extractPageSignals(html: string, prompt: string): Promise<
     .slice(0, 24000);
   try {
     const msg = await getClient().messages.create({
-      model: 'claude-haiku-4-5-20251001',
+      model: AI_MODEL_FAST,
       max_tokens: 1024,
       messages: [{ role: 'user', content: `${prompt}\n\nHTML:\n${stripped}\n\nReturn JSON only, no markdown.` }],
     });
@@ -42,7 +44,7 @@ async function askClaude<T>(prompt: string, maxTokens = 512): Promise<T> {
     if (attempt > 0) await new Promise(r => setTimeout(r, attempt * 5000));
     try {
       msg = await getClient().messages.create({
-        model: 'claude-haiku-4-5-20251001',
+        model: AI_MODEL_FAST,
         max_tokens: maxTokens,
         messages: [{ role: 'user', content: prompt }],
       });
@@ -56,7 +58,9 @@ async function askClaude<T>(prompt: string, maxTokens = 512): Promise<T> {
   if (!msg) throw new Error('[askClaude] all retries exhausted');
   const text = (msg.content[0] as { type: string; text: string }).text.trim();
   const json = text.replace(/^```(?:json)?\n?/, '').replace(/\n?```$/, '');
-  return JSON.parse(json) as T;
+  // Extract the outermost JSON array or object to strip trailing prose
+  const match = json.match(/^(\s*[\[{][\s\S]*[\]}])/);
+  return JSON.parse(match ? match[1] : json) as T;
 }
 
 export async function generateReviewSentiment(
@@ -115,43 +119,177 @@ export async function generatePriorityActions(own: Business, competitors: Busine
     ? '\nNote: There were issues crawling this business\'s website, so website-related data may be incomplete.'
     : '';
 
-  const prompt = `You are Scoutly, an ongoing local business monitor. Based on this week's data, surface the 5 most important actions this business should take right now.
+  const prompt = `You are Scoutly, an ongoing local business monitor. Based on this week's data, surface the TOP 3 most important actions this business should take right now.
 ${industryFocus ? `\n${industryFocus}\n` : ''}${ownCrawlIssue}
-Rules — read carefully before generating:
-- Only recommend actions based on confirmed gaps visible in the data. Do not infer or assume.
-- Never say "you likely qualify" or "if you have" — only act on what the data confirms.
-- Each action must address a different gap — no two from the same root cause.
-- Write like a monitor that noticed something, not an analyst writing a report.
-- No SEO jargon. Plain English only.
+
+AUDIENCE: The reader is a busy local business owner (plumber, café owner, IT shop, small clinic). They are not a marketer. They have 5 minutes. Write like a friendly advisor, not a consultant.
+
+TONE RULES:
+- Plain English only. No SEO jargon (no "schema markup", "structured data", "alt tags", "SERP", "CTR"). If you must reference a technical thing, describe what it does in plain words (e.g. "helps search engines understand your services" not "schema markup").
+- Write like you're speaking directly to the owner. "You" not "the business."
+- No editorialising in parentheses like "(good)" or "(nice work)". Keep it clean.
+- No filler phrases like "this gap compounds over time" or "category-wide gap" — say what to do and why.
+
+DATA INTEGRITY RULES (critical — violations break user trust):
+- Every claim about a competitor MUST be directly verifiable in the data provided. Do not invent averages, trends, or competitor behaviours not present in the signals.
+- Do not claim "competitors average X" unless you have computed it from the actual data. Instead reference specific named competitors.
+- Never contradict yourself within a single action: if competitorReference says "velocity 0" then reason/whyItMatters cannot say "competitors maintain strong velocity."
+- If the own business already has something (e.g. an accreditation listed in signals), do NOT recommend adding it. Recommend displaying it more prominently instead.
+- Re-read the own business signals before finalising each action. If the gap you're describing doesn't exist in the data, pick a different gap.
+
+PRIORITISATION RULES:
+- Return exactly 3 actions, not 5. Three forces real prioritisation.
+- Only include an action if it reflects a genuine gap. If the business is already strong in a category (score ≥ 85 and no specific deficit in the data), do not invent a problem there.
+- Do not include "low impact" actions in the top 3. Every action must have estimatedImpact of "high" or "medium".
+- Each action must address a genuinely different gap — no two from the same root cause or category unless the gaps are clearly distinct.
 
 Field rules:
-- action: conversational headline describing the gap in plain English, max 10 words (e.g. "AI assistants don't know you exist")
-- reason: ≤15-word plain-English summary of the gap (used in compact views)
-- whyItMatters: 2–3 sentences explaining the business impact. Reference specific score data where available (e.g. "Your AI presence score is 42/100 — you appeared in 3 out of 10 test prompts."). Mention competitors if relevant.
-- steps: array of 3–5 specific, immediately doable action items the owner can start this week. Each step is a plain-English sentence. No jargon. Be concrete (e.g. specific platform names, page types).
-- outcome: 4–8 word goal statement (e.g. "Appear in AI-powered recommendations")
+- action: conversational headline describing the gap in plain English, max 10 words
+- reason: ≤15-word plain-English summary of the gap
+- whyItMatters: 2–3 sentences. Reference actual score values from the data. Name specific competitors when citing them — never "competitors average X" unless you show the math.
+- steps: 3–5 specific, doable action items the owner can start this week. Each step is plain English. Be concrete (specific platform names, specific pages).
+- outcome: 4–8 word goal statement
 - effort: 'low' (< 1 hour), 'medium' (1 day), or 'high' (1+ week)
 - category: one of "AI Visibility" | "Reviews" | "Local SEO" | "Website" | "Trust" | "Conversion"
-- timeframe: realistic time-to-result (e.g. "2–4 weeks", "4–8 weeks")
-- competitorReference: plain-English note about what a named competitor has that this business lacks, or null
+- timeframe: realistic time-to-result
+- competitorReference: plain-English note naming a specific competitor and what they have that this business lacks, or null. Must be consistent with whyItMatters.
 
-Priority numbering (critical — violations break the product):
-- Unique integers 1–5, no duplicates, no gaps, ordered by impact
+Priority numbering: Unique integers 1, 2, 3 ordered by impact. No gaps, no duplicates.
 
 Schema (JSON array only, no markdown):
-[{"priority":1,"category":"string","effort":"low"|"medium"|"high","action":"string","reason":"string","whyItMatters":"string","steps":["string"],"outcome":"string","competitorReference":"string|null","estimatedImpact":"high"|"medium"|"low","timeframe":"string"}]
+[{"priority":1,"category":"string","effort":"low"|"medium"|"high","action":"string","reason":"string","whyItMatters":"string","steps":["string"],"outcome":"string","competitorReference":"string|null","estimatedImpact":"high"|"medium","timeframe":"string"}]
 
 Own business: ${JSON.stringify(summariseBiz(own, true))}
 Competitors: ${JSON.stringify(competitors.map(b => summariseBiz(b, false)))}`;
 
   try {
-    const actions = await askClaude<PriorityAction[]>(prompt, 3000);
-    // Guarantee unique, sequential priority numbers regardless of model output
-    return actions
+    const raw = await askClaude<PriorityAction[]>(prompt, 2500);
+    const sorted = raw
       .sort((a, b) => a.priority - b.priority)
+      .slice(0, 3)
       .map((action, i) => ({ ...action, priority: (i + 1) as PriorityAction['priority'] }));
+    return await validateActions(sorted, own, competitors);
   } catch (e) {
     console.warn('[generatePriorityActions] failed:', e);
+    return [];
+  }
+}
+
+async function validateActions(
+  actions: PriorityAction[],
+  own: Business,
+  competitors: Business[]
+): Promise<PriorityAction[]> {
+  if (SKIP_AI || !actions.length) return actions;
+
+  const prompt = `You are a fact-checker for Scoutly reports. Below are 3 recommended actions for a business owner, plus the underlying data.
+
+For each action, check:
+1. Does the competitorReference contradict the whyItMatters or reason field? (e.g. saying competitors are strong in one place but weak in another)
+2. Does the action recommend adding something the business already has in its signals?
+3. Are all competitor claims verifiable in the data provided?
+4. Does any whyItMatters paragraph contain two sentences that appear to contradict each other (e.g. one score described as good, another as failing, without explanation)? If so, rewrite to clarify the relationship or drop the weaker reference.
+5. Does each timeframe field match the outcome's implied horizon? (If outcome says "per quarter," timeframe shouldn't be "4–8 weeks.") Fix mismatches.
+
+Return JSON only:
+{"actions": []}
+
+If an action is clean, return it unchanged. If it has a contradiction, rewrite the offending field minimally to resolve it. Preserve priority numbers and all other fields.
+
+Actions: ${JSON.stringify(actions)}
+Own business signals: ${JSON.stringify(own.signals)}
+Competitor signals: ${JSON.stringify(competitors.map(c => ({ name: c.name, signals: c.signals })))}`;
+
+  try {
+    const result = await askClaude<{ actions: PriorityAction[] }>(prompt, 2500);
+    return result.actions;
+  } catch (e) {
+    console.warn('[validateActions] failed, returning original:', e);
+    return actions;
+  }
+}
+
+export async function generatePriorityActionsWithHistory(
+  own: Business,
+  competitors: Business[],
+  previousActions: PriorityAction[],
+  previousSignals: ExtractedSignals | null,
+  currentSignals: ExtractedSignals,
+  serviceCategory?: ServiceCategory
+): Promise<PriorityAction[]> {
+  if (SKIP_AI) return [];
+
+  const catConfig = serviceCategory ? SERVICE_CATEGORIES[serviceCategory] : null;
+  const industryFocus = catConfig
+    ? `This is a ${catConfig.label} business. Prioritise actions affecting: ${catConfig.dashboardPriority.join(', ')}.`
+    : '';
+
+  const summariseBiz = (b: Business, isOwn = false) => ({
+    name: b.name,
+    scores: b.aiScore ? {
+      overall: b.aiScore.overallScore,
+      reputation: b.aiScore.reputationScore,
+      localSEO: b.aiScore.localVisibilityScore,
+      websiteQuality: b.aiScore.websiteHealthScore,
+      gbpCompleteness: b.aiScore.gbpCompletenessScore,
+      reviewVelocity: b.aiScore.reviewVelocityScore,
+    } : null,
+    signals: (!isOwn && b.enrichmentErrors?.crawl) ? null : b.signals,
+  });
+
+  const changedSignals: Record<string, { before: unknown; after: unknown }> = {};
+  if (previousSignals) {
+    for (const key of Object.keys(currentSignals) as (keyof ExtractedSignals)[]) {
+      if (JSON.stringify(previousSignals[key]) !== JSON.stringify(currentSignals[key])) {
+        changedSignals[key] = { before: previousSignals[key], after: currentSignals[key] };
+      }
+    }
+  }
+
+  const prompt = `You are Scoutly, continuing an ongoing conversation with a local business owner. Last week you gave them 3 actions. This week, decide what to tell them next.
+
+${industryFocus}
+
+AUDIENCE & TONE: Plain English, direct, no jargon, speaking to a busy owner.
+
+CONTINUITY RULES (this is what makes the product feel alive):
+- Acknowledge what changed since last week. If a previous action was completed (signal improved), explicitly celebrate it in the first line of the first action.
+- If a previous action was NOT completed (signal unchanged), you may repeat it — but reframe it as "still worth doing" with updated context, not as a fresh discovery.
+- If nothing changed at all, say so honestly and keep actions steady rather than reshuffling for the sake of it.
+- Never contradict last week's baseline. If last week said "you have no accreditations" and this week's data shows three, the report must acknowledge that.
+- CONTINUITY ACKNOWLEDGEMENT: If a category appeared in last week's actions but is absent this week, the FIRST action's continuityNote (or whyItMatters) must briefly acknowledge what the user fixed. Example: "Last week you added a booking system — that gap is closed. Here's the next priority." Do not silently drop a previous action without naming the win. The user needs to feel their work was noticed.
+
+DATA INTEGRITY RULES:
+- Every competitor claim must be directly in the data. No invented averages.
+- Never contradict yourself inside a single action.
+- Do not recommend adding something the business already has.
+
+INTERNAL COHERENCE CHECK (do this before returning):
+- Read each whyItMatters as a paragraph. If two sentences within it appear to contradict (e.g. "score is 0" and "completeness is 85%"), explain the relationship in plain words rather than presenting them as competing facts. If you cannot reconcile them, drop the conflicting reference.
+- If competitorReference does not name a specific competitor doing a specific thing better, set it to null. Do not pad it with generic tips.
+
+Return exactly 3 actions. Every action must have estimatedImpact "high" or "medium".
+
+Previous week's actions: ${JSON.stringify(previousActions.map(a => ({ action: a.action, category: a.category, reason: a.reason })))}
+
+What changed in this business's signals since last week: ${Object.keys(changedSignals).length ? JSON.stringify(changedSignals) : '(nothing changed)'}
+
+Schema (JSON array only, no markdown):
+[{"priority":1,"category":"string","effort":"low"|"medium"|"high","action":"string","reason":"string","whyItMatters":"string","steps":["string"],"outcome":"string","competitorReference":"string|null","estimatedImpact":"high"|"medium","timeframe":"string","continuityNote":"string|null"}]
+
+continuityNote: short optional sentence like "You completed last week's portfolio action" or "Still outstanding from last week" or null for genuinely new items.
+
+Own business: ${JSON.stringify(summariseBiz(own, true))}
+Competitors: ${JSON.stringify(competitors.map(b => summariseBiz(b, false)))}`;
+
+  try {
+    const actions = await askClaude<PriorityAction[]>(prompt, 2500);
+    return actions
+      .sort((a, b) => a.priority - b.priority)
+      .slice(0, 3)
+      .map((action, i) => ({ ...action, priority: (i + 1) as PriorityAction['priority'] }));
+  } catch (e) {
+    console.warn('[generatePriorityActionsWithHistory] failed:', e);
     return [];
   }
 }
@@ -189,6 +327,7 @@ Rules:
 - significance: one of "high" | "medium" | "low"
 - actionItem: a plain-English next step the business owner should take (max 20 words, no jargon). For competitors: frame as an opportunity or threat response (e.g. "Add your pricing page before they take that traffic"). For own site: frame as a win to build on or a fix (e.g. "Add customer photos to the new page to build trust faster"). null only if no action is needed.
 - severity: high = directly affects leads/rankings/trust, medium = noticeable improvement/regression, low = minor
+- If the "Before" value is null/empty, describe the change as "newly added" not "changed from X." Only describe a change from a specific value if that value is clearly present in the Before data.
 - Max 5 changes
 
 Before: ${JSON.stringify(changedBefore)}
@@ -261,7 +400,7 @@ export async function checkAIVisibility(
         if (attempt > 0) await new Promise(r => setTimeout(r, attempt * 10000));
         try {
           result = await getClient().messages.create({
-            model: 'claude-sonnet-4-6',
+            model: AI_MODEL_SMART,
             max_tokens: 1000,
             system: 'You are a helpful local business recommendation assistant. When asked about businesses in a specific area, provide specific real business names and brief descriptions. Always include specific names.',
             tools: [{ type: 'web_search_20250305', name: 'web_search' }],

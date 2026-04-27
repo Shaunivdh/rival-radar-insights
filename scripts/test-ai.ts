@@ -39,16 +39,16 @@ async function testPriorityActions() {
   // Week 1 — first scan, no history
   console.log('\n🔵 WEEK 1: First scan priority actions');
   const week1Actions = await generatePriorityActions(
-    week1Data.ownBusiness as Business,
-    week1Data.competitors as Business[],
+    week1Data.ownBusiness as unknown as Business,
+    week1Data.competitors as unknown[] as Business[],
   );
   printActions('Week 1 actions', week1Actions);
 
   // Week 2 — after following advice
   console.log('\n🟢 WEEK 2: After improvements');
   const week2Actions = await generatePriorityActions(
-    week2Data.ownBusiness as Business,
-    week2Data.competitors as Business[],
+    week2Data.ownBusiness as unknown as Business,
+    week2Data.competitors as unknown[] as Business[],
   );
   printActions('Week 2 actions', week2Actions);
 
@@ -71,7 +71,7 @@ async function testChangeSummary() {
   console.log('🔄 CHANGE SUMMARY: Week 1 → Week 2');
   console.log(DIVIDER);
 
-  const own = week2Data.ownBusiness as Business;
+  const own = week2Data.ownBusiness as unknown as Business;
   if (!own.previousSignals) {
     console.log('⚠️  No previousSignals in week2 fixture — skipping');
     return;
@@ -79,8 +79,8 @@ async function testChangeSummary() {
 
   const summary = await generateChangeSummary(
     own.name,
-    own.previousSignals,
-    own.signals,
+    own.previousSignals!,
+    own.signals!,
     false, // own business, not competitor
   );
   console.log(JSON.stringify(summary, null, 2));

@@ -95,7 +95,7 @@ export async function getRankingData(
   });
 
   const localPackPresent = localResults.length > 0;
-  const localVisabilityPosition = localMatch?.position ?? null;
+  const localVisibilityPosition = localMatch?.position ?? null;
 
   // Featured snippet
   const featuredSnippet = !!localJson.answer_box;
@@ -107,7 +107,7 @@ export async function getRankingData(
   const adsAboveResults = Array.isArray(localJson.ads) ? localJson.ads.length : 0;
 
   return {
-    localVisabilityPosition,
+    localVisibilityPosition,
     localPackPresent,
     featuredSnippet,
     knowledgePanelPresent,
@@ -120,7 +120,7 @@ export async function getRankingData(
 
 function emptyResult(searchTerm: string): SerpData {
   return {
-    localVisabilityPosition: null,
+    localVisibilityPosition: null,
     localPackPresent: false,
     featuredSnippet: false,
     knowledgePanelPresent: false,

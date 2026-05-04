@@ -682,16 +682,20 @@ export const crawlBusinessFunction = inngest.createFunction(
   }
 );
 
-/** Weekly incremental crawl for all businesses that have been crawled before */
+/** Hourly check: re-crawl businesses that were last crawled 7+ days ago */
 export const weeklyIncrementalCrawl = inngest.createFunction(
   { id: 'weekly-incremental-crawl' },
-  { cron: '0 8 * * 1' }, // Every Monday at 08:00 UTC
+  { cron: '0 * * * *' }, // Every hour
   async ({ step }) => {
+    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+
     const businesses = await step.run('fetch-businesses', async () => {
       const { data } = await supabaseAdmin
         .from('businesses')
         .select('id')
-        .not('last_crawled_at', 'is', null);
+        .not('last_crawled_at', 'is', null)
+        .lte('last_crawled_at', sevenDaysAgo)
+        .not('crawl_status', 'in', '("pending","running")');
       return data;
     });
 

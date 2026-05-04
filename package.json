@@ -8,7 +8,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "email:preview": "email dev --dir src/emails --port 3001"
+    "email:preview": "email dev --dir src/emails --port 3001",
+    "test:integration": "vitest run src/lib/__tests__/ai.pipeline.test.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.78.0",
@@ -88,7 +89,8 @@
     "resend": "^6.12.2",
     "tailwindcss": "^3.4.17",
     "typescript": "^5.8.3",
-    "typescript-eslint": "^8.57.0"
+    "typescript-eslint": "^8.57.0",
+    "vitest": "^4.1.5"
   },
   "trustedDependencies": [
     "inngest-cli"

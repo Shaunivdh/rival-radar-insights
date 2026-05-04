@@ -11,6 +11,9 @@ export interface AIVisibility {
   mentionCount: number;
   totalPrompts: number;
   tested_at: string;
+  averagePosition: number | null;
+  recommendedCount: number;
+  competitorsAhead: string[];
 }
 
 export interface Business {
@@ -28,7 +31,7 @@ export interface Business {
   aiVisibility: AIVisibility | null;
   pagespeedData: PageSpeedData | null;
   reviewSentiment: ReviewSentiment | null;
-  enrichmentErrors: { google?: string; serp?: string; crawl?: string } | null;
+  enrichmentErrors: { google?: string; serp?: string; crawl?: string; ai_actions?: string } | null;
   previousSignals: ExtractedSignals | null;
   changeEvents: ChangeEvent[];
 }
@@ -155,6 +158,8 @@ export interface PriorityAction {
   estimatedImpact: 'high' | 'medium' | 'low';
   timeframe: string;
   continuityNote?: string | null; // e.g. "Still outstanding from last week" or "You completed this"
+  /** Internal: source of this action for deterministic-check skip logic. Stripped before serving to clients. */
+  _source?: 'template' | 'llm';
 }
 
 export interface ChangeEvent {

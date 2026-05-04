@@ -11,7 +11,7 @@ import { fetchPageDirect } from '@/services/crawl';
 import { checkDirectSignals } from '@/lib/crawl/direct-checks';
 import { supabaseAdmin } from '@/lib/supabase/server';
 import { fetchGoogleData, fetchSerpData } from '@/actions/enrichment';
-import { generatePriorityActions, generateChangeSummary, generateReviewSentiment, checkAIVisibility } from '@/services/ai';
+import { generatePriorityActions, generateChangeSummary, generateReviewSentiment, checkAIVisibility, AIUnavailableError } from '@/services/ai';
 import { calculateScores, recomputeOverallScore } from '@/services/scores';
 import { fetchPageSpeedData } from '@/services/pagespeed';
 import { diffSignals } from '@/services/diff';
@@ -27,7 +27,7 @@ const DIRECT_FETCH_FALLBACK_ATTEMPTS = 36; // ~3 min before falling back to dire
 
 async function writeEnrichmentError(
   businessId: string,
-  key: 'google' | 'serp',
+  key: 'google' | 'serp' | 'ai_actions',
   userMessage: string
 ): Promise<void> {
   const { data } = await supabaseAdmin
@@ -41,7 +41,7 @@ async function writeEnrichmentError(
 
 async function clearEnrichmentError(
   businessId: string,
-  key: 'google' | 'serp'
+  key: 'google' | 'serp' | 'ai_actions'
 ): Promise<void> {
   const { data } = await supabaseAdmin
     .from('businesses')
@@ -272,6 +272,7 @@ export const crawlBusinessFunction = inngest.createFunction(
           meta.location,
           meta.name,
           existing?.ai_visibility as AIVisibility | null,
+          meta.primaryService as ServiceCategory,
         );
         if (!visibility) return; // skipped — still fresh
 
@@ -319,7 +320,17 @@ export const crawlBusinessFunction = inngest.createFunction(
 
       if (!diff.hasChanges) return;
 
-      const summary = await generateChangeSummary(meta.name, previous, current, !meta.isOwnBusiness);
+      let summary;
+      try {
+        summary = await generateChangeSummary(meta.name, previous, current, !meta.isOwnBusiness);
+      } catch (e) {
+        if (e instanceof AIUnavailableError) {
+          console.warn(`[change-summary] AI unavailable for ${businessId}, skipping change event`);
+        } else {
+          console.error(`[change-summary] unexpected error for ${businessId}:`, e);
+        }
+        return;
+      }
       if (!summary.hasSignificantChanges) return;
 
       const event: ChangeEvent = {
@@ -637,6 +648,8 @@ export const crawlBusinessFunction = inngest.createFunction(
           meta.primaryService as ServiceCategory
         );
 
+        await clearEnrichmentError(ownRaw.id, 'ai_actions');
+
         if (!actions.length) return;
 
         await supabaseAdmin.from('priority_actions').insert(
@@ -655,7 +668,14 @@ export const crawlBusinessFunction = inngest.createFunction(
             timeframe: a.timeframe,
           }))
         );
-      } catch { /* non-fatal */ }
+      } catch (e) {
+        if (e instanceof AIUnavailableError) {
+          await writeEnrichmentError(ownRaw.id, 'ai_actions', `Recommendations unavailable — retrying at ${e.retryAt}`);
+        } else {
+          console.error(`[priority-actions] unexpected error for ${ownRaw.id}:`, e);
+          await writeEnrichmentError(ownRaw.id, 'ai_actions', 'Unexpected error generating recommendations');
+        }
+      }
     });
 
     return { businessId, jobId, status: 'complete' };

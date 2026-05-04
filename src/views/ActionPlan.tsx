@@ -342,15 +342,26 @@ const RecommendationCard = ({
   );
 };
 
-const EmptyState = () => (
+const EmptyState = ({ aiError }: { aiError?: string }) => (
   <div className="flex flex-col items-center justify-center py-20 text-center">
     <div className="p-3 rounded-xl bg-primary/10 mb-4">
-      <Lightbulb className="w-6 h-6 text-primary" />
+      {aiError ? <AlertTriangle className="w-6 h-6 text-amber-500" /> : <Lightbulb className="w-6 h-6 text-primary" />}
     </div>
-    <h2 className="font-semibold text-base mb-1">No recommendations yet</h2>
-    <p className="text-sm text-muted-foreground max-w-xs">
-      Run a scan from the dashboard to generate your personalised action plan.
-    </p>
+    {aiError ? (
+      <>
+        <h2 className="font-semibold text-base mb-1">Recommendations temporarily unavailable</h2>
+        <p className="text-sm text-muted-foreground max-w-xs">
+          We couldn&apos;t generate this week&apos;s actions — we&apos;ll retry automatically on the next scan. Your previous recommendations are still saved.
+        </p>
+      </>
+    ) : (
+      <>
+        <h2 className="font-semibold text-base mb-1">No recommendations yet</h2>
+        <p className="text-sm text-muted-foreground max-w-xs">
+          Run a scan from the dashboard to generate your personalised action plan.
+        </p>
+      </>
+    )}
   </div>
 );
 
@@ -406,7 +417,8 @@ const ActionPlan = () => {
     return { active, completed, dismissed };
   }, [recommendations, statuses]);
 
-  if (!priorityActions.length) return <EmptyState />;
+  const aiError = project?.ownBusiness?.enrichmentErrors?.ai_actions;
+  if (!priorityActions.length) return <EmptyState aiError={aiError} />;
 
   const priorities: Priority[] = ['critical', 'high', 'medium', 'quick-win'];
   const verifiedCount = completed.filter((r) => statuses[r.id]?.verification === 'verified').length;

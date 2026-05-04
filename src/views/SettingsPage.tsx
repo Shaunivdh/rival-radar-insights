@@ -1,9 +1,9 @@
 'use client';
 
 import { useRivalRadarStore } from '@/store/rivalradar';
-import { Settings as SettingsIcon, Trash2, RefreshCw, AlertTriangle } from 'lucide-react';
+import { Settings as SettingsIcon, Trash2, RefreshCw, AlertTriangle, Store, CheckCircle } from 'lucide-react';
 import { isValidUKPostcode } from '@/lib/utils';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { rescanAll } from '@/actions/projects';
 
@@ -21,6 +21,14 @@ const SettingsPage = () => {
   const [rescanning, setRescanning] = useState(false);
   const [errors, setErrors] = useState<FieldErrors>({});
   const [saved, setSaved] = useState(false);
+  const [gbpConnected, setGbpConnected] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    fetch('/api/gbp/status')
+      .then((r) => r.json())
+      .then((d) => setGbpConnected(d.connected))
+      .catch(() => {});
+  }, []);
 
   const handleSave = () => {
     const newErrors: FieldErrors = {};
@@ -85,6 +93,34 @@ const SettingsPage = () => {
         >
           {saved ? 'Saved!' : 'Save Settings'}
         </button>
+      </div>
+
+      <div className="card-surface space-y-3">
+        <h2 className="text-sm font-semibold text-foreground flex items-center gap-2">
+          <Store className="w-4 h-4 text-primary" />
+          Google Business Profile
+        </h2>
+        {gbpConnected === null ? (
+          <p className="text-xs text-muted-foreground">Checking…</p>
+        ) : gbpConnected ? (
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2 text-sm text-green-600">
+              <CheckCircle className="w-4 h-4" />
+              Connected
+            </div>
+            <a href="/google-business" className="text-xs text-primary hover:underline">Manage →</a>
+          </div>
+        ) : (
+          <div className="flex items-center justify-between">
+            <p className="text-sm text-muted-foreground">Not connected</p>
+            <a
+              href="/api/auth/google-business"
+              className="px-3 py-1.5 bg-primary text-primary-foreground text-xs font-medium rounded-lg hover:opacity-90"
+            >
+              Connect
+            </a>
+          </div>
+        )}
       </div>
 
       {enrichmentErrorBusinesses.length > 0 && (

@@ -124,7 +124,7 @@ export async function startCrawl(
 
   const resText = await res.text();
   if (!res.ok) {
-    if (res.status === 400 && resText.includes('Content-Signal directive')) {
+    if (res.status === 400 && (resText.includes('Content-Signal directive') || resText.includes('disallowed by robots'))) {
       throw new CrawlDisallowedError(url, resText);
     }
     throw new Error(`CF crawl start failed: ${res.status} ${resText}`);

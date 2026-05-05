@@ -707,38 +707,14 @@ export const crawlBusinessFunction = inngest.createFunction(
       }
     });
 
+    // Schedule next incremental crawl in 7 days
+    await step.sendEvent('schedule-next-crawl', {
+      name: 'crawl/business.scan',
+      data: { businessId, mode: 'incremental' },
+      ts: Date.now() + 7 * 24 * 60 * 60 * 1000,
+    });
+
     return { businessId, jobId, status: 'complete' };
   }
 );
 
-/** Hourly check: re-crawl businesses that were last crawled 7+ days ago */
-export const weeklyIncrementalCrawl = inngest.createFunction(
-  { id: 'weekly-incremental-crawl' },
-  { cron: '0 * * * *' }, // Every hour
-  async ({ step }) => {
-    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
-
-    const businesses = await step.run('fetch-businesses', async () => {
-      const { data } = await supabaseAdmin
-        .from('businesses')
-        .select('id')
-        .not('last_crawled_at', 'is', null)
-        .lte('last_crawled_at', sevenDaysAgo)
-        .not('crawl_status', 'in', '("pending","running")');
-      return data;
-    });
-
-    if (!businesses?.length) return { sent: 0 };
-
-    await step.run('enqueue-crawls', () =>
-      inngest.send(
-        businesses.map((b) => ({
-          name: 'crawl/business.scan' as const,
-          data: { businessId: b.id, mode: 'incremental' as const },
-        }))
-      )
-    );
-
-    return { sent: businesses.length };
-  }
-);

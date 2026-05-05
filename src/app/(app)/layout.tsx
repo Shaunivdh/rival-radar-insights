@@ -45,8 +45,14 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="flex min-h-screen">
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-50 focus:px-4 focus:py-2 focus:bg-primary focus:text-primary-foreground focus:rounded-lg"
+      >
+        Skip to main content
+      </a>
       <AppSidebar />
-      <main className="flex-1 p-6 overflow-auto">{children}</main>
+      <main id="main-content" className="flex-1 p-6 overflow-auto">{children}</main>
     </div>
   );
 }

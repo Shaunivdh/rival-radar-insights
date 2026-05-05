@@ -6,8 +6,6 @@ function signUnlockToken(password: string): string {
   return createHmac('sha256', password).update('rival-radar-site-unlock').digest('hex');
 }
 
-export { signUnlockToken };
-
 export async function POST(req: NextRequest) {
   const { password } = await req.json();
 

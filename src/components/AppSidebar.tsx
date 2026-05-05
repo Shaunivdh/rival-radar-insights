@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useRouter, usePathname } from 'next/navigation';
 import { LayoutDashboard, Users, Bell, Settings, Zap, LogOut, Building2, Lightbulb, HelpCircle, Store, Eye } from 'lucide-react';
 import { Logo } from '@/components/Logo';
@@ -33,13 +34,14 @@ export const AppSidebar = () => {
       <div className="p-5 border-b border-border">
         <Logo />
       </div>
-      <nav className="flex-1 p-3 space-y-1">
+      <nav aria-label="Main navigation" className="flex-1 p-3 space-y-1">
         {navItems.map((item) => {
           const active = pathname?.startsWith(item.path);
           return (
-            <button
+            <Link
               key={item.path}
-              onClick={() => router.push(item.path)}
+              href={item.path}
+              aria-current={active ? 'page' : undefined}
               className={cn(
                 'w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors',
                 active
@@ -49,7 +51,7 @@ export const AppSidebar = () => {
             >
               <item.icon className="w-4.5 h-4.5" />
               {item.label}
-            </button>
+            </Link>
           );
         })}
       </nav>

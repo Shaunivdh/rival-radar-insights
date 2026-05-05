@@ -6,6 +6,14 @@ const PROTECTED = ['/dashboard', '/competitors', '/changes', '/settings', '/setu
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
+  // Site-wide password lock
+  if (process.env.SITE_PASSWORD) {
+    const unlocked = request.cookies.get('site-unlocked')?.value === process.env.SITE_PASSWORD;
+    if (!unlocked && pathname !== '/unlock') {
+      return NextResponse.redirect(new URL('/unlock', request.url));
+    }
+  }
+
   let response = NextResponse.next({ request: { headers: request.headers } });
 
   const supabase = createServerClient(
@@ -52,5 +60,5 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/((?!_next/static|_next/image|favicon.ico|api).*)'],
+  matcher: ['/((?!_next/static|_next/image|favicon.ico|api/unlock|api).*)'],
 };

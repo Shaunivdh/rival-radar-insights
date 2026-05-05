@@ -24,7 +24,7 @@ type SignupData = {
   category: ServiceCategory | '';
   city: string;
   postcode: string;
-  competitors: string[];
+  competitors: { name: string; url: string }[];
 };
 
 const initialSignupData: SignupData = {
@@ -36,7 +36,7 @@ const initialSignupData: SignupData = {
   category: '',
   city: '',
   postcode: '',
-  competitors: [''],
+  competitors: [{ name: '', url: '' }],
 };
 
 const getDomain = (url: string) => {
@@ -203,8 +203,12 @@ const SetupPage = () => {
         domain: getDomain(data.website),
       };
       const competitorsFinal = data.competitors
-        .filter((c) => c.trim())
-        .map((c) => ({ name: getDomain(c), url: c, domain: getDomain(c) }));
+        .filter((c) => c.url.trim())
+        .map((c) => {
+          const url = c.url.trim();
+          const domain = getDomain(url);
+          return { name: c.name.trim() || domain, url, domain };
+        });
 
       const savedProject = await createProject(
         `${ownFinal.name} vs Competitors`,
@@ -547,25 +551,37 @@ const SetupPage = () => {
                       />
                       <div className="space-y-3">
                         {data.competitors.map((c, i) => (
-                          <div key={i} className="flex gap-2">
-                            <div className="relative flex-1">
-                              <Globe className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                          <div key={i} className="flex gap-2 items-start">
+                            <div className="flex-1 space-y-2">
                               <input
-                                placeholder={`Competitor ${i + 1} website`}
-                                value={c}
+                                placeholder={`Competitor ${i + 1} business name`}
+                                value={c.name}
                                 onChange={(e) => {
                                   const updated = [...data.competitors];
-                                  updated[i] = e.target.value;
+                                  updated[i] = { ...updated[i], name: e.target.value };
                                   update('competitors', updated);
                                 }}
-                                className={`${inputCls} pl-10`}
+                                className={inputCls}
                               />
+                              <div className="relative">
+                                <Globe className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                                <input
+                                  placeholder={`Competitor ${i + 1} website`}
+                                  value={c.url}
+                                  onChange={(e) => {
+                                    const updated = [...data.competitors];
+                                    updated[i] = { ...updated[i], url: e.target.value };
+                                    update('competitors', updated);
+                                  }}
+                                  className={`${inputCls} pl-10`}
+                                />
+                              </div>
                             </div>
                             {data.competitors.length > 1 && (
                               <button
                                 type="button"
                                 onClick={() => update('competitors', data.competitors.filter((_, idx) => idx !== i))}
-                                className="h-10 w-10 flex items-center justify-center rounded-lg text-muted-foreground hover:text-destructive transition-colors"
+                                className="h-10 w-10 flex items-center justify-center rounded-lg text-muted-foreground hover:text-destructive transition-colors mt-1"
                               >
                                 <X className="w-4 h-4" />
                               </button>
@@ -575,7 +591,7 @@ const SetupPage = () => {
                         {data.competitors.length < 5 && (
                           <button
                             type="button"
-                            onClick={() => update('competitors', [...data.competitors, ''])}
+                            onClick={() => update('competitors', [...data.competitors, { name: '', url: '' }])}
                             className="w-full h-10 flex items-center justify-center gap-1.5 rounded-lg border border-dashed border-border text-sm text-muted-foreground hover:text-foreground hover:border-foreground/30 transition-colors"
                           >
                             <Plus className="w-4 h-4" /> Add another competitor

@@ -1,8 +1,9 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, Suspense } from 'react';
 import { useRivalRadarStore } from '@/store/rivalradar';
 import { syncProject } from '@/actions/projects';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { DemoBanner } from '@/components/DemoBanner';
 import { CompetitorComparisonCard } from '@/components/CompetitorComparisonCard';
 import { PriorityActionsPanel } from '@/components/PriorityActionsPanel';
@@ -13,6 +14,7 @@ import { useState } from 'react';
 import type { ChangeEvent as CE } from '@/types';
 import { DashboardGreeting } from '@/components/DashboardGreeting';
 import { ScoreTrend } from '@/components/ScoreTrend';
+import DashboardLoading from '@/views/DashboardLoading';
 
 const STATUS_ICON: Record<string, React.ReactNode> = {
   idle: <Clock className="w-3.5 h-3.5 text-muted-foreground" />,
@@ -26,6 +28,9 @@ const isDev = process.env.NODE_ENV === 'development';
 
 const Dashboard = () => {
   const { project, isDemoMode, syncBusinesses, setPriorityActions, addCompetitorToStore } = useRivalRadarStore();
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const isSetupFlow = searchParams.get('setup') === '1';
   const [rescanning, setRescanning] = useState(false);
   const [rescanningId, setRescanningId] = useState<string | null>(null);
   const [showAddModal, setShowAddModal] = useState(false);
@@ -39,6 +44,7 @@ const Dashboard = () => {
   const allBusinesses = project ? [project.ownBusiness, ...project.competitors] : [];
   const isScanning = allBusinesses.some((b) => b.crawlStatus === 'pending' || b.crawlStatus === 'running');
   const noneScanned = allBusinesses.every((b) => b.crawlStatus === 'idle');
+  const noneComplete = allBusinesses.length > 0 && allBusinesses.every((b) => b.crawlStatus !== 'complete');
   const anyFailed = allBusinesses.some((b) => b.crawlStatus === 'failed');
 
   const handleRescan = async () => {
@@ -76,6 +82,14 @@ const Dashboard = () => {
     setRescanningId(null);
   };
 
+  // Drop ?setup=1 once crawls are done so the loading page never re-appears
+  useEffect(() => {
+    if (!isSetupFlow || isDemoMode) return;
+    if (!isScanning || !noneComplete) {
+      router.replace('/dashboard');
+    }
+  }, [isSetupFlow, isDemoMode, isScanning, noneComplete, router]);
+
   useEffect(() => {
     if (!project || isDemoMode) return;
 
@@ -108,6 +122,11 @@ const Dashboard = () => {
   }, [isScanning, project?.id, isDemoMode]);
 
   if (!project) return null;
+
+  // Show full-page loading experience — only during the setup flow and while no crawl has completed
+  if (isSetupFlow && !isDemoMode && isScanning && noneComplete) {
+    return <DashboardLoading />;
+  }
 
   // Detect competitors sharing the same root domain
   const domainGroups = project.competitors.reduce<Record<string, string[]>>((acc, c) => {
@@ -352,4 +371,10 @@ const Dashboard = () => {
   );
 };
 
-export default Dashboard;
+export default function DashboardPage() {
+  return (
+    <Suspense>
+      <Dashboard />
+    </Suspense>
+  );
+}

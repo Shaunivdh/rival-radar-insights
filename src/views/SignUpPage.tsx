@@ -144,7 +144,7 @@ const SignUpPage = () => {
         title: 'Account created!',
         description: 'We\'re preparing your first competitor scan.',
       });
-      router.push('/dashboard');
+      router.push('/dashboard?setup=1');
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Something went wrong. Please try again.');
       setLoading(false);

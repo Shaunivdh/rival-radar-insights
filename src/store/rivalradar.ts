@@ -21,7 +21,7 @@ interface RivalRadarState {
   priorityActions: PriorityAction[];
   isDemoMode: boolean;
   demoBannerDismissed: boolean;
-  signup: (email: string, password: string, name?: string) => Promise<{ ok: boolean; error?: string }>;
+  signup: (email: string, password: string, name?: string) => Promise<{ ok: boolean; needsConfirmation?: boolean; error?: string }>;
   login: (email: string, password: string) => Promise<{ ok: boolean; error?: string }>;
   logout: () => Promise<void>;
   initAuth: () => Promise<void>;
@@ -49,6 +49,8 @@ export const useRivalRadarStore = create<RivalRadarState>()(
         const { data, error } = await supabase.auth.signUp({ email, password, options: name ? { data: { full_name: name } } : undefined });
         if (error) return { ok: false, error: error.message };
         if (!data.user) return { ok: false, error: 'Signup failed.' };
+        // If email confirmation is enabled, data.session is null — don't set user yet
+        if (!data.session) return { ok: true, needsConfirmation: true };
         set({ user: { id: data.user.id, email: data.user.email! }, project: null, priorityActions: [], isDemoMode: false, demoBannerDismissed: false });
         return { ok: true };
       },

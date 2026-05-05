@@ -5,7 +5,10 @@ import fs from 'fs';
 import path from 'path';
 import type { RawCrawlResult } from '@/types';
 
-const CACHE_DIR = path.join(process.cwd(), '.crawl-cache');
+const IS_VERCEL = !!process.env.VERCEL;
+const CACHE_DIR = IS_VERCEL
+  ? path.join('/tmp', '.crawl-cache')
+  : path.join(process.cwd(), '.crawl-cache');
 
 function ensureCacheDir() {
   if (!fs.existsSync(CACHE_DIR)) fs.mkdirSync(CACHE_DIR, { recursive: true });

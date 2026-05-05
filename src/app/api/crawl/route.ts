@@ -1,8 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { createServerClient } from '@supabase/ssr';
+import { cookies } from 'next/headers';
 import { inngest } from '@/inngest/client';
 import { supabaseAdmin } from '@/lib/supabase/server';
 
 // Simple in-memory rate limiter: max 10 POST requests per IP per minute
+// NOTE: resets per cold start and not shared across instances in serverless deployments
 const rateMap = new Map<string, { count: number; resetAt: number }>();
 const RATE_LIMIT = 10;
 const RATE_WINDOW_MS = 60_000;
@@ -18,11 +21,34 @@ function isRateLimited(ip: string): boolean {
   return entry.count > RATE_LIMIT;
 }
 
+async function getAuthUserId(): Promise<string | null> {
+  const cookieStore = await cookies();
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    { cookies: { getAll() { return cookieStore.getAll(); } } }
+  );
+  const { data: { user } } = await supabase.auth.getUser();
+  return user?.id ?? null;
+}
+
 const VALID_MODES = new Set(['initial', 'incremental']);
 
 export async function GET(req: NextRequest) {
+  const userId = await getAuthUserId();
+  if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
   const projectId = req.nextUrl.searchParams.get('projectId');
   if (!projectId) return NextResponse.json({ error: 'Missing projectId' }, { status: 400 });
+
+  // Verify user owns this project
+  const { data: project } = await supabaseAdmin
+    .from('projects')
+    .select('id')
+    .eq('id', projectId)
+    .eq('user_id', userId)
+    .maybeSingle();
+  if (!project) return NextResponse.json({ error: 'Project not found' }, { status: 404 });
 
   const { data: businesses } = await supabaseAdmin
     .from('businesses')
@@ -33,6 +59,9 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
+  const userId = await getAuthUserId();
+  if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
   const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? 'unknown';
   if (isRateLimited(ip)) {
     return NextResponse.json({ error: 'Too many requests' }, { status: 429 });
@@ -50,6 +79,22 @@ export async function POST(req: NextRequest) {
   if (!VALID_MODES.has(mode)) {
     return NextResponse.json({ error: 'Invalid mode, must be "initial" or "incremental"' }, { status: 400 });
   }
+
+  // Verify user owns this business via its project
+  const { data: biz } = await supabaseAdmin
+    .from('businesses')
+    .select('project_id')
+    .eq('id', businessId)
+    .single();
+  if (!biz) return NextResponse.json({ error: 'Business not found' }, { status: 404 });
+
+  const { data: project } = await supabaseAdmin
+    .from('projects')
+    .select('id')
+    .eq('id', biz.project_id)
+    .eq('user_id', userId)
+    .maybeSingle();
+  if (!project) return NextResponse.json({ error: 'Not authorized for this business' }, { status: 403 });
 
   await inngest.send({ name: 'crawl/business.scan', data: { businessId, mode: mode as 'initial' | 'incremental' } });
 

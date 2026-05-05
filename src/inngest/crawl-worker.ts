@@ -415,7 +415,7 @@ export const crawlBusinessFunction = inngest.createFunction(
       console.log(`[calculate-scores] ai_score saved for business ${businessId}:`, JSON.stringify(aiScore));
     });
 
-    // Step 7b: Generate review sentiment
+    // Step 10: Generate review sentiment
     await step.run('generate-review-sentiment', async () => {
       const { data: biz } = await supabaseAdmin
         .from('businesses')
@@ -430,7 +430,7 @@ export const crawlBusinessFunction = inngest.createFunction(
       }
     });
 
-    // Step 8: Apply score decay if no recent google_data
+    // Step 11: Apply score decay if no recent google_data
     await step.run('apply-score-decay', async () => {
       const thirtyDaysAgo = new Date(Date.now() - 30 * 86400000).toISOString();
       const { data: oldRow } = await supabaseAdmin
@@ -462,7 +462,7 @@ export const crawlBusinessFunction = inngest.createFunction(
       await updateBusiness(businessId, { aiScore });
     });
 
-    // Step 9: Save score snapshot, compute weeklyDelta, persist to businesses + ai_health_scores
+    // Step 12: Save score snapshot, compute weeklyDelta, persist to businesses + ai_health_scores
     await step.run('save-score-snapshot', async () => {
       const { data: bizRow } = await supabaseAdmin
         .from('businesses')
@@ -498,7 +498,7 @@ export const crawlBusinessFunction = inngest.createFunction(
       );
     });
 
-    // Step 10: Check if any competitor overtook own business in local pack
+    // Step 13: Check if any competitor overtook own business in local pack
     // Only runs once — when ALL businesses in the project have finished crawling
     await step.run('check-threats', async () => {
       const { data: allBiz } = await supabaseAdmin
@@ -578,7 +578,7 @@ export const crawlBusinessFunction = inngest.createFunction(
       await updateBusiness(ownBiz.id as string, { aiScore });
     });
 
-    // Step 11: If all businesses in project are done, generate priority actions
+    // Step 14: If all businesses in project are done, generate priority actions
     await step.run('priority-actions', async () => {
       const { data: allBiz } = await supabaseAdmin
         .from('businesses')

@@ -3,13 +3,21 @@ import { NextResponse, type NextRequest } from 'next/server';
 
 const PROTECTED = ['/dashboard', '/competitors', '/changes', '/settings', '/setup'];
 
+async function signUnlockToken(password: string): Promise<string> {
+  const enc = new TextEncoder();
+  const key = await crypto.subtle.importKey('raw', enc.encode(password), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+  const sig = await crypto.subtle.sign('HMAC', key, enc.encode('rival-radar-site-unlock'));
+  return Array.from(new Uint8Array(sig)).map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   // Site-wide password lock
   if (process.env.SITE_PASSWORD) {
-    const unlocked = request.cookies.get('site-unlocked')?.value === process.env.SITE_PASSWORD;
-    if (!unlocked && pathname !== '/unlock') {
+    const cookie = request.cookies.get('site-unlocked')?.value ?? '';
+    const expected = await signUnlockToken(process.env.SITE_PASSWORD);
+    if (cookie !== expected && pathname !== '/unlock') {
       return NextResponse.redirect(new URL('/unlock', request.url));
     }
   }

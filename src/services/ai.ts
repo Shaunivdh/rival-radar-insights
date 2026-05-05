@@ -25,6 +25,8 @@ export class AIUnavailableError extends Error {
 }
 
 // ── In-memory cache for extractMentionedBusinesses ───────────────────
+// NOTE: resets per cold start and not shared across instances in serverless deployments.
+// Effective within a single scan run (multiple queries for one business).
 const mentionsCache = new Map<string, MentionedBusiness[]>();
 const MENTIONS_CACHE_MAX = 200;
 
@@ -984,6 +986,18 @@ export async function checkAIVisibility(
         .join('\n');
 
       console.log(`[ai-presence] query="${query}" textLength=${aiText.length} snippet="${aiText.slice(0, 200)}"`);
+
+      // Quick check: if no name tokens appear in the response, skip the
+      // extractMentionedBusinesses AI call entirely. This is the common case
+      // for businesses not mentioned and saves one Haiku call per query.
+      const nameTokens = normalizeStr(businessName).split(' ').filter(t => t.length >= 2);
+      const textLower = aiText.toLowerCase();
+      const hasAnyNameToken = nameTokens.some(t => textLower.includes(t));
+
+      if (!hasAnyNameToken) {
+        console.log(`[ai-presence] no name tokens in response, skipping extraction for query="${query}"`);
+        continue;
+      }
 
       const { businesses, cacheHit } = await extractMentionedBusinesses(aiText);
       if (cacheHit) cacheHits++;

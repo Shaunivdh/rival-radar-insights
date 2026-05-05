@@ -70,6 +70,22 @@ function rowsToProject(p: Record<string, unknown>, businesses: Record<string, un
   };
 }
 
+// ── Shared helpers ───────────────────────────────────────────────────────────
+
+function parseField<T>(v: unknown): T {
+  return (typeof v === 'string' ? JSON.parse(v) : v) as T;
+}
+
+function rowToSignals(sig: Record<string, unknown> | null): ExtractedSignals | null {
+  if (!sig?.seo) return null;
+  return {
+    seo: parseField(sig.seo),
+    trust: parseField(sig.trust),
+    content: parseField(sig.content),
+    engagement: parseField(sig.engagement),
+  } as ExtractedSignals;
+}
+
 // ── Actions ───────────────────────────────────────────────────────────────────
 
 export async function createProject(
@@ -146,15 +162,7 @@ export async function getProject(userId: string): Promise<Project | null> {
           .order('detected_at', { ascending: false }),
       ]);
 
-      const parseField = <T>(v: unknown): T => (typeof v === 'string' ? JSON.parse(v) : v) as T;
-      const signals = sig?.seo
-        ? ({
-            seo: parseField(sig.seo),
-            trust: parseField(sig.trust),
-            content: parseField(sig.content),
-            engagement: parseField(sig.engagement),
-          } as ExtractedSignals)
-        : null;
+      const signals = rowToSignals(sig);
       const changeEvents: ChangeEvent[] = (events ?? []).map(e => ({
         id: e.id as string,
         detectedAt: new Date(e.detected_at as string).getTime(),
@@ -308,15 +316,7 @@ export async function syncProject(projectId: string): Promise<{
           .limit(1)
           .maybeSingle();
 
-        if (sig?.seo) {
-          const parseField = <T>(v: unknown): T => (typeof v === 'string' ? JSON.parse(v) : v) as T;
-          signals = {
-            seo: parseField(sig.seo),
-            trust: parseField(sig.trust),
-            content: parseField(sig.content),
-            engagement: parseField(sig.engagement),
-          } as ExtractedSignals;
-        }
+        signals = rowToSignals(sig);
 
         // Recalculate if missing, websiteHealthScore is 0 with signals, or localVisibilityScore is 0 with serp data
         if (!aiScore || (signals && aiScore.websiteHealthScore === 0) || (b.serp_data && aiScore && aiScore.localVisibilityScore === 0)) {

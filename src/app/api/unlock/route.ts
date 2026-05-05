@@ -1,4 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { createHmac } from 'crypto';
+
+/** Derive a token from the password so the raw password is never stored in a cookie. */
+function signUnlockToken(password: string): string {
+  return createHmac('sha256', password).update('rival-radar-site-unlock').digest('hex');
+}
+
+export { signUnlockToken };
 
 export async function POST(req: NextRequest) {
   const { password } = await req.json();
@@ -8,7 +16,7 @@ export async function POST(req: NextRequest) {
   }
 
   const res = NextResponse.json({ ok: true });
-  res.cookies.set('site-unlocked', process.env.SITE_PASSWORD, {
+  res.cookies.set('site-unlocked', signUnlockToken(process.env.SITE_PASSWORD), {
     httpOnly: true,
     sameSite: 'lax',
     path: '/',

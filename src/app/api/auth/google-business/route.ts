@@ -15,11 +15,16 @@ export async function GET(request: NextRequest) {
     }
   );
 
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return NextResponse.redirect(new URL('/', request.url));
+  const { data: { user }, error: authError } = await supabase.auth.getUser();
+  if (!user) {
+    console.warn('[gbp-auth] GET no session - redirecting to /');
+    if (authError) console.error('[gbp-auth] getUser error:', authError.message);
+    return NextResponse.redirect(new URL('/', request.url));
+  }
 
   const state = crypto.randomUUID();
   const { origin } = new URL(request.url);
+  console.log(`[gbp-auth] initiating OAuth userId=${user.id} state=${state}`);
 
   const params = new URLSearchParams({
     client_id: process.env.GOOGLE_CLIENT_ID!,

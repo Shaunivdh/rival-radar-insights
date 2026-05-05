@@ -11,7 +11,10 @@ export async function GET(request: NextRequest) {
   const cookieStore = await cookies();
   const cookieValue = cookieStore.get('gbp_oauth_state')?.value;
 
+  console.log(`[gbp-callback] received code=${!!code} state=${state} oauthError=${oauthError ?? 'none'} hasCookie=${!!cookieValue}`);
+
   if (oauthError || !code || !cookieValue) {
+    console.error(`[gbp-callback] early error: oauthError=${oauthError} hasCode=${!!code} hasCookie=${!!cookieValue}`);
     return NextResponse.redirect(new URL('/google-business?gbp=error', origin));
   }
 
@@ -21,8 +24,11 @@ export async function GET(request: NextRequest) {
   const userId = cookieValue.slice(colonIdx + 1);
 
   if (!state || !savedState || savedState !== state || !userId) {
+    console.error(`[gbp-callback] state mismatch or missing userId: savedState=${savedState} receivedState=${state} hasUserId=${!!userId}`);
     return NextResponse.redirect(new URL('/google-business?gbp=error', origin));
   }
+
+  console.log(`[gbp-callback] state ok userId=${userId} - exchanging code for tokens`);
 
   const tokenRes = await fetch('https://oauth2.googleapis.com/token', {
     method: 'POST',
@@ -37,8 +43,11 @@ export async function GET(request: NextRequest) {
   });
 
   if (!tokenRes.ok) {
+    const body = await tokenRes.text().catch(() => '');
+    console.error(`[gbp-callback] token exchange failed status=${tokenRes.status} body=${body.slice(0, 200)} userId=${userId}`);
     return NextResponse.redirect(new URL('/google-business?gbp=error', origin));
   }
+  console.log(`[gbp-callback] token exchange succeeded userId=${userId}`);
 
   const tokens = await tokenRes.json();
   const expiry = new Date(Date.now() + tokens.expires_in * 1000);

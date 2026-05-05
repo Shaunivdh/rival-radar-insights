@@ -16,6 +16,7 @@ import { createProject, triggerInitialScans } from '@/actions/projects';
 import type { Project } from '@/types';
 
 type SignupData = {
+  name: string;
   email: string;
   password: string;
   businessName: string;
@@ -27,6 +28,7 @@ type SignupData = {
 };
 
 const initialSignupData: SignupData = {
+  name: '',
   email: '',
   password: '',
   businessName: '',
@@ -156,7 +158,7 @@ const SetupPage = () => {
 
   // --- Signup wizard handlers ---
   const canProceed = () => {
-    if (step === 1) return data.email.includes('@') && data.password.length >= 8;
+    if (step === 1) return !!data.name.trim() && data.email.includes('@') && data.password.length >= 8;
     if (step === 2) return !!data.businessName.trim() && !!data.website.trim();
     if (step === 3) return !!data.category && !!data.postcode.trim() && !!data.city.trim();
     return true;
@@ -166,7 +168,7 @@ const SetupPage = () => {
     setError('');
     if (step === 1 && !accountCreated) {
       setLoading(true);
-      const result = await signup(data.email.trim(), data.password);
+      const result = await signup(data.email.trim(), data.password, data.name.trim());
       if (!result.ok) {
         setError(result.error ?? 'Something went wrong.');
         setLoading(false);
@@ -219,7 +221,8 @@ const SetupPage = () => {
       await triggerInitialScans(savedProject.id);
       setLoading(false);
       setScanning(true);
-    } catch {
+    } catch (e) {
+      console.error('[createProject] failed:', e);
       setError('Failed to create project. Please try again.');
       setLoading(false);
     }
@@ -395,6 +398,17 @@ const SetupPage = () => {
                         subtitle="We'll email your weekly competitor reports here."
                       />
                       <div className="space-y-5">
+                        <Field label="Your name">
+                          <input
+                            type="text"
+                            placeholder="e.g. Sarah"
+                            value={data.name}
+                            onChange={(e) => update('name', e.target.value)}
+                            className={inputCls}
+                            autoFocus
+                            autoComplete="given-name"
+                          />
+                        </Field>
                         <Field label="Work email">
                           <input
                             type="email"
@@ -402,7 +416,6 @@ const SetupPage = () => {
                             value={data.email}
                             onChange={(e) => update('email', e.target.value)}
                             className={inputCls}
-                            autoFocus
                           />
                         </Field>
                         <Field label="Password" hint="Minimum 8 characters">

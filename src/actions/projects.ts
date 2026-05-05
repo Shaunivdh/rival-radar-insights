@@ -99,13 +99,18 @@ export async function createProject(
   const invalidUrl = allUrls.find(u => !isValidUrl(u));
   if (invalidUrl) throw new Error(`Invalid website URL: ${invalidUrl}`);
 
+  console.log(`[createProject] userId=${userId} name="${name}" own="${ownBusiness.name}" competitors=${competitors.length}`);
+
   const { data: project, error: projectError } = await supabaseAdmin
     .from('projects')
     .insert({ user_id: userId, name })
     .select()
     .single();
 
-  if (projectError) throw new Error(projectError.message);
+  if (projectError) {
+    console.error(`[createProject] project insert failed userId=${userId}:`, projectError.message);
+    throw new Error(projectError.message);
+  }
 
   const normalizeEntry = <T extends { url: string; domain: string }>(b: T) => ({
     ...b,
@@ -124,11 +129,13 @@ export async function createProject(
     .select();
 
   if (bizError) {
+    console.error(`[createProject] businesses insert failed projectId=${project.id}:`, bizError.message);
     // Clean up orphaned project
     await supabaseAdmin.from('projects').delete().eq('id', project.id);
     throw new Error(bizError.message);
   }
 
+  console.log(`[createProject] created projectId=${project.id} businesses=${businesses?.length ?? 0}`);
   return rowsToProject(project, businesses);
 }
 
@@ -242,10 +249,18 @@ export async function triggerInitialScans(projectId: string): Promise<void> {
     .select('id, last_crawled_at')
     .eq('project_id', projectId);
 
-  if (!businesses?.length) return;
+  if (!businesses?.length) {
+    console.warn(`[triggerInitialScans] no businesses found for projectId=${projectId}`);
+    return;
+  }
 
   const stale = businesses.filter(b => isStale(b.last_crawled_at as string | null));
-  if (!stale.length) return;
+  if (!stale.length) {
+    console.log(`[triggerInitialScans] all businesses fresh, skipping projectId=${projectId} total=${businesses.length}`);
+    return;
+  }
+
+  console.log(`[triggerInitialScans] queuing ${stale.length}/${businesses.length} businesses for projectId=${projectId} ids=${stale.map(b => b.id).join(',')}`);
 
   await supabaseAdmin
     .from('businesses')
@@ -259,6 +274,7 @@ export async function triggerInitialScans(projectId: string): Promise<void> {
       ts: Date.now() + i * 15000, // stagger by 15s each
     }))
   );
+  console.log(`[triggerInitialScans] inngest events sent for projectId=${projectId}`);
 }
 
 export async function syncProject(projectId: string): Promise<{

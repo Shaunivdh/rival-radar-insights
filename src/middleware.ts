@@ -18,7 +18,11 @@ export async function middleware(request: NextRequest) {
     const cookie = request.cookies.get('site-unlocked')?.value ?? '';
     const expected = await signUnlockToken(process.env.SITE_PASSWORD);
     if (cookie !== expected && pathname !== '/unlock') {
+      console.log(`[middleware] site-lock: blocked path=${pathname} reason=no-valid-unlock-cookie`);
       return NextResponse.redirect(new URL('/unlock', request.url));
+    }
+    if (pathname !== '/unlock') {
+      console.log(`[middleware] site-lock: pass path=${pathname}`);
     }
   }
 
@@ -43,25 +47,36 @@ export async function middleware(request: NextRequest) {
     }
   );
 
-  const { data: { user } } = await supabase.auth.getUser();
+  const { data: { user }, error: authError } = await supabase.auth.getUser();
+
+  if (authError) {
+    console.error(`[middleware] supabase.auth.getUser error path=${pathname}:`, authError.message);
+  }
 
   const isProtected = PROTECTED.some(p => pathname.startsWith(p));
-
-  // Demo mode: unauthenticated users with the rr-demo cookie can access protected routes
   const isDemo = request.cookies.get('rr-demo')?.value === '1';
+  const isServerAction = request.headers.has('next-action');
+
+  console.log(`[middleware] path=${pathname} userId=${user?.id ?? 'none'} isProtected=${isProtected} isDemo=${isDemo} isServerAction=${isServerAction}`);
 
   if (isProtected && !user && !isDemo) {
+    console.log(`[middleware] redirect→/ reason=unauthenticated-protected path=${pathname}`);
     return NextResponse.redirect(new URL('/', request.url));
   }
 
-  if (pathname === '/' && user) {
-    const { data } = await supabase
+  if (pathname === '/' && user && !isServerAction) {
+    const { data, error: projError } = await supabase
       .from('projects')
       .select('id')
       .eq('user_id', user.id)
       .limit(1)
       .maybeSingle();
-    return NextResponse.redirect(new URL(data ? '/dashboard' : '/setup', request.url));
+    if (projError) {
+      console.error(`[middleware] projects query error userId=${user.id}:`, projError.message);
+    }
+    const dest = data ? '/dashboard' : '/setup';
+    console.log(`[middleware] redirect→${dest} userId=${user.id} hasProject=${!!data}`);
+    return NextResponse.redirect(new URL(dest, request.url));
   }
 
   return response;

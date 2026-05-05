@@ -475,7 +475,7 @@ const SignUpPage = () => {
               className="px-6"
             >
               {step === totalSteps ? (
-                loading ? 'Setting up…' : <><Check className="w-4 h-4" /> Start my free scan</>
+                loading ? 'Setting up…' : <><Check className="w-4 h-4" /> Register</>
               ) : (
                 <>Continue <ArrowRight className="w-4 h-4" /></>
               )}

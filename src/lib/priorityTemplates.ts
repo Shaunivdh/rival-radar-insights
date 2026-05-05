@@ -146,6 +146,297 @@ export const PRIORITY_TEMPLATES: PriorityTemplate[] = [
     ],
     outcome: 'Better click-through from search results',
   },
+  {
+    id: 'no_schema_markup',
+    trigger: (b) => {
+      const types = b.signals?.seo?.schemaMarkupTypes;
+      return types != null && types.length === 0;
+    },
+    category: 'Website',
+    effort: 'low',
+    estimatedImpact: 'medium',
+    timeframe: '1–2 hours',
+    action: 'Help Google understand what your business does',
+    reason: 'Your site has no structured business information for Google',
+    whyItMattersTemplate:
+      'Google uses behind-the-scenes labels on your website to understand your business type, location, and services. Without them, you miss out on rich results — things like star ratings and opening hours showing directly in search. Adding them takes less than an hour with most website builders.',
+    steps: [
+      'If you use WordPress, install the free "Schema & Structured Data for WP & AMP" plugin — it adds the labels automatically.',
+      'If you use Wix, Squarespace, or Shopify, look in your site\'s SEO settings for "Structured data" or "Schema" and enable it.',
+      'At minimum, add your business name, address, phone number, opening hours, and business type.',
+      'Test it using Google\'s Rich Results Test (search for it) to confirm Google can read it.',
+    ],
+    outcome: 'Richer appearance in Google search results',
+  },
+  {
+    id: 'low_gbp_photos',
+    trigger: (b) => {
+      const photos = b.googleData?.photos;
+      return photos != null && photos < 5;
+    },
+    category: 'Local SEO',
+    effort: 'low',
+    estimatedImpact: 'medium',
+    timeframe: '1–2 hours',
+    action: 'Add more photos to your Google listing',
+    reason: 'Your Google listing has fewer than 5 photos',
+    whyItMattersTemplate:
+      'Listings with more photos get significantly more clicks and calls. When someone is choosing between two similar businesses, photos are often the deciding factor — they show you are real, active, and trustworthy. A few good photos can make your listing stand out in the map results.',
+    steps: [
+      'Go to business.google.com and click "Add photos".',
+      'Upload at least 5–10 photos: your shopfront or premises, your team at work, finished jobs or products, and any before/after shots.',
+      'Use your phone — the photos do not need to be professional, just clear and recent.',
+      'Add a new photo every month or two to keep your listing looking active.',
+    ],
+    outcome: 'More clicks and calls from your Google listing',
+  },
+  {
+    id: 'missing_alt_tags',
+    trigger: (b) => b.signals?.seo?.altTagCoverage === 'none',
+    category: 'Website',
+    effort: 'low',
+    estimatedImpact: 'medium',
+    timeframe: '1–2 hours',
+    action: 'Add descriptions to your website images',
+    reason: 'Your website images have no text descriptions',
+    whyItMattersTemplate:
+      'Search engines cannot see images — they read the text description attached to each one. Without descriptions, your images are invisible to Google, which means you are missing out on image search traffic and making your site harder to rank. Adding them takes a few minutes per image.',
+    steps: [
+      'In your website editor, click on each image and look for an "Alt text" or "Image description" field.',
+      'Write a short description of what is in the photo — for example "Bathroom renovation completed in Manchester" rather than just "photo1".',
+      'Include your service and location naturally where it makes sense.',
+      'Work through your homepage images first, then your services pages.',
+    ],
+    outcome: 'More visibility in Google image search',
+  },
+  {
+    id: 'no_contact_form',
+    trigger: (b) => b.signals?.engagement?.hasContactForm === false,
+    category: 'Conversion',
+    effort: 'low',
+    estimatedImpact: 'high',
+    timeframe: '1–2 hours',
+    action: 'Add a contact form to your website',
+    reason: 'Your website has no contact form',
+    whyItMattersTemplate:
+      'Not everyone wants to call — especially outside business hours. A contact form lets people reach you on their terms, which means you capture enquiries that would otherwise go to a competitor. It also makes you look more professional and established.',
+    steps: [
+      'Add a contact form to your website using your builder\'s built-in form tool (all major builders have one).',
+      'Keep it short: name, phone number or email, and a message field.',
+      'Make sure form submissions send to an email you check regularly.',
+      'Add a note like "We reply within 24 hours" to set expectations and encourage more people to submit.',
+    ],
+    outcome: 'Capture more enquiries, especially out of hours',
+  },
+  {
+    id: 'no_services_listed',
+    trigger: (b) => {
+      const services = b.signals?.content?.servicesListed;
+      return services != null && services.length === 0;
+    },
+    category: 'Website',
+    effort: 'low',
+    estimatedImpact: 'high',
+    timeframe: '1–2 hours',
+    action: 'List your services clearly on your website',
+    reason: 'Your website does not clearly list what you offer',
+    whyItMattersTemplate:
+      'When someone lands on your site, they need to immediately see whether you do what they need. If your services are not listed clearly, visitors leave — and so does your Google ranking, since search engines also read service lists to understand what to rank you for.',
+    steps: [
+      'Create a dedicated "Services" page or section on your homepage.',
+      'List each service with a short description (2–3 sentences) explaining what it includes and who it is for.',
+      'Include your main service terms naturally — for example "Emergency boiler repair" not just "Heating".',
+      'If you offer multiple services, give each its own section or sub-page.',
+    ],
+    outcome: 'More qualified visitors and better Google rankings',
+  },
+  {
+    id: 'no_service_areas',
+    trigger: (b) => {
+      const areas = b.signals?.content?.serviceAreasMentioned;
+      return areas != null && areas.length === 0;
+    },
+    category: 'Local SEO',
+    effort: 'low',
+    estimatedImpact: 'medium',
+    timeframe: '30–60 minutes',
+    action: 'Tell Google and visitors where you work',
+    reason: 'Your website does not mention your service area',
+    whyItMattersTemplate:
+      'Google needs to see location references on your site to rank you for local searches. If your site never mentions the towns or areas you cover, you are unlikely to show up when people nearby search for what you do. Adding a clear service area section is one of the fastest local SEO wins available.',
+    steps: [
+      'Add a short "Areas we cover" section to your homepage or contact page.',
+      'List the towns, cities, or postcodes you serve — be specific.',
+      'Mention your location naturally in your homepage headline or introduction too.',
+      'If you cover a wide area, consider creating a short page for each main town you serve.',
+    ],
+    outcome: 'Appear in more local searches across your coverage area',
+  },
+  {
+    id: 'no_faq',
+    trigger: (b) => b.signals?.content?.hasFAQ === false,
+    category: 'Website',
+    effort: 'medium',
+    estimatedImpact: 'medium',
+    timeframe: '2–3 hours',
+    action: 'Add a FAQ section to your website',
+    reason: 'Your website has no FAQ section',
+    whyItMattersTemplate:
+      'People searching for your services often have the same questions before they call — price ranges, what is included, how to book. A FAQ section answers these upfront, builds trust, and keeps visitors on your site longer. Google also picks up FAQ content for direct answers in search results.',
+    steps: [
+      'Write down the 5–8 questions you get asked most often by new customers.',
+      'Answer each one in 2–4 plain sentences.',
+      'Add the FAQ to your homepage or a dedicated page — most website builders have a FAQ block.',
+      'Include questions about pricing, what areas you cover, your process, and any guarantees you offer.',
+    ],
+    outcome: 'More confident enquiries and better search visibility',
+  },
+  {
+    id: 'no_team_page',
+    trigger: (b) => b.signals?.trust?.teamPageExists === false,
+    category: 'Trust',
+    effort: 'medium',
+    estimatedImpact: 'medium',
+    timeframe: '2–4 hours',
+    action: 'Add an About or Team page to your website',
+    reason: 'Your website has no About or Team page',
+    whyItMattersTemplate:
+      'People hire people, not companies. An About page showing who is behind the business — even just a photo and a few sentences — builds the kind of trust that turns a browsing visitor into a paying customer. It is especially important for service businesses where someone is inviting you into their home or handing over an important job.',
+    steps: [
+      'Create a simple "About us" page with a photo of yourself or your team.',
+      'Write 2–3 paragraphs: who you are, how long you have been doing this, and why you started the business.',
+      'Mention any qualifications, accreditations, or notable experience.',
+      'Add a short personal note about your values or approach — customers respond to authenticity.',
+    ],
+    outcome: 'More trust, more enquiries from website visitors',
+  },
+  {
+    id: 'no_review_links',
+    trigger: (b) => {
+      const platforms = b.signals?.trust?.reviewPlatformsLinked;
+      return platforms != null && platforms.length === 0;
+    },
+    category: 'Reviews',
+    effort: 'low',
+    estimatedImpact: 'medium',
+    timeframe: '30 minutes',
+    action: 'Link to your reviews from your website',
+    reason: 'Your website does not link to any review platforms',
+    whyItMattersTemplate:
+      'If you have good reviews, make sure visitors can see them. Linking to your Google or Trustpilot profile from your website reassures people who are on the fence — and signals confidence. A simple "See our reviews on Google" badge or link can be the final nudge that gets someone to call.',
+    steps: [
+      'Find your Google Business review link (go to business.google.com → share review form).',
+      'Add a "Read our Google reviews" button or link to your homepage or contact page.',
+      'If you have reviews on other platforms (Trustpilot, Facebook, Checkatrade), link to those too.',
+      'Consider adding a widget that shows your star rating directly on the page.',
+    ],
+    outcome: 'Turn website visitors into enquiries faster',
+  },
+  {
+    id: 'not_in_local_pack',
+    trigger: (b) => b.serpData?.localPackPresent === false,
+    category: 'Local SEO',
+    effort: 'high',
+    estimatedImpact: 'high',
+    timeframe: '4–8 weeks',
+    action: 'Get your business into the Google map results',
+    reason: 'Your business is not showing in Google\'s map section',
+    whyItMattersTemplate:
+      'The map section at the top of Google search results (the box showing three businesses with a map) gets the majority of clicks for local searches. If you are not there, most people searching for what you do nearby will never find you. Getting into this section is the single biggest lever for local visibility.',
+    steps: [
+      'Make sure your Google Business Profile is fully complete — hours, description, photos, and services.',
+      'Ensure your business name, address, and phone number are identical on your website and Google profile.',
+      'Ask recent customers for Google reviews — review count and recency are key ranking signals.',
+      'Add your location and service area to your website content, not just your Google profile.',
+      'If you have not already, submit your site to Google Search Console so Google can crawl it properly.',
+    ],
+    outcome: 'Appear in the map results for local searches',
+  },
+  {
+    id: 'low_review_count',
+    trigger: (b) => {
+      const count = b.googleData?.reviewCount ?? 0;
+      return count < 10;
+    },
+    category: 'Reviews',
+    effort: 'medium',
+    estimatedImpact: 'high',
+    timeframe: '2–4 weeks',
+    action: 'Build up your Google review count',
+    reason: 'You have fewer than 10 Google reviews',
+    whyItMattersTemplate:
+      'With fewer than 10 reviews, many potential customers will hesitate — a small number of reviews feels unproven. Google also uses review count as a ranking signal for local searches. Getting to 15–20 reviews puts you on solid footing and makes your listing look established.',
+    steps: [
+      'Message your last 10 satisfied customers directly and ask them to leave a Google review — include your review link.',
+      'Add a "Leave us a review" link to your email footer and any invoices or receipts you send.',
+      'After completing a job, ask in person — "Would you mind leaving us a quick Google review? It really helps us out."',
+      'Set a goal of getting 2–3 new reviews per month and track it.',
+    ],
+    outcome: 'A review profile that builds instant trust',
+  },
+  {
+    id: 'slow_mobile_site',
+    trigger: (b) => {
+      const score = b.pagespeedData?.mobile?.performanceScore;
+      return score != null && score < 50;
+    },
+    category: 'Website',
+    effort: 'high',
+    estimatedImpact: 'high',
+    timeframe: '1–2 weeks',
+    action: 'Speed up your website on mobile',
+    reason: 'Your website loads slowly on mobile phones',
+    whyItMattersTemplate:
+      'More than half of local searches happen on mobile. If your site takes more than 3 seconds to load, most visitors will leave before seeing anything. A slow site also ranks lower in Google search results. Improving your site speed is one of the few actions that directly affects both visitors and your Google ranking at the same time.',
+    steps: [
+      'Run your site through Google PageSpeed Insights (free, search for it) to see the specific issues.',
+      'The most common fixes are: compressing large images, removing unused plugins, and enabling caching — your web developer or hosting provider can do this quickly.',
+      'If you use WordPress, install a caching plugin like WP Rocket or W3 Total Cache.',
+      'Consider upgrading your hosting plan if your current plan is a basic shared package.',
+    ],
+    outcome: 'Faster site that keeps visitors and ranks better',
+  },
+  {
+    id: 'low_ai_visibility',
+    trigger: (b) => {
+      const score = b.aiVisibility?.aiPresenceScore;
+      return score != null && score < 30;
+    },
+    category: 'AI Visibility',
+    effort: 'medium',
+    estimatedImpact: 'medium',
+    timeframe: '4–8 weeks',
+    action: 'Get your business mentioned by AI assistants',
+    reason: 'Your business rarely shows up when AI tools recommend local services',
+    whyItMattersTemplate:
+      'More and more people are asking AI tools like ChatGPT and Google\'s AI to recommend local businesses. If your name is not coming up, you are missing a growing source of referrals. AI tools tend to recommend businesses with strong Google profiles, plenty of reviews, and clear information online — improving these gives you a better chance of being named.',
+    steps: [
+      'Make sure your Google Business Profile is complete with a detailed description, all services listed, and recent photos.',
+      'Build up your Google reviews — businesses with more reviews are more likely to be referenced by AI tools.',
+      'Ensure your website clearly states your business name, location, and the specific services you offer.',
+      'If you have been featured in any local news, directories, or industry sites, ask them to include a link to your website.',
+    ],
+    outcome: 'Get recommended by AI tools searching for local services',
+  },
+  {
+    id: 'no_cta',
+    trigger: (b) => b.signals?.engagement?.hasCallToAction === false,
+    category: 'Conversion',
+    effort: 'low',
+    estimatedImpact: 'high',
+    timeframe: '1–2 hours',
+    action: 'Add a clear "next step" button to your homepage',
+    reason: 'Your homepage has no clear action for visitors to take',
+    whyItMattersTemplate:
+      'When someone lands on your site interested in what you do, they need to be told what to do next. Without a clear button or prompt — "Call us", "Get a free quote", "Book online" — many people simply leave. A single prominent action button is one of the easiest ways to turn more visitors into enquiries.',
+    steps: [
+      'Decide on the single most valuable action a visitor can take: calling you, filling in a form, or booking online.',
+      'Add a prominent button near the top of your homepage with a clear label — "Get a free quote" or "Call us today".',
+      'Make the button a contrasting colour so it stands out from the rest of the page.',
+      'Repeat the button lower on the page too — not everyone reads from top to bottom.',
+    ],
+    outcome: 'More calls and enquiries from the same number of visitors',
+  },
 ];
 
 export type ApplyResult = { actions: PriorityAction[]; firedIds: string[] };

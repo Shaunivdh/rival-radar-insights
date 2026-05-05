@@ -19,7 +19,7 @@ export const PriorityActionsPanel = () => {
         <p className="text-xs text-muted-foreground mt-0.5">A few friendly suggestions, ordered by impact</p>
       </div>
       <div className="space-y-2 flex-1">
-        {priorityActions.slice(0, 5).map((action, i) => {
+        {priorityActions.slice(0, 15).map((action, i) => {
           const cfg = IMPACT[action.estimatedImpact] ?? IMPACT.low;
           return (
             <div key={i} className="flex items-start gap-3 p-3 rounded-xl border border-border hover:bg-muted/40 transition-colors cursor-pointer group">

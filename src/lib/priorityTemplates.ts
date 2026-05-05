@@ -165,8 +165,10 @@ export function applyTemplates(b: Business): ApplyResult {
 
     firedIds.push(tpl.id);
 
-    if (actions.length < 3) {
+    if (actions.length < 5) {
       actions.push({
+        id: '',
+        status: 'active',
         priority: (actions.length + 1) as PriorityAction['priority'],
         category: tpl.category,
         effort: tpl.effort,
@@ -212,7 +214,7 @@ export function applyTemplatesWithHistory(
 
     firedIds.push(tpl.id);
 
-    if (actions.length < 3) {
+    if (actions.length < 5) {
       // Check if this template was also present last week
       const actionLower = tpl.action.toLowerCase();
       const wasPresent = previousActions.some(
@@ -223,6 +225,8 @@ export function applyTemplatesWithHistory(
       );
 
       actions.push({
+        id: '',
+        status: 'active',
         priority: (actions.length + 1) as PriorityAction['priority'],
         category: tpl.category,
         effort: tpl.effort,

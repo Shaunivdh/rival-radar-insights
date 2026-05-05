@@ -150,14 +150,14 @@ export async function generatePriorityActions(own: Business, competitors: Busine
   const { actions: templateActions, firedIds } = applyTemplates(own);
   const templatesUsed = templateActions.length;
 
-  if (templatesUsed >= 3) {
-    console.log('[priority] 3 templates fired, skipping LLM');
+  if (templatesUsed >= 5) {
+    console.log('[priority] 5 templates fired, skipping LLM');
     logAIEvent({ event: 'generation', model: AI_MODEL_FAST, success: true, durationMs: 0, serviceCategory, templatesUsed, templatesFired: firedIds });
-    return await validateActionsHybrid(templateActions.slice(0, 3), own, competitors);
+    return await validateActionsHybrid(templateActions.slice(0, 5), own, competitors);
   }
 
   // ── Build LLM prompt for remaining slots ────────────────────────────
-  const remainingSlots = 3 - templatesUsed;
+  const remainingSlots = 5 - templatesUsed;
 
   const catConfig = serviceCategory ? SERVICE_CATEGORIES[serviceCategory] : null;
   const industryFocus = catConfig
@@ -210,10 +210,11 @@ DATA INTEGRITY RULES (critical — violations break user trust):
 - Re-read the own business signals before finalising each action. If the gap you're describing doesn't exist in the data, pick a different gap.
 
 PRIORITISATION RULES:
-- Return exactly ${remainingSlots} action${remainingSlots > 1 ? 's' : ''}, not more. ${remainingSlots < 3 ? `(${templatesUsed} slot${templatesUsed > 1 ? 's are' : ' is'} already filled by automatic checks.)` : 'Three forces real prioritisation.'}
+- Return exactly ${remainingSlots} action${remainingSlots > 1 ? 's' : ''}, not more. ${remainingSlots < 5 ? `(${templatesUsed} slot${templatesUsed > 1 ? 's are' : ' is'} already filled by automatic checks.)` : 'Five forces real prioritisation.'}
 - Only include an action if it reflects a genuine gap. If the business is already strong in a category (score ≥ 85 and no specific deficit in the data), do not invent a problem there.
-- Do not include "low impact" actions in the top 3. Every action must have estimatedImpact of "high" or "medium".
+- Do not include "low impact" actions in the top 5. Every action must have estimatedImpact of "high" or "medium".
 - Each action must address a genuinely different gap — no two from the same root cause or category unless the gaps are clearly distinct.
+- Effort distribution across the ${remainingSlots} actions: exactly 2 'low', 2 'medium', 1 'high' (adjust if templates already cover some slots).
 
 Field rules:
 - action: conversational headline describing the gap in plain English, max 10 words
@@ -241,9 +242,9 @@ Competitors: ${JSON.stringify(competitors.map(b => summariseBiz(b, false)))}`;
   try {
     const llmActions = await generateWithDistributionCheck(prompt, own.aiScore, 'generatePriorityActions', maxTokens);
 
-    // Combine: templates first, then LLM actions, renumber 1–3
+    // Combine: templates first, then LLM actions, renumber 1–5
     const combined = [...templateActions, ...llmActions.slice(0, remainingSlots).map(a => ({ ...a, _source: 'llm' as const }))]
-      .slice(0, 3)
+      .slice(0, 5)
       .map((a, i) => ({ ...a, priority: (i + 1) as PriorityAction['priority'] }));
 
     logAIEvent({ event: 'generation', model: AI_MODEL_FAST, success: true, durationMs: Date.now() - t0, serviceCategory, templatesUsed, templatesFired: firedIds });
@@ -298,10 +299,10 @@ export function checkCategoryDistribution(
   return { overrepresented, shouldRegenerate: overrepresented.length > 0 };
 }
 
-function sortTop3(raw: PriorityAction[]): PriorityAction[] {
+function sortTop5(raw: PriorityAction[]): PriorityAction[] {
   return raw
     .sort((a, b) => a.priority - b.priority)
-    .slice(0, 3)
+    .slice(0, 5)
     .map((action, i) => ({ ...action, priority: (i + 1) as PriorityAction['priority'] }));
 }
 
@@ -315,7 +316,7 @@ async function generateWithDistributionCheck(
   label: string,
   maxTokens = 2500
 ): Promise<PriorityAction[]> {
-  let sorted = sortTop3(await askClaude<PriorityAction[]>(prompt, maxTokens));
+  let sorted = sortTop5(await askClaude<PriorityAction[]>(prompt, maxTokens));
 
   const dist = checkCategoryDistribution(sorted, ownScores);
   if (dist.shouldRegenerate) {
@@ -330,7 +331,7 @@ async function generateWithDistributionCheck(
     console.log(`[${label}] over-represented categories detected (${dist.overrepresented.join(', ')}), regenerating once`);
 
     const retryPrompt = prompt + `\n\nPREVIOUS ATTEMPT DUPLICATE: Your last attempt returned ${dupeNote}. Pick at least 2 different categories for the 3 actions.`;
-    sorted = sortTop3(await askClaude<PriorityAction[]>(retryPrompt, maxTokens));
+    sorted = sortTop5(await askClaude<PriorityAction[]>(retryPrompt, maxTokens));
 
     const retryDist = checkCategoryDistribution(sorted, ownScores);
     if (retryDist.shouldRegenerate) {
@@ -596,8 +597,8 @@ export async function generatePriorityActionsWithHistory(
   const { actions: templateActions, firedIds: firedIds2, closedFromLastWeek } = applyTemplatesWithHistory(own, previousActions);
   const templatesUsed = templateActions.length;
 
-  if (templatesUsed >= 3) {
-    console.log('[priority] 3 templates fired, skipping LLM (with-history)');
+  if (templatesUsed >= 5) {
+    console.log('[priority] 5 templates fired, skipping LLM (with-history)');
     // If there are closed items from last week, acknowledge in first template's whyItMatters
     if (closedFromLastWeek.length > 0) {
       const win = closedFromLastWeek[0];
@@ -607,10 +608,10 @@ export async function generatePriorityActionsWithHistory(
       };
     }
     logAIEvent({ event: 'generation', model: AI_MODEL_FAST, success: true, durationMs: 0, serviceCategory, templatesUsed, templatesFired: firedIds2 });
-    return await validateActionsHybrid(templateActions.slice(0, 3), own, competitors);
+    return await validateActionsHybrid(templateActions.slice(0, 5), own, competitors);
   }
 
-  const remainingSlots = 3 - templatesUsed;
+  const remainingSlots = 5 - templatesUsed;
 
   const catConfig = serviceCategory ? SERVICE_CATEGORIES[serviceCategory] : null;
   const industryFocus = catConfig
@@ -669,7 +670,7 @@ INTERNAL COHERENCE CHECK (do this before returning):
 - Read each whyItMatters as a paragraph. If two sentences within it appear to contradict (e.g. "score is 0" and "completeness is 85%"), explain the relationship in plain words rather than presenting them as competing facts. If you cannot reconcile them, drop the conflicting reference.
 - If competitorReference does not name a specific competitor doing a specific thing better, set it to null. Do not pad it with generic tips.
 
-Return exactly ${remainingSlots} action${remainingSlots > 1 ? 's' : ''}. Every action must have estimatedImpact "high" or "medium".${templatesUsed > 0 ? ` (${templatesUsed} slot${templatesUsed > 1 ? 's are' : ' is'} already filled by automatic checks.)` : ''}
+Return exactly ${remainingSlots} action${remainingSlots > 1 ? 's' : ''}. Every action must have estimatedImpact "high" or "medium". Effort distribution across these ${remainingSlots} actions: 2 'low', 2 'medium', 1 'high' (adjust proportionally if fewer than 5 slots remain).${templatesUsed > 0 ? ` (${templatesUsed} slot${templatesUsed > 1 ? 's are' : ' is'} already filled by automatic checks.)` : ''}
 
 Previous week's actions: ${JSON.stringify(previousActions.map(a => ({ action: a.action, category: a.category, reason: a.reason })))}
 
@@ -690,9 +691,9 @@ Competitors: ${JSON.stringify(competitors.map(b => summariseBiz(b, false)))}`;
   try {
     const sorted = await generateWithDistributionCheck(prompt, own.aiScore, 'generatePriorityActionsWithHistory', maxTokens);
 
-    // Combine: templates first, then LLM actions, renumber 1–3
+    // Combine: templates first, then LLM actions, renumber 1–5
     const combined = [...templateActions, ...sorted.slice(0, remainingSlots).map(a => ({ ...a, _source: 'llm' as const }))]
-      .slice(0, 3)
+      .slice(0, 5)
       .map((a, i) => ({ ...a, priority: (i + 1) as PriorityAction['priority'] }));
 
     logAIEvent({ event: 'generation', model: AI_MODEL_FAST, success: true, durationMs: Date.now() - t0, serviceCategory, templatesUsed, templatesFired: firedIds2 });

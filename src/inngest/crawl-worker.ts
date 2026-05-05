@@ -18,8 +18,25 @@ import { diffSignals } from '@/services/diff';
 import { updateBusiness, saveChangeEvent } from '@/actions/projects';
 import { normalizeUrl } from '@/lib/url';
 import { saveScoreSnapshot, getWeeklyDelta } from '@/lib/supabase/scores';
-import type { ExtractedSignals, Business, ChangeEvent, AIHealthScore, AIVisibility, SerpData, PageSpeedData } from '@/types';
+import type { ExtractedSignals, Business, ChangeEvent, AIHealthScore, AIVisibility, SerpData, PageSpeedData, PriorityAction } from '@/types';
 import type { ServiceCategory } from '@/lib/serviceCategories';
+
+/**
+ * Enforce effort distribution across a batch of 5 actions: 2 low, 2 medium, 1 high.
+ * Sorts by estimatedImpact desc then assigns efforts: high → medium → medium → low → low.
+ * Preserves original priority ordering in the output.
+ */
+function enforceEffortDistribution(actions: PriorityAction[]): PriorityAction[] {
+  if (actions.length !== 5) return actions;
+  const tally = actions.reduce((acc, a) => { acc[a.effort] = (acc[a.effort] ?? 0) + 1; return acc; }, {} as Record<string, number>);
+  if (tally.low === 2 && tally.medium === 2 && tally.high === 1) return actions;
+
+  const impactOrder = { high: 0, medium: 1, low: 2 } as Record<string, number>;
+  const byImpact = [...actions].sort((a, b) => impactOrder[a.estimatedImpact] - impactOrder[b.estimatedImpact]);
+  const effortMap: PriorityAction['effort'][] = ['high', 'medium', 'medium', 'low', 'low'];
+  const adjusted = byImpact.map((a, i) => ({ ...a, effort: effortMap[i] }));
+  return adjusted.sort((a, b) => a.priority - b.priority);
+}
 
 const MAX_POLL_ATTEMPTS = 120;
 const POLL_INTERVAL = '5s';
@@ -642,7 +659,7 @@ export const crawlBusinessFunction = inngest.createFunction(
       });
 
       try {
-        const actions = await generatePriorityActions(
+        const rawActions = await generatePriorityActions(
           toPartialBiz(ownRaw),
           withSignals.filter((b) => !b.isOwn).map((b) => toPartialBiz(b)),
           meta.primaryService as ServiceCategory
@@ -650,12 +667,24 @@ export const crawlBusinessFunction = inngest.createFunction(
 
         await clearEnrichmentError(ownRaw.id, 'ai_actions');
 
-        if (!actions.length) return;
+        if (!rawActions.length) return;
+
+        const actions = enforceEffortDistribution(rawActions);
+
+        // Count current active + snoozed to determine how many slots are open
+        const { count: activeCount } = await supabaseAdmin
+          .from('priority_actions')
+          .select('id', { count: 'exact', head: true })
+          .eq('project_id', meta.projectId)
+          .in('status', ['active', 'snoozed']);
+
+        const openSlots = Math.max(0, 15 - (activeCount ?? 0));
 
         await supabaseAdmin.from('priority_actions').insert(
-          actions.map((a) => ({
+          actions.map((a, i) => ({
             project_id: meta.projectId,
             priority: a.priority,
+            status: i < openSlots ? 'active' : 'queued',
             category: a.category,
             action: a.action,
             reason: a.reason,

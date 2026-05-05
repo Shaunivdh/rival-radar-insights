@@ -140,6 +140,8 @@ function llmResponse(json: unknown) {
 function cannedLLMActions(count: number): PriorityAction[] {
   const pool: PriorityAction[] = [
     {
+      id: '',
+      status: 'active',
       priority: 1,
       category: 'AI Visibility',
       effort: 'medium',
@@ -153,6 +155,8 @@ function cannedLLMActions(count: number): PriorityAction[] {
       timeframe: '2-4 weeks',
     },
     {
+      id: '',
+      status: 'active',
       priority: 2,
       category: 'Reviews',
       effort: 'low',
@@ -166,6 +170,8 @@ function cannedLLMActions(count: number): PriorityAction[] {
       timeframe: '1-2 weeks',
     },
     {
+      id: '',
+      status: 'active',
       priority: 3,
       category: 'Conversion',
       effort: 'low',
@@ -319,6 +325,8 @@ describe('Priority action pipeline (integration)', () => {
 
     const previousActions: PriorityAction[] = [
       {
+        id: '',
+        status: 'active',
         priority: 1,
         category: 'Conversion',
         effort: 'low',
@@ -332,6 +340,8 @@ describe('Priority action pipeline (integration)', () => {
         timeframe: '1 day',
       },
       {
+        id: '',
+        status: 'active',
         priority: 2,
         category: 'Reviews',
         effort: 'low',
@@ -345,6 +355,8 @@ describe('Priority action pipeline (integration)', () => {
         timeframe: '1 week',
       },
       {
+        id: '',
+        status: 'active',
         priority: 3,
         category: 'Website',
         effort: 'medium',

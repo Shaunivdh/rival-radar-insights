@@ -356,27 +356,13 @@ export async function syncProject(projectId: string): Promise<{
       .from('priority_actions')
       .select('*')
       .eq('project_id', projectId)
+      .in('status', ['active', 'snoozed'])
       .order('generated_at', { ascending: false })
-      .limit(10);
+      .order('priority', { ascending: true })
+      .limit(15);
 
     if (actions?.length) {
-      // De-duplicate: keep only the most recent action per priority slot
-      const seen = new Set<number>();
-      priorityActions = actions
-        .filter(r => { if (seen.has(r.priority)) return false; seen.add(r.priority); return true; })
-        .map(r => ({
-          priority: r.priority as PriorityAction['priority'],
-          category: r.category,
-          action: r.action,
-          reason: r.reason,
-          whyItMatters: r.why_it_matters ?? '',
-          steps: (r.steps as string[]) ?? [],
-          effort: (r.effort ?? 'medium') as PriorityAction['effort'],
-          outcome: r.outcome ?? '',
-          competitorReference: r.competitor_reference ?? null,
-          estimatedImpact: r.estimated_impact as PriorityAction['estimatedImpact'],
-          timeframe: r.timeframe,
-        }));
+      priorityActions = actions.map(mapPriorityActionRow);
     }
   }
 
@@ -456,32 +442,94 @@ export async function addCompetitor(
   return mapBusiness({ ...row, crawl_status: 'pending' });
 }
 
+// ── Shared row mapper ─────────────────────────────────────────────────────────
+
+function mapPriorityActionRow(r: Record<string, unknown>): PriorityAction {
+  return {
+    id: r.id as string,
+    priority: r.priority as PriorityAction['priority'],
+    status: (r.status as PriorityAction['status']) ?? 'active',
+    category: r.category as string,
+    action: r.action as string,
+    reason: r.reason as string,
+    whyItMatters: (r.why_it_matters as string) ?? '',
+    steps: (r.steps as string[]) ?? [],
+    effort: ((r.effort as string) ?? 'medium') as PriorityAction['effort'],
+    outcome: (r.outcome as string) ?? '',
+    competitorReference: (r.competitor_reference as string | null) ?? null,
+    estimatedImpact: r.estimated_impact as PriorityAction['estimatedImpact'],
+    timeframe: r.timeframe as string,
+    note: (r.note as string | null) ?? null,
+    actionedAt: (r.actioned_at as string | null) ?? null,
+  };
+}
+
 export async function fetchPriorityActions(projectId: string): Promise<PriorityAction[]> {
   const { data: actions } = await supabaseAdmin
     .from('priority_actions')
     .select('*')
     .eq('project_id', projectId)
+    .in('status', ['active', 'snoozed'])
     .order('generated_at', { ascending: false })
-    .limit(10);
+    .order('priority', { ascending: true })
+    .limit(15);
 
-  if (!actions?.length) return [];
+  return (actions ?? []).map(mapPriorityActionRow);
+}
 
-  const seen = new Set<number>();
-  return actions
-    .filter(r => { if (seen.has(r.priority)) return false; seen.add(r.priority); return true; })
-    .map(r => ({
-      priority: r.priority as PriorityAction['priority'],
-      category: r.category,
-      action: r.action,
-      reason: r.reason,
-      whyItMatters: r.why_it_matters ?? '',
-      steps: (r.steps as string[]) ?? [],
-      effort: (r.effort ?? 'medium') as PriorityAction['effort'],
-      outcome: r.outcome ?? '',
-      competitorReference: r.competitor_reference ?? null,
-      estimatedImpact: r.estimated_impact as PriorityAction['estimatedImpact'],
-      timeframe: r.timeframe,
-    }));
+// ── Action status management ───────────────────────────────────────────────────
+
+async function promoteQueuedActions(projectId: string): Promise<void> {
+  // Count current active + snoozed
+  const { count } = await supabaseAdmin
+    .from('priority_actions')
+    .select('id', { count: 'exact', head: true })
+    .eq('project_id', projectId)
+    .in('status', ['active', 'snoozed']);
+
+  const slots = Math.max(0, 15 - (count ?? 0));
+  if (slots === 0) return;
+
+  // Fetch oldest queued actions to promote
+  const { data: queued } = await supabaseAdmin
+    .from('priority_actions')
+    .select('id')
+    .eq('project_id', projectId)
+    .eq('status', 'queued')
+    .order('generated_at', { ascending: true })
+    .order('priority', { ascending: true })
+    .limit(slots);
+
+  if (!queued?.length) return;
+
+  await supabaseAdmin
+    .from('priority_actions')
+    .update({ status: 'active' })
+    .in('id', queued.map(q => q.id));
+}
+
+export async function updateActionStatus(
+  actionId: string,
+  projectId: string,
+  status: 'active' | 'snoozed' | 'completed',
+  note?: string,
+): Promise<PriorityAction[]> {
+  await supabaseAdmin
+    .from('priority_actions')
+    .update({
+      status,
+      note: note ?? null,
+      actioned_at: status !== 'active' ? new Date().toISOString() : null,
+    })
+    .eq('id', actionId)
+    .eq('project_id', projectId);
+
+  // When completing, open a slot for queued actions
+  if (status === 'completed') {
+    await promoteQueuedActions(projectId);
+  }
+
+  return fetchPriorityActions(projectId);
 }
 
 export async function listProjects(userId: string): Promise<Project[]> {

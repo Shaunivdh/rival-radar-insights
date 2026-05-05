@@ -3,7 +3,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useRivalRadarStore } from '@/store/rivalradar';
-import { fetchPriorityActions } from '@/actions/projects';
+import { fetchPriorityActions, updateActionStatus } from '@/actions/projects';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -22,6 +22,10 @@ type VerificationState = 'pending' | 'verified' | 'not-verified';
 
 type Recommendation = {
   id: string;
+  dbId: string;
+  dbStatus: 'active' | 'snoozed' | 'completed';
+  dbNote: string | null;
+  dbActionedAt: string | null;
   priority: Priority;
   category: string;
   categoryIcon: React.ElementType;
@@ -62,9 +66,13 @@ function toPriorityBucket(action: PriorityAction): Priority {
   return 'medium';
 }
 
-function mapAction(action: PriorityAction, index: number): Recommendation {
+function mapAction(action: PriorityAction): Recommendation {
   return {
-    id: `action-${index}`,
+    id: action.id,
+    dbId: action.id,
+    dbStatus: (action.status === 'queued' ? 'active' : action.status) as 'active' | 'snoozed' | 'completed',
+    dbNote: action.note ?? null,
+    dbActionedAt: action.actionedAt ?? null,
     priority: toPriorityBucket(action),
     category: action.category,
     categoryIcon: CATEGORY_ICONS[action.category] ?? Lightbulb,
@@ -142,8 +150,8 @@ const RecommendationCard = ({
   const [expanded, setExpanded] = useState(false);
   const [showNote, setShowNote] = useState(false);
   const [note, setNote] = useState('');
-  const isDone = !!status?.done;
-  const isDismissed = !!status?.dismissed;
+  const isDone = rec.dbStatus === 'completed' || !!status?.done;
+  const isDismissed = rec.dbStatus === 'snoozed' || !!status?.dismissed;
 
   const handleQuickDone = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -173,7 +181,7 @@ const RecommendationCard = ({
               <div className="flex items-center gap-2 flex-wrap">
                 <rec.categoryIcon className="w-4 h-4 text-primary shrink-0" />
                 <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{rec.category}</span>
-                {isDone && <VerificationBadge state={status!.verification} />}
+                {isDone && <VerificationBadge state={status?.verification ?? 'pending'} />}
                 {isDismissed && (
                   <Badge variant="outline" className="text-[11px] bg-muted text-muted-foreground border-border gap-1">
                     <EyeOff className="w-3 h-3" /> Snoozed
@@ -219,30 +227,30 @@ const RecommendationCard = ({
                   <div className="flex items-start gap-2 p-3 rounded-lg bg-muted/50 text-sm text-muted-foreground">
                     <EyeOff className="w-4 h-4 shrink-0 mt-0.5" />
                     <p className="leading-relaxed">
-                      You marked this as not a priority {formatDoneAt(status!.dismissedAt)}. We'll keep monitoring and flag it again if it gets worse.
+                      You marked this as not a priority {formatDoneAt(status?.dismissedAt ?? rec.dbActionedAt ?? undefined)}. We'll keep monitoring and flag it again if it gets worse.
                     </p>
                   </div>
                 )}
                 {isDone && (
                   <div className={`flex items-start gap-2 p-3 rounded-lg text-sm ${
-                    status!.verification === 'verified'
+                    (status?.verification ?? 'pending') === 'verified'
                       ? 'bg-green-50 text-green-800'
-                      : status!.verification === 'not-verified'
+                      : (status?.verification ?? 'pending') === 'not-verified'
                       ? 'bg-amber-50 text-amber-800'
                       : 'bg-muted/50 text-muted-foreground'
                   }`}>
-                    {status!.verification === 'verified' && <CheckCircle2 className="w-4 h-4 shrink-0 mt-0.5" />}
-                    {status!.verification === 'not-verified' && <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />}
-                    {status!.verification === 'pending' && <Hourglass className="w-4 h-4 shrink-0 mt-0.5" />}
+                    {(status?.verification ?? 'pending') === 'verified' && <CheckCircle2 className="w-4 h-4 shrink-0 mt-0.5" />}
+                    {(status?.verification ?? 'pending') === 'not-verified' && <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />}
+                    {(status?.verification ?? 'pending') === 'pending' && <Hourglass className="w-4 h-4 shrink-0 mt-0.5" />}
                     <p className="leading-relaxed">
-                      {status!.verification === 'verified' && <>Our latest scan confirms this is sorted. Marked done {formatDoneAt(status!.doneAt)}.</>}
-                      {status!.verification === 'not-verified' && <>You marked this done {formatDoneAt(status!.doneAt)}, but our last scan hasn't picked up a change yet. Worth a quick double-check.</>}
-                      {status!.verification === 'pending' && <>Marked done {formatDoneAt(status!.doneAt)}. We'll re-check on the next weekly scan.</>}
+                      {(status?.verification ?? 'pending') === 'verified' && <>Our latest scan confirms this is sorted. Marked done {formatDoneAt(status?.doneAt ?? rec.dbActionedAt ?? undefined)}.</>}
+                      {(status?.verification ?? 'pending') === 'not-verified' && <>You marked this done {formatDoneAt(status?.doneAt ?? rec.dbActionedAt ?? undefined)}, but our last scan hasn't picked up a change yet. Worth a quick double-check.</>}
+                      {(status?.verification ?? 'pending') === 'pending' && <>Marked done {formatDoneAt(status?.doneAt ?? rec.dbActionedAt ?? undefined)}. We'll re-check on the next weekly scan.</>}
                     </p>
                   </div>
                 )}
-                {isDone && status?.note && (
-                  <p className="text-xs text-muted-foreground italic mt-2 pl-1">"{status.note}"</p>
+                {isDone && (status?.note || rec.dbNote) && (
+                  <p className="text-xs text-muted-foreground italic mt-2 pl-1">"{status?.note ?? rec.dbNote}"</p>
                 )}
               </div>
             </div>
@@ -367,6 +375,7 @@ const EmptyState = ({ aiError }: { aiError?: string }) => (
 
 const ActionPlan = () => {
   const { priorityActions, project, setPriorityActions } = useRivalRadarStore();
+  // Local state only for optimistic updates + verification tracking (not persisted)
   const [statuses, setStatuses] = useState<Record<string, ActionStatus>>({});
 
   // Load from DB on mount if store is empty (e.g. direct page navigation)
@@ -378,30 +387,48 @@ const ActionPlan = () => {
   }, [project?.id, priorityActions.length, setPriorityActions]);
 
   const recommendations = useMemo(
-    () => priorityActions.map((a, i) => mapAction(a, i)),
+    () => priorityActions.map((a) => mapAction(a)),
     [priorityActions],
   );
 
   const handleMarkDone = (id: string, note?: string) => {
+    // Optimistic update
     setStatuses((prev) => ({
       ...prev,
       [id]: { done: true, doneAt: new Date().toISOString(), note, verification: 'pending' },
     }));
+    if (!project?.id) return;
+    updateActionStatus(id, project.id, 'completed', note).then((updated) => {
+      setPriorityActions(updated);
+    });
   };
 
   const handleUndo = (id: string) => {
     setStatuses((prev) => { const next = { ...prev }; delete next[id]; return next; });
+    if (!project?.id) return;
+    updateActionStatus(id, project.id, 'active').then((updated) => {
+      setPriorityActions(updated);
+    });
   };
 
   const handleDismiss = (id: string) => {
+    // Optimistic update
     setStatuses((prev) => ({
       ...prev,
       [id]: { done: false, verification: 'pending', dismissed: true, dismissedAt: new Date().toISOString() },
     }));
+    if (!project?.id) return;
+    updateActionStatus(id, project.id, 'snoozed').then((updated) => {
+      setPriorityActions(updated);
+    });
   };
 
   const handleRestore = (id: string) => {
     setStatuses((prev) => { const next = { ...prev }; delete next[id]; return next; });
+    if (!project?.id) return;
+    updateActionStatus(id, project.id, 'active').then((updated) => {
+      setPriorityActions(updated);
+    });
   };
 
   const { active, completed, dismissed } = useMemo(() => {
@@ -409,9 +436,11 @@ const ActionPlan = () => {
     const completed: Recommendation[] = [];
     const dismissed: Recommendation[] = [];
     recommendations.forEach((r) => {
-      const s = statuses[r.id];
-      if (s?.dismissed) dismissed.push(r);
-      else if (s?.done) completed.push(r);
+      const s = statuses[r.dbId];
+      const isDone = r.dbStatus === 'completed' || !!s?.done;
+      const isSnoozed = r.dbStatus === 'snoozed' || !!s?.dismissed;
+      if (isSnoozed) dismissed.push(r);
+      else if (isDone) completed.push(r);
       else active.push(r);
     });
     return { active, completed, dismissed };
@@ -486,7 +515,7 @@ const ActionPlan = () => {
                     key={rec.id}
                     rec={rec}
                     index={i}
-                    status={statuses[rec.id]}
+                    status={statuses[rec.dbId]}
                     onMarkDone={handleMarkDone}
                     onUndo={handleUndo}
                     onDismiss={handleDismiss}
@@ -513,7 +542,7 @@ const ActionPlan = () => {
                   key={rec.id}
                   rec={rec}
                   index={i}
-                  status={statuses[rec.id]}
+                  status={statuses[rec.dbId]}
                   onMarkDone={handleMarkDone}
                   onUndo={handleUndo}
                   onDismiss={handleDismiss}
@@ -539,7 +568,7 @@ const ActionPlan = () => {
                   key={rec.id}
                   rec={rec}
                   index={i}
-                  status={statuses[rec.id]}
+                  status={statuses[rec.dbId]}
                   onMarkDone={handleMarkDone}
                   onUndo={handleUndo}
                   onDismiss={handleDismiss}

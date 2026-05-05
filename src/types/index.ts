@@ -146,7 +146,9 @@ export interface ScoreSnapshot {
 }
 
 export interface PriorityAction {
+  id: string;
   priority: 1 | 2 | 3 | 4 | 5;
+  status: 'active' | 'snoozed' | 'completed' | 'queued';
   category: string;
   effort: 'low' | 'medium' | 'high';
   action: string;           // conversational headline describing the gap
@@ -157,6 +159,8 @@ export interface PriorityAction {
   competitorReference: string | null;
   estimatedImpact: 'high' | 'medium' | 'low';
   timeframe: string;
+  note?: string | null;
+  actionedAt?: string | null;
   continuityNote?: string | null; // e.g. "Still outstanding from last week" or "You completed this"
   /** Internal: source of this action for deterministic-check skip logic. Stripped before serving to clients. */
   _source?: 'template' | 'llm';

@@ -51,7 +51,8 @@ export const useRivalRadarStore = create<RivalRadarState>()(
         if (!data.user) return { ok: false, error: 'Signup failed.' };
         // If email confirmation is enabled, data.session is null — don't set user yet
         if (!data.session) return { ok: true, needsConfirmation: true };
-        set({ user: { id: data.user.id, email: data.user.email! }, project: null, priorityActions: [], isDemoMode: false, demoBannerDismissed: false });
+        const username = data.user.user_metadata?.full_name || undefined;
+        set({ user: { id: data.user.id, email: data.user.email!, username }, project: null, priorityActions: [], isDemoMode: false, demoBannerDismissed: false });
         return { ok: true };
       },
 
@@ -59,7 +60,8 @@ export const useRivalRadarStore = create<RivalRadarState>()(
         const { data, error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) return { ok: false, error: error.message };
         if (!data.user) return { ok: false, error: 'Login failed.' };
-        set({ user: { id: data.user.id, email: data.user.email! }, project: null, priorityActions: [], isDemoMode: false, demoBannerDismissed: false });
+        const username = data.user.user_metadata?.full_name || undefined;
+        set({ user: { id: data.user.id, email: data.user.email!, username }, project: null, priorityActions: [], isDemoMode: false, demoBannerDismissed: false });
         return { ok: true };
       },
 
@@ -73,8 +75,9 @@ export const useRivalRadarStore = create<RivalRadarState>()(
         const { data } = await supabase.auth.getSession();
         if (data.session?.user) {
           const u = data.session.user;
+          const username = u.user_metadata?.full_name || undefined;
           set((state) => ({
-            user: state.user?.id === u.id ? state.user : { id: u.id, email: u.email! },
+            user: state.user?.id === u.id ? state.user : { id: u.id, email: u.email!, username },
           }));
           const project = await getProject(u.id);
           if (project) set({ project, isDemoMode: false });

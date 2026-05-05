@@ -34,6 +34,7 @@ const SUGGESTED_CITIES: { city: string; postcode: string; note: string }[] = [
 ];
 
 type FormData = {
+  name: string;
   email: string;
   password: string;
   businessName: string;
@@ -45,6 +46,7 @@ type FormData = {
 };
 
 const initialData: FormData = {
+  name: '',
   email: '',
   password: '',
   businessName: '',
@@ -87,7 +89,7 @@ const SignUpPage = () => {
   };
 
   const canProceed = () => {
-    if (step === 1) return data.email.includes('@') && data.password.length >= 8;
+    if (step === 1) return !!data.name.trim() && data.email.includes('@') && data.password.length >= 8;
     if (step === 2) return !!data.businessName.trim() && isValidUrl(data.website);
     if (step === 3) return !!data.category && !!data.city.trim() && !!data.postcode.trim();
     return true;
@@ -98,7 +100,7 @@ const SignUpPage = () => {
     setError('');
     try {
       // 1. Create auth account
-      const { ok, needsConfirmation, error: signupError } = await signup(data.email, data.password);
+      const { ok, needsConfirmation, error: signupError } = await signup(data.email, data.password, data.name.trim());
       if (!ok) throw new Error(signupError ?? 'Signup failed.');
       if (needsConfirmation) {
         setAwaitingConfirmation(true);
@@ -247,6 +249,16 @@ const SignUpPage = () => {
                       <div className="flex-1 h-px bg-border" />
                     </div>
 
+                    <Field label="Your name">
+                      <Input
+                        type="text"
+                        placeholder="e.g. Sarah"
+                        value={data.name}
+                        onChange={(e) => update('name', e.target.value)}
+                        className="h-12"
+                        autoComplete="given-name"
+                      />
+                    </Field>
                     <Field label="Work email">
                       <Input
                         type="email"

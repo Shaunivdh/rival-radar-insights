@@ -12,8 +12,9 @@ function getGreeting(): string {
 export function DashboardGreeting() {
   const { user, project } = useRivalRadarStore();
 
-  const emailPrefix = user?.email?.split('@')[0] ?? '';
-  const displayName = emailPrefix.charAt(0).toUpperCase() + emailPrefix.slice(1);
+  const displayName = user?.username
+    ? user.username.charAt(0).toUpperCase() + user.username.slice(1)
+    : '';
 
   const recentChanges = project?.competitors
     .flatMap((c) => c.changeEvents)

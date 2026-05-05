@@ -17,7 +17,7 @@ export async function middleware(request: NextRequest) {
   if (process.env.SITE_PASSWORD) {
     const cookie = request.cookies.get('site-unlocked')?.value ?? '';
     const expected = await signUnlockToken(process.env.SITE_PASSWORD);
-    if (cookie !== expected && pathname !== '/unlock') {
+    if (cookie !== expected && pathname !== '/unlock' && !pathname.startsWith('/api/inngest')) {
       console.log(`[middleware] site-lock: blocked path=${pathname} reason=no-valid-unlock-cookie`);
       return NextResponse.redirect(new URL('/unlock', request.url));
     }

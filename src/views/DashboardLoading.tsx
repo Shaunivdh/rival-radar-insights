@@ -137,25 +137,15 @@ export default function DashboardLoading() {
         initial={{ opacity: 0, y: 16 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.3 }}
-        className="grid grid-cols-1 md:grid-cols-2 gap-4"
+        className="grid grid-cols-1 gap-4"
       >
-        <div className="rounded-2xl bg-card p-6 border border-border/40">
-          <h3 className="font-display font-semibold text-base mb-1">While you wait</h3>
-          <p className="text-sm text-muted-foreground mb-4 leading-relaxed">
-            Add your business details so your first report feels personal.
-          </p>
-          <Button asChild variant="outline" className="rounded-xl">
-            <Link href="/my-business">Complete your profile</Link>
-          </Button>
-        </div>
-
-        <div className="rounded-2xl bg-card p-6 border border-border/40">
+        <div className="rounded-2xl bg-card p-6 border border-border/40 text-center">
           <h3 className="font-display font-semibold text-base mb-1">Curious what we track?</h3>
           <p className="text-sm text-muted-foreground mb-4 leading-relaxed">
             See the 6 dimensions Scoutly scores you on every week.
           </p>
           <Button asChild variant="outline" className="rounded-xl">
-            <Link href="/action-plan">See what we track</Link>
+            <Link href="/what-we-track">See what we track</Link>
           </Button>
         </div>
       </motion.div>

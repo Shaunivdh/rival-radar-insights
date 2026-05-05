@@ -85,7 +85,7 @@ const Dashboard = () => {
   // Drop ?setup=1 once crawls are done so the loading page never re-appears
   useEffect(() => {
     if (!isSetupFlow || isDemoMode) return;
-    if (!isScanning || !noneComplete) {
+    if (!isScanning && !noneComplete) {
       router.replace('/dashboard');
     }
   }, [isSetupFlow, isDemoMode, isScanning, noneComplete, router]);
@@ -124,7 +124,7 @@ const Dashboard = () => {
   if (!project) return null;
 
   // Show full-page loading experience — only during the setup flow and while no crawl has completed
-  if (isSetupFlow && !isDemoMode && isScanning && noneComplete) {
+  if (isSetupFlow && !isDemoMode && (isScanning || noneScanned) && noneComplete) {
     return <DashboardLoading />;
   }
 

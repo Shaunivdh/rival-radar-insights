@@ -300,15 +300,23 @@ export const crawlBusinessFunction = inngest.createFunction(
 
     if (!usedDirectFetch && crawlStatus !== 'completed') {
       console.error(`[crawl-worker] Crawl failed: jobId=${jobId} finalStatus=${crawlStatus} attempts=${attempts} mode=${mode} businessId=${businessId}`);
-      logCrawlStep(businessId, jobId, 'poll-status', 'failed', `Crawl ended with status: ${crawlStatus}`, { attempts, finalStatus: crawlStatus });
+      await step.run('log-poll-failed', async () => {
+        logCrawlStep(businessId, jobId, 'poll-status', 'failed', `Crawl ended with status: ${crawlStatus}`, { attempts, finalStatus: crawlStatus });
+      });
       throw new Error(`Crawl ended with status: ${crawlStatus} after ${attempts} attempts`);
     }
-    if (usedDirectFetch) {
-      logCrawlStep(businessId, jobId, 'poll-status', 'warning', 'Timed out, falling back to direct fetch', { attempts });
-    } else {
+    if (!usedDirectFetch) {
       console.log(`[crawl-worker] Crawl completed: jobId=${jobId} after ${attempts} polls`);
-      logCrawlStep(businessId, jobId, 'poll-status', 'success', `Completed after ${attempts} polls`, { attempts });
     }
+
+    // Log poll result inside a step so it doesn't re-fire on Inngest replays
+    await step.run('log-poll-result', async () => {
+      if (usedDirectFetch) {
+        logCrawlStep(businessId, jobId, 'poll-status', 'warning', 'Timed out, falling back to direct fetch', { attempts });
+      } else {
+        logCrawlStep(businessId, jobId, 'poll-status', 'success', `Completed after ${attempts} polls`, { attempts });
+      }
+    });
 
     // Step 3: Extract signals and persist, then override seo fields via direct HTTP checks
     await step.run('persist-signals', async () => {

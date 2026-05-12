@@ -734,15 +734,15 @@ export const crawlBusinessFunction = inngest.createFunction(
 
       if (!overtakers.length) return;
 
-      const since24h = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+      const sinceLast = new Date(Date.now() - 8 * 24 * 60 * 60 * 1000).toISOString();
 
-      // Fetch all threat events recorded in the last 24h to dedup per competitor
+      // Fetch threat events recorded in the last 8 days (covers weekly rescan cycle) to dedup per competitor
       const { data: recentThreats } = await supabaseAdmin
         .from('change_events')
         .select('changes')
         .eq('business_id', ownBiz.id)
         .eq('summary', 'Competitor overtook you in local pack')
-        .gte('detected_at', since24h);
+        .gte('detected_at', sinceLast);
 
       const alreadyRecorded = new Set(
         (recentThreats ?? []).flatMap((e) =>

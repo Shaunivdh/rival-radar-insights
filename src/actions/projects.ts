@@ -166,7 +166,8 @@ export async function getProject(userId: string): Promise<Project | null> {
           .from('change_events')
           .select('id, detected_at, severity, summary, changes')
           .eq('business_id', b.id)
-          .order('detected_at', { ascending: false }),
+          .order('detected_at', { ascending: false })
+          .limit(50),
       ]);
 
       const signals = rowToSignals(sig);
@@ -350,7 +351,8 @@ export async function syncProject(projectId: string): Promise<{
         .from('change_events')
         .select('id, detected_at, severity, summary, changes')
         .eq('business_id', b.id)
-        .order('detected_at', { ascending: false });
+        .order('detected_at', { ascending: false })
+        .limit(50);
 
       const changeEvents: ChangeEvent[] = (events ?? []).map(e => ({
         id: e.id as string,

@@ -19,20 +19,25 @@ export const crawlHealthCheckFunction = inngest.createFunction(
     const staleRecovered = await step.run('recover-stale-crawls', async () => {
       const thirtyMinAgo = new Date(Date.now() - 30 * 60 * 1000).toISOString();
 
-      const { data: stale } = await supabaseAdmin
-        .from('businesses')
-        .select('id, crawl_job_id')
-        .eq('crawl_status', 'running')
-        .lt('last_crawled_at', thirtyMinAgo);
+      // Use crawl_jobs.started_at as source of truth (aligned with syncProject's stale detection)
+      const { data: staleJobs } = await supabaseAdmin
+        .from('crawl_jobs')
+        .select('id, business_id')
+        .eq('status', 'running')
+        .lt('started_at', thirtyMinAgo);
 
-      // Also catch businesses that started running but never got a last_crawled_at update
-      const { data: staleNoTimestamp } = await supabaseAdmin
+      // Catch orphaned businesses stuck in 'running' with no matching crawl_job row
+      const staleBusinessIds = new Set((staleJobs ?? []).map((j) => j.business_id));
+      const { data: orphaned } = await supabaseAdmin
         .from('businesses')
-        .select('id, crawl_job_id')
+        .select('id')
         .eq('crawl_status', 'running')
-        .is('last_crawled_at', null);
+        .is('crawl_job_id', null);
 
-      const allStale = [...(stale ?? []), ...(staleNoTimestamp ?? [])];
+      const allStale = [
+        ...(staleJobs ?? []).map((j) => ({ id: j.business_id, crawl_job_id: j.id as string | undefined })),
+        ...(orphaned ?? []).filter((b) => !staleBusinessIds.has(b.id)).map((b) => ({ id: b.id, crawl_job_id: undefined })),
+      ];
       if (!allStale.length) return 0;
 
       for (const biz of allStale) {

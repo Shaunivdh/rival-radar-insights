@@ -18,6 +18,7 @@ import { diffSignals } from '@/services/diff';
 import { updateBusiness, saveChangeEvent } from '@/actions/projects';
 import { normalizeUrl } from '@/lib/url';
 import { saveScoreSnapshot, getWeeklyDelta } from '@/lib/supabase/scores';
+import { logCrawlStep } from '@/lib/crawl/crawl-logger';
 import type { ExtractedSignals, Business, ChangeEvent, AIHealthScore, AIVisibility, SerpData, PageSpeedData, PriorityAction } from '@/types';
 import type { ServiceCategory } from '@/lib/serviceCategories';
 
@@ -44,7 +45,7 @@ const DIRECT_FETCH_FALLBACK_ATTEMPTS = 36; // ~3 min before falling back to dire
 
 async function writeEnrichmentError(
   businessId: string,
-  key: 'google' | 'serp' | 'ai_actions',
+  key: 'google' | 'serp' | 'ai_actions' | 'crawl',
   userMessage: string
 ): Promise<void> {
   const { data } = await supabaseAdmin
@@ -58,7 +59,7 @@ async function writeEnrichmentError(
 
 async function clearEnrichmentError(
   businessId: string,
-  key: 'google' | 'serp' | 'ai_actions'
+  key: 'google' | 'serp' | 'ai_actions' | 'crawl'
 ): Promise<void> {
   const { data } = await supabaseAdmin
     .from('businesses')
@@ -77,11 +78,12 @@ async function clearEnrichmentError(
 export const crawlBusinessFunction = inngest.createFunction(
   {
     id: 'crawl-business',
-    retries: 0,
+    retries: 2,
     concurrency: { limit: 3 },
     onFailure: async ({ error, event, step }) => {
       const { businessId } = event.data.event.data as { businessId: string };
       console.error(`[crawl-business] Unexpected failure for business ${businessId}:`, error.message);
+      logCrawlStep(businessId, null, 'onFailure', 'failed', error.message?.slice(0, 500));
       const projectId = await step.run('mark-failed-on-error', async () => {
         const { data } = await supabaseAdmin
           .from('businesses')
@@ -89,6 +91,11 @@ export const crawlBusinessFunction = inngest.createFunction(
           .eq('id', businessId)
           .single();
         await markCrawlFailed(businessId, data?.crawl_job_id ?? undefined);
+
+        // Store failure reason so users can see what went wrong
+        const reason = error.message?.slice(0, 200) || 'Unknown error';
+        await writeEnrichmentError(businessId, 'crawl', `Crawl failed: ${reason}. We'll retry automatically.`);
+
         return data?.project_id as string | null;
       });
 
@@ -214,11 +221,11 @@ export const crawlBusinessFunction = inngest.createFunction(
         });
       }
 
-      // Still schedule next crawl so failed businesses get retried
+      // Retry sooner for failures (24h) — the regular 7-day cycle resumes once a crawl succeeds
       await step.sendEvent('schedule-retry-crawl', {
         name: 'crawl/business.scan',
         data: { businessId, mode: 'incremental' },
-        ts: Date.now() + 7 * 24 * 60 * 60 * 1000,
+        ts: Date.now() + 24 * 60 * 60 * 1000,
       });
     },
   },
@@ -229,11 +236,37 @@ export const crawlBusinessFunction = inngest.createFunction(
       mode: 'initial' | 'incremental';
     };
 
-    // Step 1: Start crawl, returns CF job ID
+    // Step 1: Start crawl, returns CF job ID — falls back to direct fetch on failure
     console.log(`[crawl-worker] Starting ${mode} crawl for business ${businessId}`);
-    const jobId = await step.run('start-crawl', () =>
-      startBusinessCrawl(businessId, mode)
-    );
+    const jobId = await step.run('start-crawl', async () => {
+      try {
+        const id = await startBusinessCrawl(businessId, mode);
+        logCrawlStep(businessId, id, 'start-crawl', 'success', `${mode} crawl started`, { mode });
+        return id;
+      } catch (e) {
+        console.error(`[start-crawl] CF crawl failed for ${businessId}, falling back to direct fetch:`, e instanceof Error ? e.message : e);
+        logCrawlStep(businessId, null, 'start-crawl', 'warning', `CF crawl failed, trying direct fetch: ${e instanceof Error ? e.message : e}`, { mode, fallback: true });
+        // Attempt direct fetch fallback
+        const { data: bizRow } = await supabaseAdmin
+          .from('businesses')
+          .select('url')
+          .eq('id', businessId)
+          .single();
+        if (!bizRow?.url) throw e; // no URL to fallback with
+        const html = await fetchPageDirect(bizRow.url as string);
+        if (!html) {
+          logCrawlStep(businessId, null, 'start-crawl', 'failed', 'CF crawl and direct fetch both failed', { mode });
+          throw e;
+        }
+        console.log(`[start-crawl] Direct fetch fallback succeeded for ${businessId} (${html.length} chars)`);
+        logCrawlStep(businessId, DIRECT_FETCH_DONE, 'start-crawl', 'success', 'Direct fetch fallback succeeded', { mode, htmlSize: html.length });
+        await extractAndPersistSignals(businessId, DIRECT_FETCH_DONE, {
+          status: 'completed',
+          pages: [{ url: bizRow.url as string, html }],
+        });
+        return DIRECT_FETCH_DONE;
+      }
+    });
     console.log(`[crawl-worker] Started crawl jobId=${jobId} for business ${businessId} mode=${mode}`);
 
     // If crawl was handled via direct fetch fallback, skip poll + extract
@@ -267,10 +300,14 @@ export const crawlBusinessFunction = inngest.createFunction(
 
     if (!usedDirectFetch && crawlStatus !== 'completed') {
       console.error(`[crawl-worker] Crawl failed: jobId=${jobId} finalStatus=${crawlStatus} attempts=${attempts} mode=${mode} businessId=${businessId}`);
+      logCrawlStep(businessId, jobId, 'poll-status', 'failed', `Crawl ended with status: ${crawlStatus}`, { attempts, finalStatus: crawlStatus });
       throw new Error(`Crawl ended with status: ${crawlStatus} after ${attempts} attempts`);
     }
-    if (!usedDirectFetch) {
+    if (usedDirectFetch) {
+      logCrawlStep(businessId, jobId, 'poll-status', 'warning', 'Timed out, falling back to direct fetch', { attempts });
+    } else {
       console.log(`[crawl-worker] Crawl completed: jobId=${jobId} after ${attempts} polls`);
+      logCrawlStep(businessId, jobId, 'poll-status', 'success', `Completed after ${attempts} polls`, { attempts });
     }
 
     // Step 3: Extract signals and persist, then override seo fields via direct HTTP checks
@@ -289,11 +326,13 @@ export const crawlBusinessFunction = inngest.createFunction(
           prefetchedResult = { status: 'completed', pages: [{ url: bizRow!.url as string, html }] };
         } else {
           console.warn(`[crawl-worker] Direct fetch also failed for business ${businessId} — skipping signal extraction`);
+          logCrawlStep(businessId, jobId, 'persist-signals', 'failed', 'Direct fetch fallback also failed');
           return;
         }
       }
 
       await extractAndPersistSignals(businessId, usedDirectFetch ? DIRECT_FETCH_DONE : jobId, prefetchedResult);
+      logCrawlStep(businessId, jobId, 'persist-signals', 'success', 'Signals extracted and persisted');
 
       const { data: urlRow } = await supabaseAdmin
         .from('businesses')
@@ -382,8 +421,10 @@ export const crawlBusinessFunction = inngest.createFunction(
       try {
         await fetchGoogleData(businessId, meta.name, meta.url, meta.postcode, meta.googlePlaceId);
         await clearEnrichmentError(businessId, 'google');
+        logCrawlStep(businessId, jobId, 'enrich-google', 'success');
       } catch (e) {
         console.error(`[enrich-google] Failed for business ${businessId}:`, e instanceof Error ? e.message : e);
+        logCrawlStep(businessId, jobId, 'enrich-google', 'failed', e instanceof Error ? e.message : String(e));
         const userMessage = meta.isOwnBusiness
           ? 'We could not find your business on Google. Go to Settings → Business Details and check your business name and postcode are correct.'
           : `No Google data found for "${meta.name}". This competitor may not have a Google Business Profile, or the name may not match exactly.`;
@@ -395,8 +436,10 @@ export const crawlBusinessFunction = inngest.createFunction(
       try {
         await fetchSerpData(businessId, meta.name, meta.domain, meta.primaryService, meta.location, meta.postcode);
         await clearEnrichmentError(businessId, 'serp');
+        logCrawlStep(businessId, jobId, 'enrich-serp', 'success');
       } catch (e) {
         console.error(`[enrich-serp] Failed for business ${businessId}:`, e instanceof Error ? e.message : e);
+        logCrawlStep(businessId, jobId, 'enrich-serp', 'failed', e instanceof Error ? e.message : String(e));
         const userMessage = meta.isOwnBusiness
           ? 'Could not find your business in local search results. Go to Settings and make sure your Primary Service and Location are filled in.'
           : `No local search data found for "${meta.name}".`;
@@ -406,7 +449,10 @@ export const crawlBusinessFunction = inngest.createFunction(
 
     // Step 6: AI search visibility check (skip if checked within 24h)
     await step.run('check-ai-visibility', async () => {
-      if (!meta.primaryService || !meta.location) return;
+      if (!meta.primaryService || !meta.location) {
+        logCrawlStep(businessId, jobId, 'check-ai-visibility', 'skipped', 'Missing primaryService or location');
+        return;
+      }
       try {
         const { data: existing } = await supabaseAdmin
           .from('businesses')
@@ -421,16 +467,22 @@ export const crawlBusinessFunction = inngest.createFunction(
           existing?.ai_visibility as AIVisibility | null,
           meta.primaryService as ServiceCategory,
         );
-        if (!visibility) return; // skipped — still fresh
+        if (!visibility) {
+          logCrawlStep(businessId, jobId, 'check-ai-visibility', 'skipped', 'Still fresh (checked within 24h)');
+          return;
+        }
 
         const { error } = await supabaseAdmin.from('businesses').update({ ai_visibility: visibility }).eq('id', businessId);
         if (error) {
           console.error(`[check-ai-visibility] DB write failed for business ${businessId}:`, error);
+          logCrawlStep(businessId, jobId, 'check-ai-visibility', 'failed', `DB write failed: ${error.message}`);
         } else {
           console.log(`[check-ai-visibility] aiPresenceScore=${visibility.aiPresenceScore} saved for business ${businessId}`);
+          logCrawlStep(businessId, jobId, 'check-ai-visibility', 'success', `aiPresenceScore=${visibility.aiPresenceScore}`);
         }
       } catch (e) {
         console.error(`[check-ai-visibility] Failed for business ${businessId}:`, e);
+        logCrawlStep(businessId, jobId, 'check-ai-visibility', 'failed', e instanceof Error ? e.message : String(e));
       }
     });
 
@@ -440,8 +492,10 @@ export const crawlBusinessFunction = inngest.createFunction(
         const pagespeedData = await fetchPageSpeedData(normalizeUrl(meta.url));
         await updateBusiness(businessId, { pagespeedData, crawlStatus: 'complete' });
         console.log(`[enrich-pagespeed] mobile=${pagespeedData.mobile.performanceScore} desktop=${pagespeedData.desktop.performanceScore} for ${businessId}`);
+        logCrawlStep(businessId, jobId, 'enrich-pagespeed', 'success', `mobile=${pagespeedData.mobile.performanceScore} desktop=${pagespeedData.desktop.performanceScore}`);
       } catch (e) {
         console.error(`[enrich-pagespeed] Failed for business ${businessId}:`, e instanceof Error ? e.message : e);
+        logCrawlStep(businessId, jobId, 'enrich-pagespeed', 'failed', e instanceof Error ? e.message : String(e));
         // non-fatal — PSI may be rate-limited or URL unreachable; still mark complete
         await updateBusiness(businessId, { crawlStatus: 'complete' });
       }
@@ -557,6 +611,7 @@ export const crawlBusinessFunction = inngest.createFunction(
       );
       await updateBusiness(businessId, { aiScore });
       console.log(`[calculate-scores] ai_score saved for business ${businessId}:`, JSON.stringify(aiScore));
+      logCrawlStep(businessId, jobId, 'calculate-scores', 'success', `overallScore=${aiScore.overallScore}`, { overallScore: aiScore.overallScore });
     });
 
     // Step 10: Generate review sentiment

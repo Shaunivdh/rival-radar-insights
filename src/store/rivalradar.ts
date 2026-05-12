@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import type { Project, Business, AppSettings, PriorityAction, User } from '@/types';
 import { supabase } from '@/lib/supabase/client';
-import { getProject } from '@/actions/projects';
+import { getProject, fetchPriorityActions } from '@/actions/projects';
 
 interface SyncedBusiness {
   id: string;
@@ -80,7 +80,12 @@ export const useRivalRadarStore = create<RivalRadarState>()(
             user: state.user?.id === u.id ? state.user : { id: u.id, email: u.email!, username },
           }));
           const project = await getProject(u.id);
-          if (project) set({ project, isDemoMode: false });
+          if (project) {
+            set({ project, isDemoMode: false });
+            fetchPriorityActions(project.id).then((actions) => {
+              if (actions.length) set({ priorityActions: actions });
+            }).catch(() => {});
+          }
         } else {
           set({ user: null, isDemoMode: false });
         }

@@ -383,6 +383,8 @@ const ActionPlan = () => {
     if (priorityActions.length || !project?.id) return;
     fetchPriorityActions(project.id).then((actions) => {
       if (actions.length) setPriorityActions(actions);
+    }).catch((err) => {
+      console.error('[ActionPlan] Failed to fetch priority actions:', err);
     });
   }, [project?.id, priorityActions.length, setPriorityActions]);
 
@@ -448,6 +450,7 @@ const ActionPlan = () => {
 
   const aiError = project?.ownBusiness?.enrichmentErrors?.ai_actions;
   if (!priorityActions.length) return <EmptyState aiError={aiError} />;
+  const showAiWarning = !!aiError;
 
   const priorities: Priority[] = ['critical', 'high', 'medium', 'quick-win'];
   const verifiedCount = completed.filter((r) => statuses[r.id]?.verification === 'verified').length;
@@ -466,6 +469,15 @@ const ActionPlan = () => {
           Based on your latest crawl, Google data, and competitor analysis — tick things off as you go and I'll confirm they've landed on the next scan.
         </p>
       </motion.div>
+
+      {showAiWarning && (
+        <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="mb-6">
+          <div className="flex items-start gap-3 p-4 rounded-lg bg-amber-50 border border-amber-200 text-sm text-amber-800">
+            <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
+            <p>We couldn&apos;t refresh your recommendations on the last scan — showing your most recent actions below. We&apos;ll retry on the next scan.</p>
+          </div>
+        </motion.div>
+      )}
 
       <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }} className="mb-8">
         <Card className="neu">

@@ -24,7 +24,6 @@ const STATUS_ICON: Record<string, React.ReactNode> = {
   failed: <XCircle className="w-3.5 h-3.5 text-destructive" />,
 };
 
-const isDev = process.env.NODE_ENV === 'development';
 
 const Dashboard = () => {
   const { project, isDemoMode, syncBusinesses, setPriorityActions, addCompetitorToStore } = useRivalRadarStore();
@@ -191,7 +190,7 @@ const Dashboard = () => {
                 <p className="text-xs text-muted-foreground">Initial scan takes 2–8 min per site. This page auto-refreshes.</p>
               )}
             </div>
-            {isDev && (anyFailed || noneScanned || isScanning) && (
+            {(anyFailed || noneScanned || isScanning) && (
               <button
                 onClick={handleRescan}
                 disabled={rescanning}
@@ -209,7 +208,7 @@ const Dashboard = () => {
                   {STATUS_ICON[b.crawlStatus]}
                   <span className="font-medium text-foreground truncate">{b.name}</span>
                   <span className="text-muted-foreground capitalize">{b.crawlStatus}</span>
-                  {isDev && b.crawlStatus === 'failed' && (
+                  {b.crawlStatus === 'failed' && (
                     <button
                       onClick={() => handleRescanOne(b.id)}
                       disabled={rescanningId === b.id}
@@ -245,7 +244,7 @@ const Dashboard = () => {
       {/* Score overview + right column */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
         <div className="lg:col-span-2 relative">
-          {isDev && !isDemoMode && !isScanning && (
+          {!isDemoMode && !isScanning && (
             <div className="absolute top-4 right-4 z-10">
               <button
                 onClick={handleRescan}

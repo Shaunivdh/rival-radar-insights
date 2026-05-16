@@ -914,11 +914,11 @@ export const crawlBusinessFunction = inngest.createFunction(
       }
     });
 
-    // Schedule next incremental crawl in 7 days
+    // Schedule next incremental crawl in 3 days (temporarily reduced from 7 for monitoring)
     await step.sendEvent('schedule-next-crawl', {
       name: 'crawl/business.scan',
       data: { businessId, mode: 'incremental' },
-      ts: Date.now() + 7 * 24 * 60 * 60 * 1000,
+      ts: Date.now() + 3 * 24 * 60 * 60 * 1000,
     });
 
     return { businessId, jobId, status: 'complete' };

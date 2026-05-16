@@ -237,7 +237,7 @@ export async function saveChangeEvent(businessId: string, event: ChangeEvent): P
   if (error) throw new Error(error.message);
 }
 
-const CRAWL_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
+const CRAWL_TTL_MS = 3 * 24 * 60 * 60 * 1000; // 3 days (temporarily reduced from 7 for monitoring)
 
 function isStale(lastCrawledAt: string | null): boolean {
   if (!lastCrawledAt) return true;

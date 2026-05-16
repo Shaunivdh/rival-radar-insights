@@ -14,6 +14,7 @@ Your priority is **correctness, minimal token usage, and small safe diffs**.
 - Do NOT rewrite full files unless explicitly requested
 - Do NOT explain code unless asked
 - Ask clarifying questions instead of guessing
+- When making design and layout changes do not change any crawl logic. Or notify me if this is needed
 
 ---
 
@@ -144,16 +145,3 @@ When responding:
 
 ---
 
-## 11. Known Issues & Workarounds
-
-### Cloudflare API `modifiedSince` Hangs
-- **Status:** Removed from all crawl calls
-- **Why:** Parameter causes CF crawl jobs to hang indefinitely in "running" state
-- **Solution:** Full re-crawls are performed instead; caching optimization can be added later
-- **DO NOT:** Re-introduce `modifiedSince` as a performance optimization
-
-### Empty HTML on JS-Heavy Sites
-- **Root cause:** `render: false` in incremental crawls
-- **Status:** FIXED — all crawls now use `render: true` + `waitUntil: 'networkidle0'`
-- **Impact:** Educational sites (universities, colleges) now crawl correctly
-- **Trade-off:** Incremental crawls take 3-5s instead of 1-2s; data quality gain is worth it

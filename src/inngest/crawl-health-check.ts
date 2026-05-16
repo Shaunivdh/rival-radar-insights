@@ -42,7 +42,7 @@ export const crawlHealthCheckFunction = inngest.createFunction(
 
       for (const biz of allStale) {
         await markCrawlFailed(biz.id, biz.crawl_job_id ?? undefined);
-        logCrawlStep(biz.id, biz.crawl_job_id, 'health-check', 'warning', 'Recovered stale crawl (stuck in running)');
+        logCrawlStep(biz.id, biz.crawl_job_id ?? null, 'health-check', 'warning', 'Recovered stale crawl (stuck in running)');
       }
 
       console.log(`[crawl-health-check] Recovered ${allStale.length} stale crawls`);

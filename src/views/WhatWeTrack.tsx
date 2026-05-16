@@ -3,9 +3,9 @@
 import { motion } from "framer-motion";
 import {
   Search, Globe, Star, Brain, Gauge, Shield, FileText, MousePointerClick,
-  MapPin, CheckCircle2, Hash, List, Link2, Image,
+  MapPin, ChevronRight, CheckCircle2, XCircle, Hash, List, Link2, Image,
   Phone, Mail, Calendar, MessageSquare, Newspaper, Award, Users, Bookmark,
-  Zap, BarChart3, Clock, Eye, Layers, Monitor, Smartphone
+  Zap, BarChart3, Clock, Eye, Layers, Monitor, Smartphone, TrendingUp
 } from "lucide-react";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Badge } from "@/components/ui/badge";
@@ -47,7 +47,7 @@ const categories: Category[] = [
     title: "Trust Signals",
     description: "Credentials and social proof that build customer confidence.",
     icon: Shield,
-    color: "text-success",
+    color: "text-score-excellent",
     signals: [
       { name: "Accreditations", field: "accreditations", description: "Professional accreditations displayed on your site (e.g. Gas Safe, NICEIC, FCA). These are strong trust builders.", icon: Award },
       { name: "Certifications", field: "certifications", description: "Industry certifications and qualifications. Customers want to know you're qualified before they hire you.", icon: Award },
@@ -107,12 +107,13 @@ const categories: Category[] = [
     title: "Local Search Results (SERP)",
     description: "Where you appear when customers search for your services.",
     icon: Search,
-    color: "text-success",
+    color: "text-score-good",
     signals: [
       { name: "Local Pack Position", field: "localVisabilityPosition", description: "Your position in Google's local 3-pack — the map results shown at the top. Position 1–3 gets the vast majority of clicks.", icon: BarChart3 },
       { name: "Local Pack Present", field: "localPackPresent", description: "Whether a local pack appears for your target keywords. If it does, you need to be in it.", icon: MapPin },
       { name: "Featured Snippet", field: "featuredSnippet", description: "Whether your content appears in Google's featured snippet — the answer box at the top of results.", icon: Eye },
       { name: "Knowledge Panel", field: "knowledgePanelPresent", description: "Whether Google shows a knowledge panel for your business. This typically comes from a well-optimised Google Business Profile.", icon: Layers },
+      { name: "Sitelinks", field: "sitelinks", description: "Whether Google shows sitelinks under your result — links to specific pages. This indicates Google trusts your site structure.", icon: Link2 },
       { name: "Ads Above Results", field: "adsAboveResults", description: "How many paid ads appear above organic results for your keywords. More ads = organic results pushed further down.", icon: BarChart3 },
     ],
   },
@@ -125,9 +126,6 @@ const categories: Category[] = [
       { name: "AI Presence Score", field: "aiPresenceScore", description: "A 0–100 score measuring how often AI assistants mention your business when asked about your services in your area.", icon: Zap },
       { name: "Mention Count", field: "mentionCount", description: "How many of our test prompts returned a mention of your business. More mentions = stronger AI visibility.", icon: MessageSquare },
       { name: "Total Prompts Tested", field: "totalPrompts", description: "The total number of AI prompts we test for your industry and location. We use realistic questions real customers ask.", icon: List },
-      { name: "Average Position", field: "averagePosition", description: "Where your business appears in AI responses on average. Position 1 means you're named first — the strongest signal.", icon: BarChart3 },
-      { name: "Recommended Mentions", field: "recommendedMentions", description: "How many times an AI explicitly recommended your business (not just mentioned it). Recommendations drive real enquiries.", icon: Zap },
-      { name: "Competitors Mentioned Ahead", field: "competitorsMentionedAhead", description: "Which competitors are named before you in AI responses. This tells you who you need to outrank in AI results.", icon: Users },
     ],
   },
   {
@@ -141,111 +139,99 @@ const categories: Category[] = [
       { name: "Cumulative Layout Shift", field: "cls", description: "How much your page layout shifts while loading. High CLS means buttons jump around — frustrating for users.", icon: Monitor },
       { name: "Interaction to Next Paint", field: "inp", description: "How quickly your site responds to user interactions (clicks, taps). Under 200ms feels instant; over 500ms feels broken.", icon: MousePointerClick },
       { name: "First Contentful Paint", field: "fcp", description: "How long until the first visible content appears. This is the user's first impression of your site's speed.", icon: Smartphone },
-      { name: "Mobile Score", field: "mobileScore", description: "PageSpeed score specifically for mobile devices. Over 60% of local searches happen on mobile — this score matters.", icon: Smartphone },
-      { name: "Desktop Score", field: "desktopScore", description: "PageSpeed score for desktop. Strong desktop performance complements mobile and affects overall ranking.", icon: Monitor },
     ],
   },
   {
-    title: "Review Sentiment",
-    description: "AI-generated analysis of what customers are actually saying about your business.",
-    icon: Star,
-    color: "text-success",
-    signals: [
-      { name: "Top Positive Themes", field: "positiveThemes", description: "The top 3 recurring positive themes in your reviews — what customers consistently praise. Use these in your marketing.", icon: CheckCircle2 },
-      { name: "Top Negative Themes", field: "negativeThemes", description: "The top 3 recurring complaints in your reviews. Fixing these is the fastest way to improve your rating.", icon: MessageSquare },
-      { name: "Sentiment Summary", field: "sentimentSummary", description: "A concise summary of overall customer sentiment — what your reviews say about you in plain English.", icon: FileText },
-    ],
-  },
-  {
-    title: "Change Detection",
-    description: "Alerts when anything significant changes on your site or a competitor's.",
-    icon: Eye,
+    title: "Your Performance (Google Business Profile)",
+    description: "Pulled live from your connected Google profile — your business only, never competitors. Tracked month-on-month so you can see your growth.",
+    icon: BarChart3,
     color: "text-primary",
     signals: [
-      { name: "SEO Changes", field: "seoChanges", description: "Alerts when title tags, H1s, sitemaps, or schema markup change on any tracked site — including competitors.", icon: Search },
-      { name: "Trust Signal Changes", field: "trustChanges", description: "Alerts when new accreditations or certifications appear. Know when a competitor adds credentials you don't have.", icon: Shield },
-      { name: "Content Changes", field: "contentChanges", description: "Alerts when new services, portfolio items, or blog posts appear. Stay on top of what competitors are publishing.", icon: FileText },
-      { name: "Engagement Changes", field: "engagementChanges", description: "Alerts when contact forms, booking systems, or CTAs are added or changed. Know when a competitor improves their conversion.", icon: MousePointerClick },
-      { name: "Change Severity", field: "changeSeverity", description: "Each change is rated high, medium, or low severity so you know which ones need your immediate attention.", icon: Zap },
+      { name: "Search impressions", field: "searchImpressions", description: "How many times you appeared in Google Search results this month — and how that compares to last month. The headline number for proving your visibility is growing.", icon: Search },
+      { name: "Maps impressions", field: "mapsImpressions", description: "How many times you appeared in Google Maps this month vs last. The single best measure of local visibility for any local business.", icon: MapPin },
+      { name: "Website clicks", field: "websiteClicks", description: "Clicks from your Google Business Profile through to your website, month-on-month. Real intent — real customers about to convert.", icon: MousePointerClick },
+      { name: "Month-on-month change", field: "momChange", description: "Every metric is shown next to last month's number so you can see exactly how much you've grown.", icon: TrendingUp },
     ],
   },
 ];
 
-const totalSignals = categories.reduce((sum, cat) => sum + cat.signals.length, 0);
-
-export default function WhatWeTrack() {
+const WhatWeTrack = () => {
+  const totalSignals = categories.reduce((sum, cat) => sum + cat.signals.length, 0);
 
   return (
     <div className="max-w-4xl mx-auto">
-      <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} className="mb-12">
-        <div className="flex items-center gap-3 mb-3">
-          <div className="p-2.5 rounded-xl bg-primary/10">
-            <Eye className="w-5 h-5 text-primary" />
+        <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} className="mb-12">
+          <div className="flex items-center gap-3 mb-3">
+            <div className="p-2.5 rounded-xl bg-primary/10">
+              <Eye className="w-5 h-5 text-primary" />
+            </div>
+            <h1 className="font-display text-2xl font-bold">What We Track</h1>
           </div>
-          <h1 className="font-display text-2xl font-bold">What We Track</h1>
-        </div>
-        <p className="text-muted-foreground text-sm ml-12 mb-6">
-          Every week, RivalRadar checks{" "}
-          <span className="font-semibold text-foreground">{totalSignals} signals</span> across{" "}
-          {categories.length} categories for your business and each competitor. Here's exactly what we look at and why it matters.
-        </p>
+          <p className="text-muted-foreground text-sm ml-12 mb-6">
+            Every week, Scoutly checks <span className="font-semibold text-foreground">{totalSignals} signals</span> across {categories.length} categories for your business and each competitor. Here's exactly what we look at and why it matters.
+          </p>
 
-        <div className="flex flex-wrap gap-2 ml-12">
-          {categories.map((cat) => (
-            <a
+          {/* Category quick-nav pills */}
+          <div className="flex flex-wrap gap-2 ml-12">
+            {categories.map((cat) => (
+              <a
+                key={cat.title}
+                href={`#${cat.title.toLowerCase().replace(/\s+/g, "-")}`}
+                className="neu rounded-full px-3 py-1.5 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1.5"
+              >
+                <cat.icon className="w-3.5 h-3.5" />
+                {cat.title}
+              </a>
+            ))}
+          </div>
+        </motion.div>
+
+        <div className="space-y-8">
+          {categories.map((cat, i) => (
+            <motion.div
               key={cat.title}
-              href={`#${cat.title.toLowerCase().replace(/\s+/g, "-")}`}
-              className="neu rounded-full px-3 py-1.5 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1.5"
+              id={cat.title.toLowerCase().replace(/\s+/g, "-")}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.04 * i }}
+              className="neu rounded-2xl overflow-hidden"
             >
-              <cat.icon className="w-3.5 h-3.5" />
-              {cat.title}
-            </a>
+              {/* Category header */}
+              <div className="p-6 pb-4 border-b border-border/50">
+                <div className="flex items-center gap-3 mb-1.5">
+                  <cat.icon className={`w-5 h-5 ${cat.color}`} />
+                  <h2 className="font-display text-lg font-semibold">{cat.title}</h2>
+                  <Badge variant="outline" className="ml-auto text-xs">
+                    {cat.signals.length} signals
+                  </Badge>
+                </div>
+                <p className="text-sm text-muted-foreground ml-8">{cat.description}</p>
+              </div>
+
+              {/* Signals accordion */}
+              <Accordion type="multiple" className="px-6">
+                {cat.signals.map((signal) => (
+                  <AccordionItem key={signal.field} value={signal.field} className="border-border/40">
+                    <AccordionTrigger className="hover:no-underline py-3.5 text-sm">
+                      <div className="flex items-center gap-2.5 text-left">
+                        <signal.icon className="w-4 h-4 text-muted-foreground shrink-0" />
+                        <span className="font-medium">{signal.name}</span>
+                        <span className="text-xs text-muted-foreground font-mono hidden sm:inline">
+                          {signal.field}
+                        </span>
+                      </div>
+                    </AccordionTrigger>
+                    <AccordionContent className="text-sm text-muted-foreground leading-relaxed pl-6.5 pb-4">
+                      {signal.description}
+                    </AccordionContent>
+                  </AccordionItem>
+                ))}
+              </Accordion>
+            </motion.div>
           ))}
         </div>
-      </motion.div>
-
-      <div className="space-y-8">
-        {categories.map((cat, i) => (
-          <motion.div
-            key={cat.title}
-            id={cat.title.toLowerCase().replace(/\s+/g, "-")}
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.04 * i }}
-            className="neu rounded-2xl overflow-hidden"
-          >
-            <div className="p-6 pb-4 border-b border-border/50">
-              <div className="flex items-center gap-3 mb-1.5">
-                <cat.icon className={`w-5 h-5 ${cat.color}`} />
-                <h2 className="font-display text-lg font-semibold">{cat.title}</h2>
-                <Badge variant="outline" className="ml-auto text-xs">
-                  {cat.signals.length} signals
-                </Badge>
-              </div>
-              <p className="text-sm text-muted-foreground ml-8">{cat.description}</p>
-            </div>
-
-            <Accordion type="multiple" className="px-6">
-              {cat.signals.map((signal) => (
-                <AccordionItem key={signal.field} value={signal.field} className="border-border/40">
-                  <AccordionTrigger className="hover:no-underline py-3.5 text-sm">
-                    <div className="flex items-center gap-2.5 text-left">
-                      <signal.icon className="w-4 h-4 text-muted-foreground shrink-0" />
-                      <span className="font-medium">{signal.name}</span>
-                      <span className="text-xs text-muted-foreground font-mono hidden sm:inline">
-                        {signal.field}
-                      </span>
-                    </div>
-                  </AccordionTrigger>
-                  <AccordionContent className="text-sm text-muted-foreground leading-relaxed pl-6 pb-4">
-                    {signal.description}
-                  </AccordionContent>
-                </AccordionItem>
-              ))}
-            </Accordion>
-          </motion.div>
-        ))}
-      </div>
     </div>
   );
-}
+};
+
+export default WhatWeTrack;

@@ -51,6 +51,8 @@
 
     --chart-primary: 245 78% 60%;
     --chart-secondary: 0 91% 71%;
+
+    --neu-shadow: 0 4px 30px rgba(0, 0, 0, 0.08), 0 1px 8px rgba(0, 0, 0, 0.04);
   }
 }
 
@@ -98,6 +100,14 @@
     @apply bg-white rounded-xl;
     box-shadow: 0 4px 30px rgba(0, 0, 0, 0.08), 0 1px 8px rgba(0, 0, 0, 0.04);
     border: 1px solid rgba(0, 0, 0, 0.04) !important;
+  }
+
+  .bg-gradient-hero {
+    background: linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(265, 78%, 55%) 100%);
+  }
+
+  .bg-gradient-canvas {
+    background: linear-gradient(180deg, hsl(var(--background)) 0%, hsl(233, 20%, 95%) 100%);
   }
 
   .neu-flat {

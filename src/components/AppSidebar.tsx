@@ -2,27 +2,28 @@
 
 import Link from 'next/link';
 import { useRouter, usePathname } from 'next/navigation';
-import { LayoutDashboard, Users, Bell, Settings, Zap, LogOut, Building2, Lightbulb, HelpCircle, Store, Eye } from 'lucide-react';
+import { LayoutDashboard, Users, Settings, Zap, LogOut, Building2, Lightbulb, HelpCircle, Eye } from 'lucide-react';
 import { Logo } from '@/components/Logo';
 import { cn } from '@/lib/utils';
 import { useRivalRadarStore } from '@/store/rivalradar';
 
-const navItems = [
+const mainNavItems = [
   { label: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
-  { label: 'Action Plan', path: '/action-plan', icon: Lightbulb },
-  { label: 'My Business', path: '/my-business', icon: Building2 },
-  { label: 'Competitors', path: '/competitors', icon: Users },
-  { label: 'Google Business', path: '/google-business', icon: Store },
-  { label: 'Changes', path: '/changes', icon: Bell },
-  { label: 'Settings', path: '/settings', icon: Settings },
+  { label: 'Action Plan', path: '/action-plan', icon: Lightbulb, badge: true },
   { label: 'What We Track', path: '/what-we-track', icon: Eye },
+  { label: 'My Business', path: '/my-business', icon: Building2 },
+];
+
+const workspaceNavItems = [
+  { label: 'Competitors', path: '/competitors', icon: Users },
+  { label: 'Settings', path: '/settings', icon: Settings },
   { label: 'Help center', path: '/help', icon: HelpCircle },
 ];
 
 export const AppSidebar = () => {
   const router = useRouter();
   const pathname = usePathname();
-  const { user, isDemoMode, logout } = useRivalRadarStore();
+  const { user, isDemoMode, priorityActions, logout } = useRivalRadarStore();
 
   const handleLogout = async () => {
     await logout();
@@ -34,8 +35,44 @@ export const AppSidebar = () => {
       <div className="p-5 border-b border-border">
         <Logo />
       </div>
-      <nav aria-label="Main navigation" className="flex-1 p-3 space-y-1">
-        {navItems.map((item) => {
+      <nav aria-label="Main navigation" className="flex-1 p-3 space-y-1 overflow-y-auto">
+        {mainNavItems.map((item) => {
+          const active = pathname?.startsWith(item.path);
+          return (
+            <Link
+              key={item.path}
+              href={item.path}
+              aria-current={active ? 'page' : undefined}
+              className={cn(
+                'w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors',
+                active
+                  ? 'bg-primary text-primary-foreground'
+                  : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+              )}
+            >
+              <item.icon className="w-4.5 h-4.5" />
+              {item.label}
+              {item.badge && priorityActions.length > 0 && (
+                <span className={cn(
+                  'ml-auto text-xs font-semibold rounded-full px-2 py-0.5',
+                  active
+                    ? 'bg-primary-foreground/20 text-primary-foreground'
+                    : 'bg-primary/10 text-primary'
+                )}>
+                  +{priorityActions.length}
+                </span>
+              )}
+            </Link>
+          );
+        })}
+
+        <div className="pt-4 pb-1 px-3">
+          <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/60">
+            Workspace
+          </span>
+        </div>
+
+        {workspaceNavItems.map((item) => {
           const active = pathname?.startsWith(item.path);
           return (
             <Link

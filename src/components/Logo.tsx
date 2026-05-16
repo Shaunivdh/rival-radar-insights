@@ -14,9 +14,8 @@ const RadarIcon = ({ className = "w-9 h-9" }: { className?: string }) => (
 export const Logo = () => (
   <div className="flex items-center gap-2.5">
     <RadarIcon />
-    <span className="text-lg font-semibold tracking-tight">
-      <span className="text-foreground">Rival</span>
-      <span className="text-primary">Radar</span>
+    <span className="text-lg font-semibold tracking-tight text-foreground">
+      Scoutly
     </span>
   </div>
 );

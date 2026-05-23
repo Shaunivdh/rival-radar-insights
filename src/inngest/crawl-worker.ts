@@ -19,8 +19,31 @@ import { updateBusiness, saveChangeEvent } from '@/actions/projects';
 import { normalizeUrl } from '@/lib/url';
 import { saveScoreSnapshot, getWeeklyDelta } from '@/lib/supabase/scores';
 import { logCrawlStep } from '@/lib/crawl/crawl-logger';
-import type { ExtractedSignals, Business, ChangeEvent, AIHealthScore, AIVisibility, SerpData, PageSpeedData, PriorityAction } from '@/types';
+import type { ExtractedSignals, Business, ChangeEvent, AIHealthScore, AIVisibility, GoogleData, SerpData, PageSpeedData, PriorityAction } from '@/types';
 import type { ServiceCategory } from '@/lib/serviceCategories';
+
+/** Convert a minimal row into a Business object for priority action generation. */
+function toPartialBiz(b: { id: string; name: string; signals: ExtractedSignals | null; aiScore: AIHealthScore | null; googleData: unknown; pagespeedData: PageSpeedData | null }): Business {
+  return {
+    id: b.id,
+    name: b.name,
+    url: '',
+    domain: '',
+    lastCrawledAt: null,
+    crawlJobId: null,
+    crawlStatus: 'complete',
+    signals: b.signals,
+    googleData: b.googleData as Business['googleData'],
+    serpData: null,
+    pagespeedData: b.pagespeedData,
+    aiScore: b.aiScore,
+    aiVisibility: null,
+    reviewSentiment: null,
+    enrichmentErrors: null,
+    previousSignals: null,
+    changeEvents: [],
+  };
+}
 
 /**
  * Enforce effort distribution across a batch of 5 actions: 2 low, 2 medium, 1 high.
@@ -133,7 +156,7 @@ export const crawlBusinessFunction = inngest.createFunction(
                   .maybeSingle(),
                 supabaseAdmin
                   .from('businesses')
-                  .select('ai_score, google_data')
+                  .select('ai_score, google_data, pagespeed_data')
                   .eq('id', b.id)
                   .single(),
               ]);
@@ -147,6 +170,7 @@ export const crawlBusinessFunction = inngest.createFunction(
                 signals,
                 aiScore: (bizRow?.ai_score as AIHealthScore) ?? null,
                 googleData: bizRow?.google_data ?? null,
+                pagespeedData: (bizRow?.pagespeed_data as PageSpeedData) ?? null,
               };
             })
           );
@@ -160,26 +184,6 @@ export const crawlBusinessFunction = inngest.createFunction(
             .select('primary_service')
             .eq('id', projectId)
             .single();
-
-          const toPartialBiz = (b: { id: string; name: string; signals: ExtractedSignals | null; aiScore: AIHealthScore | null; googleData: unknown }): Business => ({
-            id: b.id,
-            name: b.name,
-            url: '',
-            domain: '',
-            lastCrawledAt: null,
-            crawlJobId: null,
-            crawlStatus: 'complete',
-            signals: b.signals,
-            googleData: b.googleData as Business['googleData'],
-            serpData: null,
-            pagespeedData: null,
-            aiScore: b.aiScore,
-            aiVisibility: null,
-            reviewSentiment: null,
-            enrichmentErrors: null,
-            previousSignals: null,
-            changeEvents: [],
-          });
 
           try {
             const rawActions = await generatePriorityActions(
@@ -611,15 +615,15 @@ export const crawlBusinessFunction = inngest.createFunction(
 
       console.log(`[calculate-scores] business ${businessId} — google_data:`, biz.google_data != null, '| serp_data:', biz.serp_data != null);
 
-      const aiScore = calculateScores(
-        biz.google_data as Parameters<typeof calculateScores>[0],
-        biz.serp_data as Parameters<typeof calculateScores>[1],
-        biz.ai_visibility as Parameters<typeof calculateScores>[2],
+      const aiScore = calculateScores({
+        googleData: biz.google_data as GoogleData | null,
+        serpData: biz.serp_data as SerpData | null,
+        aiVisibility: biz.ai_visibility as AIVisibility | null,
         signals,
         previousReviewCount,
         daysBetween,
-        biz.pagespeed_data as PageSpeedData | null,
-      );
+        pagespeedData: biz.pagespeed_data as PageSpeedData | null,
+      });
       await updateBusiness(businessId, { aiScore });
       console.log(`[calculate-scores] ai_score saved for business ${businessId}:`, JSON.stringify(aiScore));
       logCrawlStep(businessId, jobId, 'calculate-scores', 'success', `overallScore=${aiScore.overallScore}`, { overallScore: aiScore.overallScore });
@@ -827,7 +831,7 @@ export const crawlBusinessFunction = inngest.createFunction(
               .maybeSingle(),
             supabaseAdmin
               .from('businesses')
-              .select('ai_score, google_data')
+              .select('ai_score, google_data, pagespeed_data')
               .eq('id', b.id)
               .single(),
           ]);
@@ -841,32 +845,13 @@ export const crawlBusinessFunction = inngest.createFunction(
             signals,
             aiScore: (bizRow?.ai_score as AIHealthScore) ?? null,
             googleData: bizRow?.google_data ?? null,
+            pagespeedData: (bizRow?.pagespeed_data as PageSpeedData) ?? null,
           };
         })
       );
 
       const ownRaw = withSignals.find((b) => b.isOwn);
       if (!ownRaw) return;
-
-      const toPartialBiz = (b: { id: string; name: string; signals: ExtractedSignals | null; aiScore: AIHealthScore | null; googleData: unknown }): Business => ({
-        id: b.id,
-        name: b.name,
-        url: '',
-        domain: '',
-        lastCrawledAt: null,
-        crawlJobId: null,
-        crawlStatus: 'complete',
-        signals: b.signals,
-        googleData: b.googleData as Business['googleData'],
-        serpData: null,
-        pagespeedData: null,
-        aiScore: b.aiScore,
-        aiVisibility: null,
-        reviewSentiment: null,
-        enrichmentErrors: null,
-        previousSignals: null,
-        changeEvents: [],
-      });
 
       try {
         const rawActions = await generatePriorityActions(

@@ -8,7 +8,14 @@ export function computeWebsiteHealthScore(
   signals: ExtractedSignals | null,
   pagespeedData?: PageSpeedData | null
 ): number | null {
-  if (signals == null) return null;  // null = crawl blocked, NOT a zero score
+  if (signals == null) {
+    // No crawl signals — but if we have PageSpeed data, we know a website exists
+    if (pagespeedData) {
+      const avg = (pagespeedData.mobile.performanceScore + pagespeedData.desktop.performanceScore) / 2;
+      return Math.round((avg / 100) * 10);   // 0–10 from PSI alone
+    }
+    return null;  // null = crawl blocked AND no PSI, NOT a zero score
+  }
   const { seo, engagement } = signals;
 
   let score = 0;
@@ -134,15 +141,19 @@ export function recomputeOverallScore(score: AIHealthScore): number {
  * Weights: reputation=25, localVisibility=25, websiteHealth=20,
  *          gbpCompleteness=15, aiPresence=10, reviewVelocity=5
  */
-export function calculateScores(
-  googleData: GoogleData | null,
-  serpData: SerpData | null,
-  aiVisibility: AIVisibility | null,
-  signals?: ExtractedSignals | null,
-  previousReviewCount?: number,
-  daysBetween?: number,
-  pagespeedData?: PageSpeedData | null,
-): AIHealthScore {
+interface ScoreInput {
+  googleData: GoogleData | null;
+  serpData: SerpData | null;
+  aiVisibility: AIVisibility | null;
+  signals?: ExtractedSignals | null;
+  previousReviewCount?: number;
+  daysBetween?: number;
+  pagespeedData?: PageSpeedData | null;
+}
+
+export function calculateScores(input: ScoreInput): AIHealthScore {
+  const { googleData, serpData, aiVisibility, signals, previousReviewCount, daysBetween, pagespeedData } = input;
+
   const reputationScore = computeReputationScore(googleData);
 
   let localVisibilityScore = 0;

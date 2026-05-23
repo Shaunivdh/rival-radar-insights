@@ -5,7 +5,7 @@ import { createServerClient } from '@supabase/ssr';
 import { supabaseAdmin } from '@/lib/supabase/server';
 import { inngest } from '@/inngest/client';
 import { calculateScores } from '@/services/scores';
-import type { Project, Business, ExtractedSignals, AIHealthScore, PriorityAction, ChangeEvent, AIVisibility, PageSpeedData, ReviewSentiment } from '@/types';
+import type { Project, Business, ExtractedSignals, AIHealthScore, PriorityAction, ChangeEvent, AIVisibility, PageSpeedData, ReviewSentiment, GoogleData, SerpData } from '@/types';
 import { normalizeUrl, extractDomain, isValidUrl } from '@/lib/url';
 
 // ── Auth helper ───────────────────────────────────────────────────────────────
@@ -181,12 +181,13 @@ export async function getProject(userId: string): Promise<Project | null> {
 
       let aiScore = (b.ai_score as AIHealthScore) ?? null;
       if (signals && (!aiScore || aiScore.websiteHealthScore === 0)) {
-        aiScore = calculateScores(
-          b.google_data as Parameters<typeof calculateScores>[0],
-          b.serp_data as Parameters<typeof calculateScores>[1],
-          b.ai_visibility as Parameters<typeof calculateScores>[2],
+        aiScore = calculateScores({
+          googleData: b.google_data as GoogleData | null,
+          serpData: b.serp_data as SerpData | null,
+          aiVisibility: b.ai_visibility as AIVisibility | null,
           signals,
-        );
+          pagespeedData: b.pagespeed_data as PageSpeedData | null,
+        });
         await supabaseAdmin.from('businesses').update({ ai_score: aiScore }).eq('id', b.id);
       }
 
@@ -284,7 +285,7 @@ export async function syncProject(projectId: string): Promise<{
 }> {
   const { data: rows } = await supabaseAdmin
     .from('businesses')
-    .select('id, crawl_status, ai_score, google_data, serp_data, ai_visibility, enrichment_errors')
+    .select('id, crawl_status, ai_score, google_data, serp_data, ai_visibility, enrichment_errors, pagespeed_data')
     .eq('project_id', projectId);
 
   if (!rows?.length) return { businesses: [], priorityActions: [] };
@@ -337,12 +338,13 @@ export async function syncProject(projectId: string): Promise<{
 
         // Recalculate if missing, websiteHealthScore is 0 with signals, or localVisibilityScore is 0 with serp data
         if (!aiScore || (signals && aiScore.websiteHealthScore === 0) || (b.serp_data && aiScore && aiScore.localVisibilityScore === 0)) {
-          aiScore = calculateScores(
-            b.google_data as Parameters<typeof calculateScores>[0],
-            b.serp_data as Parameters<typeof calculateScores>[1],
-            b.ai_visibility as Parameters<typeof calculateScores>[2],
-            signals
-          );
+          aiScore = calculateScores({
+            googleData: b.google_data as GoogleData | null,
+            serpData: b.serp_data as SerpData | null,
+            aiVisibility: b.ai_visibility as AIVisibility | null,
+            signals,
+            pagespeedData: b.pagespeed_data as PageSpeedData | null,
+          });
           await supabaseAdmin.from('businesses').update({ ai_score: aiScore }).eq('id', b.id);
         }
       }

@@ -136,9 +136,10 @@ const Dashboard = () => {
   const duplicateDomains = Object.entries(domainGroups).filter(([, names]) => names.length > 1);
 
   const own = project.ownBusiness;
-  const allChanges: (CE & { competitorName: string })[] = project.competitors
-    .flatMap((c) => c.changeEvents.map((e) => ({ ...e, competitorName: c.name })))
-    .sort((a, b) => b.detectedAt - a.detectedAt);
+  const allChanges: (CE & { competitorName: string })[] = [
+    ...own.changeEvents.map((e) => ({ ...e, competitorName: own.name })),
+    ...project.competitors.flatMap((c) => c.changeEvents.map((e) => ({ ...e, competitorName: c.name }))),
+  ].sort((a, b) => b.detectedAt - a.detectedAt);
 
   function alertIcon(summary: string) {
     const s = summary.toLowerCase();

@@ -45,7 +45,7 @@ const DIRECT_FETCH_FALLBACK_ATTEMPTS = 36; // ~3 min before falling back to dire
 
 async function writeEnrichmentError(
   businessId: string,
-  key: 'google' | 'serp' | 'ai_actions' | 'crawl',
+  key: 'google' | 'serp' | 'ai_actions' | 'crawl' | 'change_summary',
   userMessage: string
 ): Promise<void> {
   const { data } = await supabaseAdmin
@@ -59,7 +59,7 @@ async function writeEnrichmentError(
 
 async function clearEnrichmentError(
   businessId: string,
-  key: 'google' | 'serp' | 'ai_actions' | 'crawl'
+  key: 'google' | 'serp' | 'ai_actions' | 'crawl' | 'change_summary'
 ): Promise<void> {
   const { data } = await supabaseAdmin
     .from('businesses')
@@ -549,8 +549,10 @@ export const crawlBusinessFunction = inngest.createFunction(
       } catch (e) {
         if (e instanceof AIUnavailableError) {
           console.warn(`[change-summary] AI unavailable for ${businessId}, skipping change event`);
+          await writeEnrichmentError(businessId, 'change_summary', 'AI unavailable — change summary skipped');
         } else {
           console.error(`[change-summary] unexpected error for ${businessId}:`, e);
+          await writeEnrichmentError(businessId, 'change_summary', 'Failed to generate change summary');
         }
         return;
       }
@@ -565,6 +567,7 @@ export const crawlBusinessFunction = inngest.createFunction(
       };
 
       await saveChangeEvent(businessId, event);
+      await clearEnrichmentError(businessId, 'change_summary');
     });
 
     // Step 9: Calculate deterministic health score
@@ -878,6 +881,29 @@ export const crawlBusinessFunction = inngest.createFunction(
 
         const actions = enforceEffortDistribution(rawActions);
 
+        // Fetch existing actions to deduplicate
+        const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+
+        const { data: existingActions } = await supabaseAdmin
+          .from('priority_actions')
+          .select('action, status, actioned_at')
+          .eq('project_id', meta.projectId);
+
+        const existingSet = new Set(
+          (existingActions ?? [])
+            .filter((e) => {
+              // Skip if still active/snoozed/queued (duplicate)
+              if (['active', 'snoozed', 'queued'].includes(e.status)) return true;
+              // Skip if completed within the last 30 days
+              if (e.status === 'completed' && e.actioned_at && e.actioned_at >= thirtyDaysAgo) return true;
+              return false;
+            })
+            .map((e) => e.action)
+        );
+
+        const newActions = actions.filter((a) => !existingSet.has(a.action));
+        if (!newActions.length) return;
+
         // Count current active + snoozed to determine how many slots are open
         const { count: activeCount } = await supabaseAdmin
           .from('priority_actions')
@@ -888,7 +914,7 @@ export const crawlBusinessFunction = inngest.createFunction(
         const openSlots = Math.max(0, 15 - (activeCount ?? 0));
 
         await supabaseAdmin.from('priority_actions').insert(
-          actions.map((a, i) => ({
+          newActions.map((a, i) => ({
             project_id: meta.projectId,
             priority: a.priority,
             status: i < openSlots ? 'active' : 'queued',

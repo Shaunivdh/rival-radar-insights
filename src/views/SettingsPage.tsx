@@ -9,7 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import {
-  User, CreditCard, Shield, Building2,
+  User, CreditCard, Shield, Building2, Globe, Tag,
   Check, Crown, Download, Trash2, KeyRound, AlertTriangle, RefreshCw, Store, CheckCircle
 } from "lucide-react";
 import { useRivalRadarStore } from '@/store/rivalradar';
@@ -17,7 +17,7 @@ import { isValidUKPostcode } from '@/lib/utils';
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { rescanAll } from '@/actions/projects';
-import type { ServiceCategory } from '@/lib/serviceCategories';
+import { SERVICE_CATEGORY_OPTIONS, type ServiceCategory } from '@/lib/serviceCategories';
 
 type FieldErrors = Partial<Record<'primaryService' | 'location' | 'postcode', string>>;
 
@@ -140,21 +140,37 @@ const SettingsPage = () => {
                   <Label htmlFor="bname">Business name</Label>
                   <Input id="bname" defaultValue={biz?.name ?? ''} />
                 </div>
-                <div className="space-y-2">
+                <div className="space-y-2 md:col-span-2">
                   <Label htmlFor="website">Website</Label>
-                  <Input id="website" defaultValue={biz?.url ?? ''} />
+                  <div className="relative">
+                    <Globe className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                    <Input id="website" defaultValue={biz?.url ?? ''} className="pl-10" />
+                  </div>
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="industry">Industry</Label>
-                  <Input id="industry" defaultValue={form.primaryService ?? ''} onChange={(e) => {
-                    setForm({ ...form, primaryService: e.target.value as ServiceCategory });
-                    if ('primaryService' in errors) { const { primaryService: _, ...rest } = errors; setErrors(rest); }
-                  }} />
+                <div className="space-y-2 md:col-span-2">
+                  <Label htmlFor="primaryService">Business category</Label>
+                  <div className="relative">
+                    <Tag className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground z-10 pointer-events-none" />
+                    <select
+                      id="primaryService"
+                      value={form.primaryService ?? ''}
+                      onChange={(e) => {
+                        setForm({ ...form, primaryService: e.target.value as ServiceCategory });
+                        if ('primaryService' in errors) { const { primaryService: _, ...rest } = errors; setErrors(rest); }
+                      }}
+                      className="flex h-10 w-full rounded-md border border-input bg-background pl-10 pr-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                    >
+                      <option value="" disabled>Pick the closest match</option>
+                      {SERVICE_CATEGORY_OPTIONS.map((opt) => (
+                        <option key={opt.value} value={opt.value}>{opt.label}</option>
+                      ))}
+                    </select>
+                  </div>
                   {errors.primaryService && <p className="text-xs text-destructive">{errors.primaryService}</p>}
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="city">City</Label>
-                  <Input id="city" defaultValue={form.location ?? ''} onChange={(e) => {
+                  <Label htmlFor="city">Town / City</Label>
+                  <Input id="city" placeholder="Manchester" defaultValue={form.location ?? ''} onChange={(e) => {
                     setForm({ ...form, location: e.target.value });
                     if ('location' in errors) { const { location: _, ...rest } = errors; setErrors(rest); }
                   }} />
@@ -162,8 +178,8 @@ const SettingsPage = () => {
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="postcode">Postcode</Label>
-                  <Input id="postcode" defaultValue={form.postcode ?? ''} onChange={(e) => {
-                    setForm({ ...form, postcode: e.target.value });
+                  <Input id="postcode" placeholder="M1 4PQ" defaultValue={form.postcode ?? ''} onChange={(e) => {
+                    setForm({ ...form, postcode: e.target.value.toUpperCase() });
                     if ('postcode' in errors) { const { postcode: _, ...rest } = errors; setErrors(rest); }
                   }} />
                   {errors.postcode && <p className="text-xs text-destructive">{errors.postcode}</p>}

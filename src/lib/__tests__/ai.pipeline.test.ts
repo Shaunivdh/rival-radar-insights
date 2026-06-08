@@ -62,7 +62,7 @@ function buildBusiness(overrides: Partial<Business> = {}): Business {
         hasBlog: false,
         hasPortfolio: false,
         portfolioItemCount: 0,
-        hasFAQ: false,
+        hasFAQ: true,
       },
       engagement: {
         hasContactForm: true,
@@ -226,8 +226,8 @@ afterEach(() => {
 describe('Priority action pipeline (integration)', () => {
   const competitors = [buildCompetitor('Bob Plumbing'), buildCompetitor('Quick Fix')];
 
-  // ── 1. Templates only ───────────────────────────────────────────────
-  it('returns 3 template actions when all template triggers fire, no LLM call', async () => {
+  // ── 1. Templates fill some slots, LLM fills the rest ────────────────
+  it('returns template actions first and fills remaining slots via LLM', async () => {
     const own = buildBusiness({
       signals: {
         seo: {
@@ -283,13 +283,12 @@ describe('Priority action pipeline (integration)', () => {
       },
     });
 
+    // This empty business fires many template triggers (>= 5), so no LLM call is needed.
     const result = await generatePriorityActions(own, competitors);
 
-    expect(result).toHaveLength(3);
-    expect(result[0].priority).toBe(1);
-    expect(result[1].priority).toBe(2);
-    expect(result[2].priority).toBe(3);
-    // Templates fire in order: no_phone_on_homepage, missing_h1, no_business_hours
+    expect(result).toHaveLength(5);
+    expect(result.map((a) => a.priority)).toEqual([1, 2, 3, 4, 5]);
+    // First three templates by definition order: no_phone_on_homepage, missing_h1, no_business_hours
     expect(result[0].action).toContain('phone number');
     expect(result[1].action).toContain('heading');
     expect(result[2].action).toContain('hours');
@@ -299,7 +298,7 @@ describe('Priority action pipeline (integration)', () => {
     expect(result.every((a) => !('_source' in a))).toBe(true);
   });
 
-  // ── 2. Mixed: 1 template + 2 LLM ───────────────────────────────────
+  // ── 2. Mixed: 1 template + 4 LLM ───────────────────────────────────
   it('fills remaining slots with LLM actions when only 1 template fires', async () => {
     const own = buildBusiness({
       signals: {
@@ -308,50 +307,55 @@ describe('Priority action pipeline (integration)', () => {
       },
     });
 
-    mockCreate.mockResolvedValueOnce(llmResponse(cannedLLMActions(2)));
+    // Pad to 4 LLM actions (cannedLLMActions only has 3 templates so repeat the last).
+    const llm = cannedLLMActions(3);
+    llm.push({ ...llm[2], action: 'Add a customer testimonials section' });
+    mockCreate.mockResolvedValueOnce(llmResponse(llm));
 
     const result = await generatePriorityActions(own, competitors);
 
-    expect(result).toHaveLength(3);
+    expect(result).toHaveLength(5);
     // First action is the template
     expect(result[0].action).toContain('heading');
-    expect(result[0].priority).toBe(1);
-    // Next two are from LLM
-    expect(result[1].priority).toBe(2);
-    expect(result[2].priority).toBe(3);
+    expect(result.map((a) => a.priority)).toEqual([1, 2, 3, 4, 5]);
     // LLM was called exactly once (generation, no validation flags expected)
     expect(mockCreate).toHaveBeenCalledTimes(1);
     // Prompt should contain coveredNote
     const callArgs = mockCreate.mock.calls[0][0];
     const prompt = callArgs.messages[0].content;
     expect(prompt).toContain('already covered');
-    // maxTokens should reflect 2 remaining slots (2 * 833 = 1666)
-    expect(callArgs.max_tokens).toBe(1666);
+    // maxTokens should reflect 4 remaining slots (4 * 833 = 3332)
+    expect(callArgs.max_tokens).toBe(3332);
   });
 
   // ── 3. LLM only ────────────────────────────────────────────────────
   it('uses only LLM when no templates fire', async () => {
     const own = buildBusiness(); // default business has no template triggers
 
-    mockCreate.mockResolvedValueOnce(llmResponse(cannedLLMActions(3)));
+    const llm = cannedLLMActions(3);
+    llm.push({ ...llm[2], action: 'Add a customer testimonials section' });
+    llm.push({ ...llm[1], action: 'Publish a frequently asked questions page' });
+    mockCreate.mockResolvedValueOnce(llmResponse(llm));
 
     const result = await generatePriorityActions(own, competitors);
 
-    expect(result).toHaveLength(3);
+    expect(result).toHaveLength(5);
     expect(mockCreate).toHaveBeenCalledTimes(1);
     // Prompt should NOT contain coveredNote
     const prompt = mockCreate.mock.calls[0][0].messages[0].content;
     expect(prompt).not.toContain('already covered');
-    // maxTokens for 3 slots = 3 * 833 = 2499
-    expect(mockCreate.mock.calls[0][0].max_tokens).toBe(2499);
+    // maxTokens for 5 slots = 5 * 833 = 4165
+    expect(mockCreate.mock.calls[0][0].max_tokens).toBe(4165);
   });
 
   // ── 4. Validator-flagged: unverified average triggers patch call ────
   it('patches actions when validator detects unverified averages', async () => {
     const own = buildBusiness();
 
-    // First call: generation — return actions with a flagged phrase
+    // First call: generation — return actions with a flagged phrase. Pad to 5 LLM actions.
     const flaggedActions = cannedLLMActions(3);
+    flaggedActions.push({ ...flaggedActions[2], action: 'Add a customer testimonials section' });
+    flaggedActions.push({ ...flaggedActions[1], action: 'Publish a frequently asked questions page' });
     flaggedActions[0] = {
       ...flaggedActions[0],
       whyItMatters: 'Your competitors average 4 reviews per month, leaving you behind.',
@@ -375,9 +379,8 @@ describe('Priority action pipeline (integration)', () => {
 
     // Validator should have made a second call
     expect(mockCreate).toHaveBeenCalledTimes(2);
-    // The second call's prompt should contain "fact-checker"
-    const validatorPrompt = mockCreate.mock.calls[1][0].messages[0].content;
-    expect(validatorPrompt).toContain('fact-checker');
+    // The second call should be the validator, identified by its system prompt persona.
+    expect(mockCreate.mock.calls[1][0].system).toContain("fact-checker");
     // The patched action should no longer contain the flagged phrase
     expect(result[0].whyItMatters).not.toContain('competitors average 4');
     expect(result[0].whyItMatters).toContain('Bob Plumbing');
@@ -441,8 +444,11 @@ describe('Priority action pipeline (integration)', () => {
       engagement: { ...currentSignals.engagement, hasPhoneNumberProminent: false },
     };
 
-    // LLM call for remaining 3 slots (no templates fire on this business)
-    const llmActions = cannedLLMActions(3).map((a) => ({
+    // LLM call for remaining 5 slots (no templates fire on this business)
+    const padded = cannedLLMActions(3);
+    padded.push({ ...padded[2], action: 'Add a customer testimonials section' });
+    padded.push({ ...padded[1], action: 'Publish a frequently asked questions page' });
+    const llmActions = padded.map((a) => ({
       ...a,
       continuityNote: 'You added your phone number last week — great move.',
     }));
@@ -456,7 +462,7 @@ describe('Priority action pipeline (integration)', () => {
       currentSignals,
     );
 
-    expect(result).toHaveLength(3);
+    expect(result).toHaveLength(5);
     // LLM prompt should include closedNote about the phone number win
     const prompt = mockCreate.mock.calls[0][0].messages[0].content;
     expect(prompt).toContain('Closed since last week');

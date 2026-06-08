@@ -569,18 +569,28 @@ export async function extractAndPersistSignals(
   const needsExtraction = rawResult.pages.some(
     (p) => (!p.json || Object.keys(p.json).length === 0) && !!p.html,
   );
+  let extractFailures = 0;
+  let extractAttempts = 0;
   if (needsExtraction) {
     const pagesToExtract = rawResult.pages.slice(0, 5);
-    const extracted = await Promise.all(
+    const settled = await Promise.allSettled(
       pagesToExtract.map((p) =>
         p.html ? extractPageSignals(p.html, EXTRACTION_PROMPT) : Promise.resolve({}),
       ),
     );
+    const extracted = settled.map((r) => {
+      if (r.status === 'fulfilled') return r.value;
+      extractFailures++;
+      return {} as Record<string, unknown>;
+    });
+    extractAttempts = pagesToExtract.filter((p) => !!p.html).length;
     rawResult = {
       ...rawResult,
       pages: rawResult.pages.map((p, i) => (i < 5 ? { ...p, json: extracted[i] } : p)),
     };
-    console.log(`[crawl] Extracted signals from HTML for ${pagesToExtract.length} pages`);
+    console.log(
+      `[crawl] Extracted signals from HTML for ${pagesToExtract.length} pages (${extractFailures} failed)`,
+    );
   }
 
   // Always apply deterministic HTML parsing on top of AI-extracted json.
@@ -645,9 +655,26 @@ export async function extractAndPersistSignals(
   });
   if (insertError) throw new Error(`Failed to insert signals: ${insertError.message}`);
 
+  // Merge enrichment_errors so we can flag an extract failure without clobbering other fields.
+  const { data: existingErrRow } = await supabaseAdmin
+    .from('businesses')
+    .select('enrichment_errors')
+    .eq('id', businessId)
+    .single();
+  const existingErrs = (existingErrRow?.enrichment_errors ?? {}) as Record<string, string>;
+  const nextErrs: Record<string, string> = { ...existingErrs };
+  if (extractFailures > 0 && extractFailures === extractAttempts && extractAttempts > 0) {
+    nextErrs.extract = 'Page-signal extraction failed — some on-site recommendations may be unavailable.';
+  } else {
+    delete nextErrs.extract;
+  }
+
   const { error: updateError } = await supabaseAdmin
     .from('businesses')
-    .update({ last_crawled_at: new Date().toISOString() })
+    .update({
+      last_crawled_at: new Date().toISOString(),
+      enrichment_errors: Object.keys(nextErrs).length > 0 ? nextErrs : null,
+    })
     .eq('id', businessId);
   if (updateError) throw new Error(`Failed to update last_crawled_at: ${updateError.message}`);
 

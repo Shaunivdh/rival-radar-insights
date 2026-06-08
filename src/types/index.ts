@@ -31,7 +31,7 @@ export interface Business {
   aiVisibility: AIVisibility | null;
   pagespeedData: PageSpeedData | null;
   reviewSentiment: ReviewSentiment | null;
-  enrichmentErrors: { google?: string; serp?: string; crawl?: string; ai_actions?: string } | null;
+  enrichmentErrors: { google?: string; serp?: string; crawl?: string; extract?: string; ai_actions?: string } | null;
   previousSignals: ExtractedSignals | null;
   changeEvents: ChangeEvent[];
 }

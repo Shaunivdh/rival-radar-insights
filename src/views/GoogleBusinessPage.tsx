@@ -2,7 +2,16 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { Store, CheckCircle, AlertCircle, Star, MessageSquare, ChevronDown, ChevronRight, Loader2 } from 'lucide-react';
+import {
+  Store,
+  CheckCircle,
+  AlertCircle,
+  Star,
+  MessageSquare,
+  ChevronDown,
+  ChevronRight,
+  Loader2,
+} from 'lucide-react';
 import type { GBPAccount, GBPLocation, GBPReview } from '@/services/gbp';
 import { STAR_MAP } from '@/services/gbp';
 
@@ -55,7 +64,10 @@ function ReviewCard({ review }: { review: GBPReview }) {
         setReplyError(d.error ?? 'Failed to submit reply');
       } else {
         const data = await res.json();
-        setCurrentReply({ comment: replyText, updateTime: data.updateTime ?? new Date().toISOString() });
+        setCurrentReply({
+          comment: replyText,
+          updateTime: data.updateTime ?? new Date().toISOString(),
+        });
         setEditing(false);
       }
     } catch {
@@ -89,7 +101,11 @@ function ReviewCard({ review }: { review: GBPReview }) {
     }
   };
 
-  const date = new Date(review.createTime).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+  const date = new Date(review.createTime).toLocaleDateString('en-GB', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+  });
 
   return (
     <div className="card-surface space-y-3">
@@ -115,7 +131,10 @@ function ReviewCard({ review }: { review: GBPReview }) {
           <p className="text-sm text-muted-foreground">{currentReply.comment}</p>
           <div className="flex gap-2 pt-1">
             <button
-              onClick={() => { setReplyText(currentReply.comment); setEditing(true); }}
+              onClick={() => {
+                setReplyText(currentReply.comment);
+                setEditing(true);
+              }}
               className="text-xs text-primary hover:underline"
             >
               Edit
@@ -131,9 +150,7 @@ function ReviewCard({ review }: { review: GBPReview }) {
         </div>
       )}
 
-      {replyError && (
-        <p className="text-xs text-destructive">{replyError}</p>
-      )}
+      {replyError && <p className="text-xs text-destructive">{replyError}</p>}
 
       {(!currentReply || editing) && (
         <div className="space-y-2">
@@ -155,7 +172,10 @@ function ReviewCard({ review }: { review: GBPReview }) {
             </button>
             {editing && (
               <button
-                onClick={() => { setEditing(false); setReplyText(currentReply?.comment ?? ''); }}
+                onClick={() => {
+                  setEditing(false);
+                  setReplyText(currentReply?.comment ?? '');
+                }}
                 className="px-3 py-1.5 text-xs text-muted-foreground hover:text-foreground"
               >
                 Cancel
@@ -205,7 +225,9 @@ export default function GoogleBusinessPage() {
         setReviewsError(d.error ?? 'Failed to load reviews');
       } else {
         const data = await res.json();
-        setReviews((prev) => pageToken ? [...prev, ...(data.reviews ?? [])] : (data.reviews ?? []));
+        setReviews((prev) =>
+          pageToken ? [...prev, ...(data.reviews ?? [])] : (data.reviews ?? []),
+        );
         setNextPageToken(data.nextPageToken ?? null);
         if (data.totalReviewCount != null) setTotalReviews(data.totalReviewCount);
         if (data.averageRating != null) setAvgRating(data.averageRating);
@@ -217,7 +239,9 @@ export default function GoogleBusinessPage() {
     }
   }, []);
 
-  useEffect(() => { fetchStatus(); }, [fetchStatus]);
+  useEffect(() => {
+    fetchStatus();
+  }, [fetchStatus]);
 
   useEffect(() => {
     if (status?.connected && status.locationName) {
@@ -319,7 +343,9 @@ export default function GoogleBusinessPage() {
           </div>
           <div>
             <p className="font-medium text-foreground">Connect your Google Business Profile</p>
-            <p className="text-sm text-muted-foreground mt-1">Reply to reviews directly from RivalRadar.</p>
+            <p className="text-sm text-muted-foreground mt-1">
+              Reply to reviews directly from RivalRadar.
+            </p>
           </div>
           <a
             href="/api/auth/google-business"
@@ -354,11 +380,17 @@ export default function GoogleBusinessPage() {
           {accounts.map((account) => (
             <div key={account.name} className="card-surface space-y-2">
               <button
-                onClick={() => setExpandedAccount(expandedAccount === account.name ? null : account.name)}
+                onClick={() =>
+                  setExpandedAccount(expandedAccount === account.name ? null : account.name)
+                }
                 className="w-full flex items-center justify-between text-sm font-medium text-foreground"
               >
                 <span>{account.accountName}</span>
-                {expandedAccount === account.name ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
+                {expandedAccount === account.name ? (
+                  <ChevronDown className="w-4 h-4" />
+                ) : (
+                  <ChevronRight className="w-4 h-4" />
+                )}
               </button>
 
               {expandedAccount === account.name && (
@@ -375,7 +407,9 @@ export default function GoogleBusinessPage() {
                     >
                       {loc.locationName || loc.name}
                       {loc.storefrontAddress?.addressLines?.[0] && (
-                        <span className="block text-xs text-muted-foreground">{loc.storefrontAddress.addressLines[0]}</span>
+                        <span className="block text-xs text-muted-foreground">
+                          {loc.storefrontAddress.addressLines[0]}
+                        </span>
                       )}
                     </button>
                   ))}
@@ -392,9 +426,7 @@ export default function GoogleBusinessPage() {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2 text-sm text-green-600">
               <CheckCircle className="w-4 h-4" />
-              <span>
-                {status.locationName.split('/').slice(-2).join('/')}
-              </span>
+              <span>{status.locationName.split('/').slice(-2).join('/')}</span>
             </div>
             <button
               onClick={async () => {
@@ -450,10 +482,7 @@ export default function GoogleBusinessPage() {
 
           <div className="space-y-3">
             {reviews.map((review) => (
-              <ReviewCard
-                key={review.name}
-                review={review}
-              />
+              <ReviewCard key={review.name} review={review} />
             ))}
           </div>
 

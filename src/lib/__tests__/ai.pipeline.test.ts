@@ -20,10 +20,7 @@ vi.mock('@anthropic-ai/sdk', () => {
 });
 
 // Now import the functions under test — they'll get the mocked Anthropic
-import {
-  generatePriorityActions,
-  generatePriorityActionsWithHistory,
-} from '@/services/ai';
+import { generatePriorityActions, generatePriorityActionsWithHistory } from '@/services/ai';
 
 // ── Helpers ─────────────────────────────────────────────────────────────
 
@@ -40,7 +37,8 @@ function buildBusiness(overrides: Partial<Business> = {}): Business {
     signals: {
       seo: {
         title: 'Acme Plumbing — Manchester',
-        metaDescription: 'Reliable plumbing services across Manchester and surrounding areas for homes and businesses.',
+        metaDescription:
+          'Reliable plumbing services across Manchester and surrounding areas for homes and businesses.',
         h1Tags: ['Reliable Plumbing in Manchester'],
         hasSitemap: true,
         hasRobotsTxt: true,
@@ -85,7 +83,14 @@ function buildBusiness(overrides: Partial<Business> = {}): Business {
       address: '123 Main St, Manchester',
       phoneNumber: '0161 123 4567',
       openingHours: ['Mon-Fri 8am-6pm'],
-      recentReviews: [{ rating: 5, text: 'Great job!', time: Math.floor(Date.now() / 1000) - 86400, authorName: 'Alice' }],
+      recentReviews: [
+        {
+          rating: 5,
+          text: 'Great job!',
+          time: Math.floor(Date.now() / 1000) - 86400,
+          authorName: 'Alice',
+        },
+      ],
       photos: 5,
       priceLevel: null,
       description: 'Professional plumbing services in Manchester with over 20 years experience.',
@@ -147,8 +152,13 @@ function cannedLLMActions(count: number): PriorityAction[] {
       effort: 'medium',
       action: 'Get listed in AI recommendations',
       reason: 'AI assistants do not mention you yet',
-      whyItMatters: 'More people use AI to find local services. Your AI presence score is 20, meaning most AI tools skip you entirely.',
-      steps: ['Claim your listing on major directories', 'Add structured data to your site', 'Encourage reviews mentioning your services'],
+      whyItMatters:
+        'More people use AI to find local services. Your AI presence score is 20, meaning most AI tools skip you entirely.',
+      steps: [
+        'Claim your listing on major directories',
+        'Add structured data to your site',
+        'Encourage reviews mentioning your services',
+      ],
       outcome: 'Appear in AI recommendations',
       competitorReference: null,
       estimatedImpact: 'high',
@@ -162,8 +172,13 @@ function cannedLLMActions(count: number): PriorityAction[] {
       effort: 'low',
       action: 'Ask 3 recent customers for reviews',
       reason: 'Review velocity is below competitors',
-      whyItMatters: 'Your review velocity score is 40. Fresh reviews signal to Google that you are active and trusted.',
-      steps: ['Text 3 recent happy customers', 'Include your Google review link', 'Follow up after 3 days'],
+      whyItMatters:
+        'Your review velocity score is 40. Fresh reviews signal to Google that you are active and trusted.',
+      steps: [
+        'Text 3 recent happy customers',
+        'Include your Google review link',
+        'Follow up after 3 days',
+      ],
       outcome: 'Steady stream of new reviews',
       competitorReference: 'Bob Plumbing has 12 reviews this month',
       estimatedImpact: 'high',
@@ -177,8 +192,13 @@ function cannedLLMActions(count: number): PriorityAction[] {
       effort: 'low',
       action: 'Add an online booking option',
       reason: 'No way to book online',
-      whyItMatters: 'Visitors who cannot book immediately often leave. Adding a simple booking form can capture leads 24/7.',
-      steps: ['Sign up for Calendly or similar', 'Add a "Book now" button to your homepage', 'Link it from your Google profile'],
+      whyItMatters:
+        'Visitors who cannot book immediately often leave. Adding a simple booking form can capture leads 24/7.',
+      steps: [
+        'Sign up for Calendly or similar',
+        'Add a "Book now" button to your homepage',
+        'Link it from your Google profile',
+      ],
       outcome: 'Capture leads outside business hours',
       competitorReference: null,
       estimatedImpact: 'medium',
@@ -210,15 +230,56 @@ describe('Priority action pipeline (integration)', () => {
   it('returns 3 template actions when all template triggers fire, no LLM call', async () => {
     const own = buildBusiness({
       signals: {
-        seo: { title: '', metaDescription: '', h1Tags: [], hasSitemap: false, hasRobotsTxt: false, internalLinkCount: 0, schemaMarkupTypes: [], canonicalTagsPresent: false, altTagCoverage: 'none' },
-        trust: { accreditations: [], certifications: [], awardsAndMemberships: [], reviewPlatformsLinked: [], teamPageExists: false, insuranceMentioned: false, guaranteesMentioned: [] },
-        content: { servicesListed: [], serviceAreasMentioned: [], hasBlog: false, hasPortfolio: false, portfolioItemCount: 0, hasFAQ: false },
-        engagement: { hasContactForm: false, hasBookingSystem: false, bookingProvider: null, hasCallToAction: false, ctaText: [], hasNewsletterSignup: false, socialLinksPresent: [], hasPhoneNumberProminent: false },
+        seo: {
+          title: '',
+          metaDescription: '',
+          h1Tags: [],
+          hasSitemap: false,
+          hasRobotsTxt: false,
+          internalLinkCount: 0,
+          schemaMarkupTypes: [],
+          canonicalTagsPresent: false,
+          altTagCoverage: 'none',
+        },
+        trust: {
+          accreditations: [],
+          certifications: [],
+          awardsAndMemberships: [],
+          reviewPlatformsLinked: [],
+          teamPageExists: false,
+          insuranceMentioned: false,
+          guaranteesMentioned: [],
+        },
+        content: {
+          servicesListed: [],
+          serviceAreasMentioned: [],
+          hasBlog: false,
+          hasPortfolio: false,
+          portfolioItemCount: 0,
+          hasFAQ: false,
+        },
+        engagement: {
+          hasContactForm: false,
+          hasBookingSystem: false,
+          bookingProvider: null,
+          hasCallToAction: false,
+          ctaText: [],
+          hasNewsletterSignup: false,
+          socialLinksPresent: [],
+          hasPhoneNumberProminent: false,
+        },
       },
       googleData: {
-        googleRating: 4.0, reviewCount: 0, placeId: 'x', businessCategory: 'Plumber',
-        address: '1 Main St', phoneNumber: '', openingHours: [], recentReviews: [],
-        photos: 0, priceLevel: null,
+        googleRating: 4.0,
+        reviewCount: 0,
+        placeId: 'x',
+        businessCategory: 'Plumber',
+        address: '1 Main St',
+        phoneNumber: '',
+        openingHours: [],
+        recentReviews: [],
+        photos: 0,
+        priceLevel: null,
       },
     });
 
@@ -299,11 +360,14 @@ describe('Priority action pipeline (integration)', () => {
 
     // Second call: validator patch — return a clean patch
     const patchResponse = {
-      patches: [{
-        actionIndex: 0,
-        field: 'whyItMatters',
-        newValue: 'Bob Plumbing received 12 reviews this month while you received none. Fresh reviews help you rank higher.',
-      }],
+      patches: [
+        {
+          actionIndex: 0,
+          field: 'whyItMatters',
+          newValue:
+            'Bob Plumbing received 12 reviews this month while you received none. Fresh reviews help you rank higher.',
+        },
+      ],
     };
     mockCreate.mockResolvedValueOnce(llmResponse(patchResponse));
 
@@ -385,7 +449,11 @@ describe('Priority action pipeline (integration)', () => {
     mockCreate.mockResolvedValueOnce(llmResponse(llmActions));
 
     const result = await generatePriorityActionsWithHistory(
-      own, competitors, previousActions, previousSignals, currentSignals
+      own,
+      competitors,
+      previousActions,
+      previousSignals,
+      currentSignals,
     );
 
     expect(result).toHaveLength(3);

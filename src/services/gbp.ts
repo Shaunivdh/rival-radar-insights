@@ -73,10 +73,20 @@ export async function listReviews(token: string, locationName: string, pageToken
   if (pageToken) url.searchParams.set('pageToken', pageToken);
   const res = await fetch(url.toString(), { headers: { Authorization: `Bearer ${token}` } });
   if (!res.ok) throw new Error(`listReviews failed: ${res.status}`);
-  return res.json() as Promise<{ reviews: GBPReview[]; nextPageToken?: string; totalReviewCount?: number; averageRating?: number }>;
+  return res.json() as Promise<{
+    reviews: GBPReview[];
+    nextPageToken?: string;
+    totalReviewCount?: number;
+    averageRating?: number;
+  }>;
 }
 
-export async function upsertReply(token: string, locationName: string, reviewId: string, comment: string) {
+export async function upsertReply(
+  token: string,
+  locationName: string,
+  reviewId: string,
+  comment: string,
+) {
   const res = await fetch(`${GBP_V4}/${locationName}/reviews/${reviewId}/reply`, {
     method: 'PUT',
     headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
@@ -122,5 +132,9 @@ export interface GBPReview {
 }
 
 export const STAR_MAP: Record<string, number> = {
-  ONE: 1, TWO: 2, THREE: 3, FOUR: 4, FIVE: 5,
+  ONE: 1,
+  TWO: 2,
+  THREE: 3,
+  FOUR: 4,
+  FIVE: 5,
 };

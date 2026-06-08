@@ -1,5 +1,15 @@
 import { supabaseAdmin } from '@/lib/supabase/server';
-import { startCrawl, startIncrementalCrawl, pollCrawlStatus, getCrawlResults, extractPriorityLinks, crawlSinglePage, fetchPageDirect, CrawlDisallowedError, type CrawlCredentials } from '@/services/crawl';
+import {
+  startCrawl,
+  startIncrementalCrawl,
+  pollCrawlStatus,
+  getCrawlResults,
+  extractPriorityLinks,
+  crawlSinglePage,
+  fetchPageDirect,
+  CrawlDisallowedError,
+  type CrawlCredentials,
+} from '@/services/crawl';
 import { saveToCache, loadFromCache } from '@/services/crawl.cache';
 import { extractSignals } from '@/services/extract';
 import { extractPageSignals } from '@/services/ai';
@@ -36,9 +46,23 @@ const EXTRACTION_PROMPT =
   'sectorSpecific.dvsaApproved: bool or null — true if DVSA approval or an Approved Driving Instructor (ADI) badge is mentioned. ' +
   'sectorSpecific.passRates: string or null — any stated pass rate or first-time pass rate percentage (e.g. "72% first-time pass rate"); return the raw string as found. ' +
   'sectorSpecific.ageRangesCovered: string array — age ranges or year groups catered for, relevant to nurseries, childminders, or tutors (e.g. "0-5 years", "Key Stage 1", "6 weeks to 5 years").';
-const CHALLENGE_TITLES = ['one moment, please', 'just a moment', 'attention required', 'access denied'];
+const CHALLENGE_TITLES = [
+  'one moment, please',
+  'just a moment',
+  'attention required',
+  'access denied',
+];
 const ERROR_TITLES = ['page not found', '404 not found', 'error 404', '403 forbidden'];
-const POPUP_SELECTORS = ['.modal', '.popup', '[class*="overlay"]', '[class*="cookie"]', '[class*="consent"]', '[id*="modal"]', '[id*="popup"]', '[id*="overlay"]'];
+const POPUP_SELECTORS = [
+  '.modal',
+  '.popup',
+  '[class*="overlay"]',
+  '[class*="cookie"]',
+  '[class*="consent"]',
+  '[id*="modal"]',
+  '[id*="popup"]',
+  '[id*="overlay"]',
+];
 
 // Regex patterns to strip common popup/overlay/challenge elements from rendered HTML.
 // Each pattern removes the full element including children.
@@ -74,9 +98,10 @@ function stripPopupOverlays(html: string): { html: string; strippedCount: number
   const lower = stripped.toLowerCase();
   const titleMatch = lower.match(/<title[^>]*>([\s\S]*?)<\/title>/);
   const currentTitle = titleMatch?.[1]?.trim() ?? '';
-  if (CHALLENGE_TITLES.some(t => currentTitle.includes(t))) {
-    const ogMatch = html.match(/<meta[^>]*property=["']og:title["'][^>]*content=["']([^"']+)["']/i)
-      ?? html.match(/<meta[^>]*content=["']([^"']+)["'][^>]*property=["']og:title["']/i);
+  if (CHALLENGE_TITLES.some((t) => currentTitle.includes(t))) {
+    const ogMatch =
+      html.match(/<meta[^>]*property=["']og:title["'][^>]*content=["']([^"']+)["']/i) ??
+      html.match(/<meta[^>]*content=["']([^"']+)["'][^>]*property=["']og:title["']/i);
     if (ogMatch?.[1]) {
       stripped = stripped.replace(/<title[^>]*>[\s\S]*?<\/title>/i, `<title>${ogMatch[1]}</title>`);
       strippedCount++;
@@ -101,10 +126,25 @@ interface PageDiagnostics {
 }
 
 function diagnosePage(html: string): PageDiagnostics {
-  const base: PageDiagnostics = { unusable: false, reason: null, blockType: null, title: '', h1: '', htmlLength: html?.length ?? 0, hasPopupSignals: false, popupSelectors: [], internalLinkCount: 0 };
+  const base: PageDiagnostics = {
+    unusable: false,
+    reason: null,
+    blockType: null,
+    title: '',
+    h1: '',
+    htmlLength: html?.length ?? 0,
+    hasPopupSignals: false,
+    popupSelectors: [],
+    internalLinkCount: 0,
+  };
 
   if (!html || html.length < 300) {
-    return { ...base, unusable: true, blockType: 'empty_html', reason: html ? `HTML too short (${html.length} chars)` : 'Empty HTML' };
+    return {
+      ...base,
+      unusable: true,
+      blockType: 'empty_html',
+      reason: html ? `HTML too short (${html.length} chars)` : 'Empty HTML',
+    };
   }
 
   const lower = html.toLowerCase();
@@ -119,9 +159,12 @@ function diagnosePage(html: string): PageDiagnostics {
   base.internalLinkCount = linkMatches?.length ?? 0;
 
   // Check for popup/modal/overlay indicators in HTML
-  const matchedSelectors = POPUP_SELECTORS.filter(sel => {
-    const attr = sel.startsWith('.') ? `class="${sel.slice(1)}` :
-                 sel.startsWith('[') ? sel.replace(/[\[\]]/g, '').replace('*=', '="') : sel;
+  const matchedSelectors = POPUP_SELECTORS.filter((sel) => {
+    const attr = sel.startsWith('.')
+      ? `class="${sel.slice(1)}`
+      : sel.startsWith('[')
+        ? sel.replace(/[\[\]]/g, '').replace('*=', '="')
+        : sel;
     return lower.includes(attr.replace(/"/g, '').toLowerCase());
   });
   if (matchedSelectors.length > 0) {
@@ -130,15 +173,25 @@ function diagnosePage(html: string): PageDiagnostics {
   }
 
   // Challenge / bot-protection / popup pages — the HTML content (including h1) is NOT real site content
-  const matchedChallenge = CHALLENGE_TITLES.find(t => base.title.includes(t));
+  const matchedChallenge = CHALLENGE_TITLES.find((t) => base.title.includes(t));
   if (matchedChallenge) {
-    return { ...base, unusable: true, blockType: 'challenge_or_popup', reason: `Bot challenge or popup blocking page (title: "${base.title}"). Page content (including h1) is from the challenge screen, not the real site.` };
+    return {
+      ...base,
+      unusable: true,
+      blockType: 'challenge_or_popup',
+      reason: `Bot challenge or popup blocking page (title: "${base.title}"). Page content (including h1) is from the challenge screen, not the real site.`,
+    };
   }
 
   // Actual error pages
-  const matchedError = ERROR_TITLES.find(t => base.title.includes(t));
+  const matchedError = ERROR_TITLES.find((t) => base.title.includes(t));
   if (matchedError) {
-    return { ...base, unusable: true, blockType: 'error_page', reason: `Error page (title: "${base.title}")` };
+    return {
+      ...base,
+      unusable: true,
+      blockType: 'error_page',
+      reason: `Error page (title: "${base.title}")`,
+    };
   }
   if (/^\s*404\s*$/.test(base.h1)) {
     // Only flag as error if the title doesn't suggest a challenge page
@@ -155,7 +208,8 @@ function isUnusablePage(html: string): boolean {
 function getCredentials(): CrawlCredentials {
   const accountId = process.env.CF_ACCOUNT_ID;
   const apiToken = process.env.CF_API_TOKEN;
-  if (!accountId || !apiToken) throw new Error('CF_ACCOUNT_ID or CF_API_TOKEN not set in environment');
+  if (!accountId || !apiToken)
+    throw new Error('CF_ACCOUNT_ID or CF_API_TOKEN not set in environment');
   return { accountId, apiToken };
 }
 
@@ -167,7 +221,7 @@ export const CRAWL_DISALLOWED = 'crawl-disallowed';
 /** Begin a crawl for a business. Updates crawl_status to 'running'. Returns the CF job ID. */
 export async function startBusinessCrawl(
   businessId: string,
-  mode: 'initial' | 'incremental'
+  mode: 'initial' | 'incremental',
 ): Promise<string> {
   const { data: business, error } = await supabaseAdmin
     .from('businesses')
@@ -188,7 +242,7 @@ export async function startBusinessCrawl(
       ? await startIncrementalCrawl(
           normalizedUrl,
           new Date(business.last_crawled_at as string).getTime(),
-          credentials
+          credentials,
         )
       : await startCrawl(
           normalizedUrl,
@@ -198,11 +252,13 @@ export async function startBusinessCrawl(
             jsonOptions: { prompt: EXTRACTION_PROMPT },
             gotoOptions: { waitUntil: 'networkidle0' },
           },
-          credentials
+          credentials,
         );
   } catch (e) {
     if (e instanceof CrawlDisallowedError) {
-      console.warn(`[crawl] CF crawl disallowed for ${normalizedUrl} — trying direct fetch fallback`);
+      console.warn(
+        `[crawl] CF crawl disallowed for ${normalizedUrl} — trying direct fetch fallback`,
+      );
       const html = await fetchPageDirect(normalizedUrl);
 
       if (html) {
@@ -214,11 +270,15 @@ export async function startBusinessCrawl(
         await extractAndPersistSignals(businessId, DIRECT_FETCH_DONE, directResult);
 
         // Write a non-blocking warning so the UI can note reduced data quality
-        await supabaseAdmin.from('businesses').update({
-          enrichment_errors: {
-            crawl: 'This website blocks automated crawling. We fetched a basic version of the page, so some data may be incomplete.',
-          },
-        }).eq('id', businessId);
+        await supabaseAdmin
+          .from('businesses')
+          .update({
+            enrichment_errors: {
+              crawl:
+                'This website blocks automated crawling. We fetched a basic version of the page, so some data may be incomplete.',
+            },
+          })
+          .eq('id', businessId);
 
         console.log(`[crawl] Direct fetch fallback succeeded for ${normalizedUrl}`);
         return DIRECT_FETCH_DONE;
@@ -226,11 +286,15 @@ export async function startBusinessCrawl(
 
       // Direct fetch also failed — mark as disallowed
       console.error(`[crawl] Direct fetch also failed for ${normalizedUrl}`);
-      await supabaseAdmin.from('businesses').update({
-        enrichment_errors: {
-          crawl: 'This website has blocked all automated access. Website data could not be collected for this business.',
-        },
-      }).eq('id', businessId);
+      await supabaseAdmin
+        .from('businesses')
+        .update({
+          enrichment_errors: {
+            crawl:
+              'This website has blocked all automated access. Website data could not be collected for this business.',
+          },
+        })
+        .eq('id', businessId);
       return CRAWL_DISALLOWED;
     }
     throw e; // Re-throw non-disallowed errors
@@ -271,7 +335,7 @@ export async function checkCrawlStatus(_businessId: string, jobId: string): Prom
 export async function extractAndPersistSignals(
   businessId: string,
   jobId: string,
-  prefetchedResult?: RawCrawlResult
+  prefetchedResult?: RawCrawlResult,
 ): Promise<void> {
   const credentials = getCredentials();
 
@@ -283,7 +347,7 @@ export async function extractAndPersistSignals(
 
   const url = business?.url ? normalizeUrl(business.url as string) : undefined;
   const cached = url ? loadFromCache(url) : null;
-  const rootResult = prefetchedResult ?? cached ?? await getCrawlResults(jobId, credentials);
+  const rootResult = prefetchedResult ?? cached ?? (await getCrawlResults(jobId, credentials));
 
   // Multi-page: extract priority links from root HTML and crawl them in parallel
   let rawResult: RawCrawlResult = rootResult;
@@ -312,16 +376,23 @@ export async function extractAndPersistSignals(
       const strippedDiag = diagnosePage(strippedHtml);
 
       if (strippedCount > 0) {
-        console.log(`[crawl] Stripped ${strippedCount} popup/overlay patterns from ${url} (${rootHtml.length} → ${strippedHtml.length} chars)`);
+        console.log(
+          `[crawl] Stripped ${strippedCount} popup/overlay patterns from ${url} (${rootHtml.length} → ${strippedHtml.length} chars)`,
+        );
       }
 
       if (!strippedDiag.unusable && strippedHtml.length > 500) {
         console.log(`[crawl] Stripped HTML is usable for ${url} — using cleaned version`);
-        rawResult = { status: 'completed', pages: [{ ...rootResult.pages[0], html: strippedHtml }, ...rootResult.pages.slice(1)] };
+        rawResult = {
+          status: 'completed',
+          pages: [{ ...rootResult.pages[0], html: strippedHtml }, ...rootResult.pages.slice(1)],
+        };
       } else {
         // Stripping didn't help — retry with networkidle0 + longer timeout
-        console.warn(`[crawl] Stripping didn't recover usable content for ${url} — retrying with networkidle0 + 30s timeout`);
-        await new Promise(r => setTimeout(r, 5000));
+        console.warn(
+          `[crawl] Stripping didn't recover usable content for ${url} — retrying with networkidle0 + 30s timeout`,
+        );
+        await new Promise((r) => setTimeout(r, 5000));
         const retryPage = await crawlSinglePage(url, EXTRACTION_PROMPT, credentials, {
           gotoOptions: { waitUntil: 'networkidle0', timeout: 30000 },
         });
@@ -331,17 +402,32 @@ export async function extractAndPersistSignals(
         if (retryHtml && diagnosePage(retryHtml).unusable) {
           const retryStripped = stripPopupOverlays(retryHtml);
           if (retryStripped.strippedCount > 0) {
-            console.log(`[crawl] Stripped ${retryStripped.strippedCount} patterns from retry result for ${url}`);
+            console.log(
+              `[crawl] Stripped ${retryStripped.strippedCount} patterns from retry result for ${url}`,
+            );
             retryHtml = retryStripped.html;
           }
         }
 
         const retryDiag = retryHtml ? diagnosePage(retryHtml) : null;
         if (retryDiag && !retryDiag.unusable && retryHtml.length > 500) {
-          console.log(`[crawl] Retry succeeded for ${url}`, retryDiag.hasPopupSignals
-            ? `(popup signals still present: ${retryDiag.popupSelectors.join(', ')})`
-            : '(clean page)');
-          rawResult = { status: 'completed', pages: [{ ...rootResult.pages[0], html: retryHtml, ...(retryPage ? { url: retryPage.url } : {}) }, ...rootResult.pages.slice(1)] };
+          console.log(
+            `[crawl] Retry succeeded for ${url}`,
+            retryDiag.hasPopupSignals
+              ? `(popup signals still present: ${retryDiag.popupSelectors.join(', ')})`
+              : '(clean page)',
+          );
+          rawResult = {
+            status: 'completed',
+            pages: [
+              {
+                ...rootResult.pages[0],
+                html: retryHtml,
+                ...(retryPage ? { url: retryPage.url } : {}),
+              },
+              ...rootResult.pages.slice(1),
+            ],
+          };
         } else {
           const finalDiag = retryDiag ?? strippedDiag;
           const finalLog = {
@@ -354,45 +440,61 @@ export async function extractAndPersistSignals(
             internalLinkCount: finalDiag.internalLinkCount,
             ...(finalDiag.blockType === 'error_page' ? { h1: finalDiag.h1 } : {}),
           };
-          console.error(`[crawl] Retry failed for ${url} — page remains unusable:`, JSON.stringify(finalLog));
+          console.error(
+            `[crawl] Retry failed for ${url} — page remains unusable:`,
+            JSON.stringify(finalLog),
+          );
 
-          const userMessage = finalDiag.blockType === 'challenge_or_popup'
-            ? 'This website has a popup or bot challenge that blocks automated crawling. The page content could not be read.'
-            : finalDiag.blockType === 'error_page'
-            ? 'This website returned an error page. It may be temporarily down or the URL may be incorrect.'
-            : 'This website could not be crawled — it may be temporarily unavailable. Re-scanning may resolve this.';
+          const userMessage =
+            finalDiag.blockType === 'challenge_or_popup'
+              ? 'This website has a popup or bot challenge that blocks automated crawling. The page content could not be read.'
+              : finalDiag.blockType === 'error_page'
+                ? 'This website returned an error page. It may be temporarily down or the URL may be incorrect.'
+                : 'This website could not be crawled — it may be temporarily unavailable. Re-scanning may resolve this.';
 
-          await supabaseAdmin.from('businesses').update({
-            enrichment_errors: {
-              crawl: userMessage,
-              crawl_block_type: finalDiag.blockType,
-              crawl_blocked_reason: finalDiag.reason,
-              crawl_popup_detected: finalDiag.hasPopupSignals,
-              crawl_popup_selectors: finalDiag.popupSelectors.length > 0 ? finalDiag.popupSelectors : null,
-            }
-          }).eq('id', businessId);
+          await supabaseAdmin
+            .from('businesses')
+            .update({
+              enrichment_errors: {
+                crawl: userMessage,
+                crawl_block_type: finalDiag.blockType,
+                crawl_blocked_reason: finalDiag.reason,
+                crawl_popup_detected: finalDiag.hasPopupSignals,
+                crawl_popup_selectors:
+                  finalDiag.popupSelectors.length > 0 ? finalDiag.popupSelectors : null,
+              },
+            })
+            .eq('id', businessId);
 
           // Remove the unusable root page from results so sub-page signals aren't contaminated
           // by challenge page titles/h1s — sub-pages will provide the real data
           rawResult = { ...rawResult, pages: rawResult.pages.slice(1) };
-          console.log(`[crawl] Removed unusable root page from results — ${rawResult.pages.length} sub-pages remain`);
+          console.log(
+            `[crawl] Removed unusable root page from results — ${rawResult.pages.length} sub-pages remain`,
+          );
         }
       }
     } else if (rootHtml && rootDiag.hasPopupSignals) {
       // Page is usable but has popup indicators — log as warning for monitoring
-      console.warn(`[crawl] Popup signals detected on ${url} (page still usable):`, JSON.stringify({
-        popupSelectors: rootDiag.popupSelectors,
-        internalLinkCount: rootDiag.internalLinkCount,
-      }));
+      console.warn(
+        `[crawl] Popup signals detected on ${url} (page still usable):`,
+        JSON.stringify({
+          popupSelectors: rootDiag.popupSelectors,
+          internalLinkCount: rootDiag.internalLinkCount,
+        }),
+      );
     }
 
     if (!rootHtml) {
-      console.warn(`[crawl] Root page HTML is empty for job ${jobId} — multi-page enrichment will be skipped`);
+      console.warn(
+        `[crawl] Root page HTML is empty for job ${jobId} — multi-page enrichment will be skipped`,
+      );
     }
     const extraLimit = Math.min(MAX_PRIORITY_PAGES, MAX_TOTAL_PAGES - rawResult.pages.length);
 
     // Use root HTML for link extraction; if root was unusable, try the first available sub-page
-    const htmlForLinks = (rootHtml && !rootDiag.unusable) ? rootHtml : rawResult.pages.find(p => p.html)?.html;
+    const htmlForLinks =
+      rootHtml && !rootDiag.unusable ? rootHtml : rawResult.pages.find((p) => p.html)?.html;
 
     if (htmlForLinks && extraLimit > 0) {
       let priorityLinks = extractPriorityLinks(htmlForLinks, url, extraLimit);
@@ -401,21 +503,43 @@ export async function extractAndPersistSignals(
       // Fallback: if no links found from HTML (JS-rendered nav), probe common paths
       if (priorityLinks.length === 0) {
         const base = new URL(url).origin;
-        const fallbackPaths = ['/about', '/about-us', '/accreditations', '/awards', '/quality', '/services', '/contact'];
-        priorityLinks = fallbackPaths.map(p => base + p).slice(0, extraLimit);
-        console.log(`[crawl] No links found in HTML — falling back to common paths:`, priorityLinks);
+        const fallbackPaths = [
+          '/about',
+          '/about-us',
+          '/accreditations',
+          '/awards',
+          '/quality',
+          '/services',
+          '/contact',
+        ];
+        priorityLinks = fallbackPaths.map((p) => base + p).slice(0, extraLimit);
+        console.log(
+          `[crawl] No links found in HTML — falling back to common paths:`,
+          priorityLinks,
+        );
       }
 
       if (priorityLinks.length > 0) {
         const extraPages = await Promise.all(
-          priorityLinks.map(link => crawlSinglePage(link, EXTRACTION_PROMPT, credentials))
+          priorityLinks.map((link) => crawlSinglePage(link, EXTRACTION_PROMPT, credentials)),
         );
-        const validPages = extraPages.filter((p): p is RawCrawlResult['pages'][0] => p !== null && !isUnusablePage(p.html ?? ''));
+        const validPages = extraPages.filter(
+          (p): p is RawCrawlResult['pages'][0] => p !== null && !isUnusablePage(p.html ?? ''),
+        );
 
         if (validPages.length > 0) {
           rawResult = { status: 'completed', pages: [...rootResult.pages, ...validPages] };
-          console.log(`[crawl] Merged ${validPages.length} extra pages. Total: ${rawResult.pages.length}`);
-          console.log(`[crawl] Pages after merge:`, rawResult.pages.map(p => ({ url: p.url, hasHtml: !!p.html, htmlLen: p.html?.length ?? 0 })));
+          console.log(
+            `[crawl] Merged ${validPages.length} extra pages. Total: ${rawResult.pages.length}`,
+          );
+          console.log(
+            `[crawl] Pages after merge:`,
+            rawResult.pages.map((p) => ({
+              url: p.url,
+              hasHtml: !!p.html,
+              htmlLen: p.html?.length ?? 0,
+            })),
+          );
         }
       }
     }
@@ -425,7 +549,7 @@ export async function extractAndPersistSignals(
 
   // Deduplicate pages by URL (single-page sites can produce duplicates via priority crawls)
   const seenUrls = new Set<string>();
-  const dedupedPages = rawResult.pages.filter(p => {
+  const dedupedPages = rawResult.pages.filter((p) => {
     try {
       const parsed = new URL(p.url);
       const key = parsed.origin + parsed.pathname.replace(/\/$/, '');
@@ -442,15 +566,19 @@ export async function extractAndPersistSignals(
   }
 
   // CF crawl doesn't return json field — extract signals from HTML via Claude
-  const needsExtraction = rawResult.pages.some(p => (!p.json || Object.keys(p.json).length === 0) && !!p.html);
+  const needsExtraction = rawResult.pages.some(
+    (p) => (!p.json || Object.keys(p.json).length === 0) && !!p.html,
+  );
   if (needsExtraction) {
     const pagesToExtract = rawResult.pages.slice(0, 5);
     const extracted = await Promise.all(
-      pagesToExtract.map(p => p.html ? extractPageSignals(p.html, EXTRACTION_PROMPT) : Promise.resolve({}))
+      pagesToExtract.map((p) =>
+        p.html ? extractPageSignals(p.html, EXTRACTION_PROMPT) : Promise.resolve({}),
+      ),
     );
     rawResult = {
       ...rawResult,
-      pages: rawResult.pages.map((p, i) => i < 5 ? { ...p, json: extracted[i] } : p),
+      pages: rawResult.pages.map((p, i) => (i < 5 ? { ...p, json: extracted[i] } : p)),
     };
     console.log(`[crawl] Extracted signals from HTML for ${pagesToExtract.length} pages`);
   }
@@ -458,16 +586,29 @@ export async function extractAndPersistSignals(
   // Always apply deterministic HTML parsing on top of AI-extracted json.
   // AI often returns empty strings for metadata fields even when the HTML contains them.
   // For array fields, union-merge so neither AI nor deterministic results are lost.
-  const MERGE_ARRAY_KEYS = ['servicesListed', 'serviceAreasMentioned', 'h1Tags', 'accreditations', 'certifications', 'awardsAndMemberships', 'reviewPlatformsLinked', 'guaranteesMentioned', 'ctaText', 'socialLinksPresent', 'schemaMarkupTypes'];
+  const MERGE_ARRAY_KEYS = [
+    'servicesListed',
+    'serviceAreasMentioned',
+    'h1Tags',
+    'accreditations',
+    'certifications',
+    'awardsAndMemberships',
+    'reviewPlatformsLinked',
+    'guaranteesMentioned',
+    'ctaText',
+    'socialLinksPresent',
+    'schemaMarkupTypes',
+  ];
   rawResult = {
     ...rawResult,
-    pages: rawResult.pages.map(p => {
+    pages: rawResult.pages.map((p) => {
       if (!p.html) return p;
       const parsed = parseHtmlSignals(p.html, p.url);
       const aiJson = (p.json ?? {}) as Record<string, unknown>;
       const merged: Record<string, unknown> = { ...aiJson, ...parsed };
       for (const key of MERGE_ARRAY_KEYS) {
-        const a = aiJson[key], b = (parsed as Record<string, unknown>)[key];
+        const a = aiJson[key],
+          b = (parsed as Record<string, unknown>)[key];
         if (Array.isArray(a) && Array.isArray(b)) merged[key] = [...new Set([...a, ...b])];
       }
       return { ...p, json: merged };
@@ -475,13 +616,16 @@ export async function extractAndPersistSignals(
   };
 
   const signals = await extractSignals(rawResult);
-  console.log(`[crawl] Engagement signals for ${businessId}:`, JSON.stringify({
-    hasPhoneNumberProminent: signals.engagement.hasPhoneNumberProminent,
-    hasContactForm: signals.engagement.hasContactForm,
-    hasCallToAction: signals.engagement.hasCallToAction,
-    h1TagCount: signals.seo.h1Tags.length,
-    schemaMarkupTypes: signals.seo.schemaMarkupTypes,
-  }));
+  console.log(
+    `[crawl] Engagement signals for ${businessId}:`,
+    JSON.stringify({
+      hasPhoneNumberProminent: signals.engagement.hasPhoneNumberProminent,
+      hasContactForm: signals.engagement.hasContactForm,
+      hasCallToAction: signals.engagement.hasCallToAction,
+      h1TagCount: signals.seo.h1Tags.length,
+      schemaMarkupTypes: signals.seo.schemaMarkupTypes,
+    }),
+  );
 
   // Archive previous signals
   await supabaseAdmin
@@ -515,10 +659,7 @@ export async function extractAndPersistSignals(
 
 /** Mark a business crawl as failed. */
 export async function markCrawlFailed(businessId: string, jobId?: string): Promise<void> {
-  await supabaseAdmin
-    .from('businesses')
-    .update({ crawl_status: 'failed' })
-    .eq('id', businessId);
+  await supabaseAdmin.from('businesses').update({ crawl_status: 'failed' }).eq('id', businessId);
 
   if (jobId) {
     await supabaseAdmin

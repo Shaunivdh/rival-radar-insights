@@ -1,17 +1,30 @@
 'use client';
 
-import { motion } from "framer-motion";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
+import { motion } from 'framer-motion';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Badge } from '@/components/ui/badge';
+import { Separator } from '@/components/ui/separator';
 import {
-  User, CreditCard, Shield, Building2, Globe, Tag,
-  Check, Crown, Download, Trash2, KeyRound, AlertTriangle, RefreshCw, Store, CheckCircle
-} from "lucide-react";
+  User,
+  CreditCard,
+  Shield,
+  Building2,
+  Globe,
+  Tag,
+  Check,
+  Crown,
+  Download,
+  Trash2,
+  KeyRound,
+  AlertTriangle,
+  RefreshCw,
+  Store,
+  CheckCircle,
+} from 'lucide-react';
 import { useRivalRadarStore } from '@/store/rivalradar';
 import { isValidUKPostcode } from '@/lib/utils';
 import { useState, useEffect } from 'react';
@@ -44,7 +57,8 @@ const SettingsPage = () => {
     const newErrors: FieldErrors = {};
     if (!form.primaryService?.trim()) newErrors.primaryService = 'Primary Service is required';
     if (!form.location?.trim()) newErrors.location = 'Location is required';
-    if (form.postcode?.trim() && !isValidUKPostcode(form.postcode)) newErrors.postcode = 'Enter a valid UK postcode (e.g. SW1A 1AA)';
+    if (form.postcode?.trim() && !isValidUKPostcode(form.postcode))
+      newErrors.postcode = 'Enter a valid UK postcode (e.g. SW1A 1AA)';
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
       return;
@@ -70,24 +84,43 @@ const SettingsPage = () => {
       </div>
 
       <Tabs defaultValue="profile" className="space-y-6">
-        <TabsList className="bg-card border-0 p-1 h-auto" style={{ boxShadow: "var(--neu-shadow)" }}>
-          <TabsTrigger value="profile" className="gap-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground rounded-lg px-4 py-2">
-            <User className="w-4 h-4" />Profile
+        <TabsList
+          className="bg-card border-0 p-1 h-auto"
+          style={{ boxShadow: 'var(--neu-shadow)' }}
+        >
+          <TabsTrigger
+            value="profile"
+            className="gap-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground rounded-lg px-4 py-2"
+          >
+            <User className="w-4 h-4" />
+            Profile
           </TabsTrigger>
-          <TabsTrigger value="business" className="gap-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground rounded-lg px-4 py-2">
-            <Building2 className="w-4 h-4" />Business
+          <TabsTrigger
+            value="business"
+            className="gap-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground rounded-lg px-4 py-2"
+          >
+            <Building2 className="w-4 h-4" />
+            Business
           </TabsTrigger>
-          <TabsTrigger value="billing" className="gap-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground rounded-lg px-4 py-2">
-            <CreditCard className="w-4 h-4" />Billing
+          <TabsTrigger
+            value="billing"
+            className="gap-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground rounded-lg px-4 py-2"
+          >
+            <CreditCard className="w-4 h-4" />
+            Billing
           </TabsTrigger>
-          <TabsTrigger value="security" className="gap-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground rounded-lg px-4 py-2">
-            <Shield className="w-4 h-4" />Security
+          <TabsTrigger
+            value="security"
+            className="gap-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground rounded-lg px-4 py-2"
+          >
+            <Shield className="w-4 h-4" />
+            Security
           </TabsTrigger>
         </TabsList>
 
         {/* Profile */}
         <TabsContent value="profile" className="space-y-6">
-          <Card className="border-0" style={{ boxShadow: "var(--neu-shadow)" }}>
+          <Card className="border-0" style={{ boxShadow: 'var(--neu-shadow)' }}>
             <CardHeader>
               <CardTitle className="text-xl">Your profile</CardTitle>
               <CardDescription>This is how you appear inside Scoutly.</CardDescription>
@@ -98,7 +131,9 @@ const SettingsPage = () => {
                   {initials}
                 </div>
                 <div>
-                  <Button variant="outline" size="sm">Upload photo</Button>
+                  <Button variant="outline" size="sm">
+                    Upload photo
+                  </Button>
                   <p className="text-xs text-muted-foreground mt-2">PNG or JPG, max 2MB</p>
                 </div>
               </div>
@@ -129,10 +164,12 @@ const SettingsPage = () => {
 
         {/* Business */}
         <TabsContent value="business" className="space-y-6">
-          <Card className="border-0" style={{ boxShadow: "var(--neu-shadow)" }}>
+          <Card className="border-0" style={{ boxShadow: 'var(--neu-shadow)' }}>
             <CardHeader>
               <CardTitle className="text-xl">Business profile</CardTitle>
-              <CardDescription>Used to crawl your site and match local search rankings.</CardDescription>
+              <CardDescription>
+                Used to crawl your site and match local search rankings.
+              </CardDescription>
             </CardHeader>
             <CardContent className="space-y-5">
               <div className="grid md:grid-cols-2 gap-5">
@@ -156,32 +193,57 @@ const SettingsPage = () => {
                       value={form.primaryService ?? ''}
                       onChange={(e) => {
                         setForm({ ...form, primaryService: e.target.value as ServiceCategory });
-                        if ('primaryService' in errors) { const { primaryService: _, ...rest } = errors; setErrors(rest); }
+                        if ('primaryService' in errors) {
+                          const { primaryService: _, ...rest } = errors;
+                          setErrors(rest);
+                        }
                       }}
                       className="flex h-10 w-full rounded-md border border-input bg-background pl-10 pr-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                     >
-                      <option value="" disabled>Pick the closest match</option>
+                      <option value="" disabled>
+                        Pick the closest match
+                      </option>
                       {SERVICE_CATEGORY_OPTIONS.map((opt) => (
-                        <option key={opt.value} value={opt.value}>{opt.label}</option>
+                        <option key={opt.value} value={opt.value}>
+                          {opt.label}
+                        </option>
                       ))}
                     </select>
                   </div>
-                  {errors.primaryService && <p className="text-xs text-destructive">{errors.primaryService}</p>}
+                  {errors.primaryService && (
+                    <p className="text-xs text-destructive">{errors.primaryService}</p>
+                  )}
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="city">Town / City</Label>
-                  <Input id="city" placeholder="Manchester" defaultValue={form.location ?? ''} onChange={(e) => {
-                    setForm({ ...form, location: e.target.value });
-                    if ('location' in errors) { const { location: _, ...rest } = errors; setErrors(rest); }
-                  }} />
+                  <Input
+                    id="city"
+                    placeholder="Manchester"
+                    defaultValue={form.location ?? ''}
+                    onChange={(e) => {
+                      setForm({ ...form, location: e.target.value });
+                      if ('location' in errors) {
+                        const { location: _, ...rest } = errors;
+                        setErrors(rest);
+                      }
+                    }}
+                  />
                   {errors.location && <p className="text-xs text-destructive">{errors.location}</p>}
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="postcode">Postcode</Label>
-                  <Input id="postcode" placeholder="M1 4PQ" defaultValue={form.postcode ?? ''} onChange={(e) => {
-                    setForm({ ...form, postcode: e.target.value.toUpperCase() });
-                    if ('postcode' in errors) { const { postcode: _, ...rest } = errors; setErrors(rest); }
-                  }} />
+                  <Input
+                    id="postcode"
+                    placeholder="M1 4PQ"
+                    defaultValue={form.postcode ?? ''}
+                    onChange={(e) => {
+                      setForm({ ...form, postcode: e.target.value.toUpperCase() });
+                      if ('postcode' in errors) {
+                        const { postcode: _, ...rest } = errors;
+                        setErrors(rest);
+                      }
+                    }}
+                  />
                   {errors.postcode && <p className="text-xs text-destructive">{errors.postcode}</p>}
                 </div>
                 <div className="space-y-2 md:col-span-2">
@@ -194,7 +256,9 @@ const SettingsPage = () => {
                         <CheckCircle className="w-4 h-4" />
                         Connected
                       </div>
-                      <a href="/google-business" className="text-xs text-primary hover:underline">Manage</a>
+                      <a href="/google-business" className="text-xs text-primary hover:underline">
+                        Manage
+                      </a>
                     </div>
                   ) : (
                     <div className="flex items-center justify-between p-3 rounded-lg bg-muted">
@@ -216,9 +280,13 @@ const SettingsPage = () => {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="font-semibold text-sm">Re-crawl frequency</p>
-                  <p className="text-xs text-muted-foreground">We currently crawl your site weekly.</p>
+                  <p className="text-xs text-muted-foreground">
+                    We currently crawl your site weekly.
+                  </p>
                 </div>
-                <Badge className="bg-score-excellent/10 text-score-excellent border-0">Weekly</Badge>
+                <Badge className="bg-score-excellent/10 text-score-excellent border-0">
+                  Weekly
+                </Badge>
               </div>
               <div className="flex justify-between">
                 <Button
@@ -247,7 +315,7 @@ const SettingsPage = () => {
 
         {/* Billing */}
         <TabsContent value="billing" className="space-y-6">
-          <Card className="border-0 overflow-hidden" style={{ boxShadow: "var(--neu-shadow)" }}>
+          <Card className="border-0 overflow-hidden" style={{ boxShadow: 'var(--neu-shadow)' }}>
             <div className="bg-gradient-hero p-6 text-primary-foreground">
               <div className="flex items-center justify-between flex-wrap gap-4">
                 <div>
@@ -258,17 +326,19 @@ const SettingsPage = () => {
                   <h3 className="font-display text-2xl font-bold">Scoutly Pro</h3>
                   <p className="text-sm opacity-90 mt-1">Billing details coming soon</p>
                 </div>
-                <Button variant="secondary" size="sm">Change plan</Button>
+                <Button variant="secondary" size="sm">
+                  Change plan
+                </Button>
               </div>
             </div>
             <CardContent className="p-6 grid md:grid-cols-3 gap-4">
               {[
-                "Up to 5 competitors tracked",
-                "Weekly site crawl",
-                "Full action plan + AI replies",
-                "Google reviews monitoring",
-                "Email + in-app alerts",
-                "Priority support",
+                'Up to 5 competitors tracked',
+                'Weekly site crawl',
+                'Full action plan + AI replies',
+                'Google reviews monitoring',
+                'Email + in-app alerts',
+                'Priority support',
               ].map((f) => (
                 <div key={f} className="flex items-start gap-2 text-sm">
                   <Check className="w-4 h-4 text-score-excellent shrink-0 mt-0.5" />
@@ -278,22 +348,25 @@ const SettingsPage = () => {
             </CardContent>
           </Card>
 
-          <Card className="border-0" style={{ boxShadow: "var(--neu-shadow)" }}>
+          <Card className="border-0" style={{ boxShadow: 'var(--neu-shadow)' }}>
             <CardHeader>
               <CardTitle className="text-lg">Payment method</CardTitle>
               <CardDescription>No payment method on file yet.</CardDescription>
             </CardHeader>
             <CardContent className="flex items-center justify-between">
               <p className="text-sm text-muted-foreground">Payment integration coming soon.</p>
-              <Button variant="outline" size="sm">Add card</Button>
+              <Button variant="outline" size="sm">
+                Add card
+              </Button>
             </CardContent>
           </Card>
 
-          <Card className="border-0" style={{ boxShadow: "var(--neu-shadow)" }}>
+          <Card className="border-0" style={{ boxShadow: 'var(--neu-shadow)' }}>
             <CardHeader className="flex-row items-center justify-between space-y-0">
               <CardTitle className="text-lg">Invoice history</CardTitle>
               <Button variant="ghost" size="sm" className="gap-2">
-                <Download className="w-4 h-4" />Download all
+                <Download className="w-4 h-4" />
+                Download all
               </Button>
             </CardHeader>
             <CardContent>
@@ -304,10 +377,12 @@ const SettingsPage = () => {
 
         {/* Security */}
         <TabsContent value="security" className="space-y-6">
-          <Card className="border-0" style={{ boxShadow: "var(--neu-shadow)" }}>
+          <Card className="border-0" style={{ boxShadow: 'var(--neu-shadow)' }}>
             <CardHeader>
               <CardTitle className="text-xl">Password</CardTitle>
-              <CardDescription>Use 12+ characters with a mix of letters and numbers.</CardDescription>
+              <CardDescription>
+                Use 12+ characters with a mix of letters and numbers.
+              </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4 max-w-md">
               <div className="space-y-2">
@@ -323,12 +398,13 @@ const SettingsPage = () => {
                 <Input id="conf" type="password" />
               </div>
               <Button variant="hero" className="gap-2">
-                <KeyRound className="w-4 h-4" />Update password
+                <KeyRound className="w-4 h-4" />
+                Update password
               </Button>
             </CardContent>
           </Card>
 
-          <Card className="border-0" style={{ boxShadow: "var(--neu-shadow)" }}>
+          <Card className="border-0" style={{ boxShadow: 'var(--neu-shadow)' }}>
             <CardHeader>
               <CardTitle className="text-xl">Two-factor authentication</CardTitle>
               <CardDescription>Protect your account with a second step at sign-in.</CardDescription>
@@ -338,17 +414,23 @@ const SettingsPage = () => {
                 <Shield className="w-5 h-5 text-muted-foreground" />
                 <div>
                   <p className="text-sm font-medium">2FA is currently off</p>
-                  <p className="text-xs text-muted-foreground">We strongly recommend turning it on.</p>
+                  <p className="text-xs text-muted-foreground">
+                    We strongly recommend turning it on.
+                  </p>
                 </div>
               </div>
               <Button variant="outline">Enable 2FA</Button>
             </CardContent>
           </Card>
 
-          <Card className="border-0 border-l-4 border-l-destructive" style={{ boxShadow: "var(--neu-shadow)" }}>
+          <Card
+            className="border-0 border-l-4 border-l-destructive"
+            style={{ boxShadow: 'var(--neu-shadow)' }}
+          >
             <CardHeader>
               <CardTitle className="text-xl flex items-center gap-2">
-                <AlertTriangle className="w-5 h-5 text-destructive" />Danger zone
+                <AlertTriangle className="w-5 h-5 text-destructive" />
+                Danger zone
               </CardTitle>
               <CardDescription>These actions can&apos;t be undone.</CardDescription>
             </CardHeader>
@@ -356,20 +438,26 @@ const SettingsPage = () => {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium">Export my data</p>
-                  <p className="text-xs text-muted-foreground">Download everything we have on your business.</p>
+                  <p className="text-xs text-muted-foreground">
+                    Download everything we have on your business.
+                  </p>
                 </div>
                 <Button variant="outline" size="sm" className="gap-2">
-                  <Download className="w-4 h-4" />Export
+                  <Download className="w-4 h-4" />
+                  Export
                 </Button>
               </div>
               <Separator />
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-destructive">Delete account</p>
-                  <p className="text-xs text-muted-foreground">Permanently remove your account and all data.</p>
+                  <p className="text-xs text-muted-foreground">
+                    Permanently remove your account and all data.
+                  </p>
                 </div>
                 <Button variant="destructive" size="sm" className="gap-2" onClick={handleDelete}>
-                  <Trash2 className="w-4 h-4" />Delete
+                  <Trash2 className="w-4 h-4" />
+                  Delete
                 </Button>
               </div>
             </CardContent>

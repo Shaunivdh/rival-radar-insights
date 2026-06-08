@@ -28,15 +28,19 @@ export function parseHtmlSignals(html: string, baseUrl?: string): Record<string,
   // H1 tags
   const h1Matches = [...html.matchAll(/<h1[^>]*>([\s\S]*?)<\/h1>/gi)];
   const h1Tags = h1Matches
-    .map(m => m[1].replace(/<[^>]+>/g, '').trim())
-    .filter(t => t && !/^email\s+protection$/i.test(t));
+    .map((m) => m[1].replace(/<[^>]+>/g, '').trim())
+    .filter((t) => t && !/^email\s+protection$/i.test(t));
   if (h1Tags.length > 0) signals.h1Tags = h1Tags;
 
   // Canonical tag
   signals.canonicalTagsPresent = /<link[^>]+rel=["']canonical["'][^>]*>/i.test(html);
 
   // Schema markup types from ld+json (AI strips these, so parse here)
-  const ldJsonMatches = [...html.matchAll(/<script[^>]+type=["']?application\/ld\+json["']?[^>]*>([\s\S]*?)<\/script\s*>/gi)];
+  const ldJsonMatches = [
+    ...html.matchAll(
+      /<script[^>]+type=["']?application\/ld\+json["']?[^>]*>([\s\S]*?)<\/script\s*>/gi,
+    ),
+  ];
   const schemaTypes = new Set<string>();
   for (const match of ldJsonMatches) {
     try {
@@ -45,43 +49,62 @@ export function parseHtmlSignals(html: string, baseUrl?: string): Record<string,
       const nodes = Array.isArray(graph) ? graph : [parsed];
       for (const node of nodes) {
         const t = (node as Record<string, unknown>)['@type'];
-        if (Array.isArray(t)) t.forEach(v => typeof v === 'string' && schemaTypes.add(v));
+        if (Array.isArray(t)) t.forEach((v) => typeof v === 'string' && schemaTypes.add(v));
         else if (typeof t === 'string') schemaTypes.add(t);
       }
-    } catch { /* ignore malformed JSON */ }
+    } catch {
+      /* ignore malformed JSON */
+    }
   }
   if (schemaTypes.size > 0) signals.schemaMarkupTypes = [...schemaTypes];
 
   // Services listed — deterministic fallback: H1 comma/pipe splits, short H2/H3 headings, schema.org Service names
-  const GENERIC_HEADINGS = /^(about|contact|home|gallery|blog|news|team|faq|pricing|reviews|testimonials|get in touch|find us|opening hours|book now|book online|free quote|welcome|our story|location|locations|login|sign up|our services|our treatments|what we do|what we offer)$/i;
-  const h1Text = [...html.matchAll(/<h1[^>]*>([\s\S]*?)<\/h1>/gi)].map(m => m[1].replace(/<[^>]+>/g, '').trim()).filter(Boolean);
+  const GENERIC_HEADINGS =
+    /^(about|contact|home|gallery|blog|news|team|faq|pricing|reviews|testimonials|get in touch|find us|opening hours|book now|book online|free quote|welcome|our story|location|locations|login|sign up|our services|our treatments|what we do|what we offer)$/i;
+  const h1Text = [...html.matchAll(/<h1[^>]*>([\s\S]*?)<\/h1>/gi)]
+    .map((m) => m[1].replace(/<[^>]+>/g, '').trim())
+    .filter(Boolean);
   const servicesFromH1: string[] = [];
   for (const h1 of h1Text) {
-    const parts = h1.split(/[,|]/).map(s => s.replace(/&amp;/g, '&').trim()).filter(s => s.length >= 2 && s.split(/\s+/).length <= 5);
+    const parts = h1
+      .split(/[,|]/)
+      .map((s) => s.replace(/&amp;/g, '&').trim())
+      .filter((s) => s.length >= 2 && s.split(/\s+/).length <= 5);
     if (parts.length >= 2) servicesFromH1.push(...parts);
   }
   const shortH2H3 = [...html.matchAll(/<h[23][^>]*>([\s\S]*?)<\/h[23]>/gi)]
-    .map(m => m[1].replace(/<[^>]+>/g, '').trim())
-    .filter(t => t && t.split(/\s+/).length <= 4 && t.length < 50 && !GENERIC_HEADINGS.test(t));
+    .map((m) => m[1].replace(/<[^>]+>/g, '').trim())
+    .filter((t) => t && t.split(/\s+/).length <= 4 && t.length < 50 && !GENERIC_HEADINGS.test(t));
   const schemaServiceNames: string[] = [];
   for (const match of ldJsonMatches) {
     try {
       const walk = (obj: unknown): void => {
         if (!obj || typeof obj !== 'object') return;
         const o = obj as Record<string, unknown>;
-        if (['Service', 'Product', 'Offer'].includes(o['@type'] as string) && typeof o.name === 'string') schemaServiceNames.push(o.name);
-        for (const v of Object.values(o)) Array.isArray(v) ? v.forEach(walk) : walk(v);
+        if (
+          ['Service', 'Product', 'Offer'].includes(o['@type'] as string) &&
+          typeof o.name === 'string'
+        )
+          schemaServiceNames.push(o.name);
+        for (const v of Object.values(o)) {
+          if (Array.isArray(v)) v.forEach(walk);
+          else walk(v);
+        }
       };
       walk(JSON.parse(match[1]));
-    } catch { /* ignore */ }
+    } catch {
+      /* ignore */
+    }
   }
-  const detectedServices = [...new Set([...servicesFromH1, ...schemaServiceNames, ...shortH2H3])].slice(0, 30);
+  const detectedServices = [
+    ...new Set([...servicesFromH1, ...schemaServiceNames, ...shortH2H3]),
+  ].slice(0, 30);
   if (detectedServices.length > 0) signals.servicesListed = detectedServices;
 
   // Alt tag coverage
   const imgMatches = [...html.matchAll(/<img[^>]+>/gi)];
   if (imgMatches.length > 0) {
-    const withAlt = imgMatches.filter(m => /\balt=["'][^"']+["']/i.test(m[0])).length;
+    const withAlt = imgMatches.filter((m) => /\balt=["'][^"']+["']/i.test(m[0])).length;
     const ratio = withAlt / imgMatches.length;
     signals.altTagCoverage = ratio >= 0.9 ? 'full' : ratio >= 0.5 ? 'partial' : 'none';
   }
@@ -96,10 +119,16 @@ export function parseHtmlSignals(html: string, baseUrl?: string): Record<string,
   if (hasBlogLink) signals.hasBlog = true;
 
   // Team page — nav/footer link to /about, /team, /our-team, /meet-us, /people
-  signals.teamPageExists = /href=["'][^"']*\/(about|about-us|aboutus|our-team|meet-the-team|meet-us|team|people)(\/|["'])/i.test(html);
+  signals.teamPageExists =
+    /href=["'][^"']*\/(about|about-us|aboutus|our-team|meet-the-team|meet-us|team|people)(\/|["'])/i.test(
+      html,
+    );
 
   // Insurance mentioned
-  signals.insuranceMentioned = /\b(public liability|professional indemnity|fully insured|insurance|indemnity cover)\b/i.test(text);
+  signals.insuranceMentioned =
+    /\b(public liability|professional indemnity|fully insured|insurance|indemnity cover)\b/i.test(
+      text,
+    );
 
   // Review platforms linked
   const reviewPlatforms = [
@@ -118,7 +147,10 @@ export function parseHtmlSignals(html: string, baseUrl?: string): Record<string,
   // Accreditations — regulatory/professional bodies
   const accreditationPatterns: [string, RegExp][] = [
     // Health & social care
-    ['CQC', /care quality commission|cqc[\s\-]?(?:registered|regulated|rated|approved|inspected)|cqc\.org\.uk/i],
+    [
+      'CQC',
+      /care quality commission|cqc[\s\-]?(?:registered|regulated|rated|approved|inspected)|cqc\.org\.uk/i,
+    ],
     ['OFSTED', /ofsted[\s\-]?(registered|rated|approved|outstanding|good)/i],
     ['NHS', /nhs[\s\-]?(approved|accredited|framework|partner)/i],
     ['MHRA', /mhra[\s\-]?(approved|licensed|registered)|medicines\s+&?\s+healthcare/i],
@@ -135,7 +167,10 @@ export function parseHtmlSignals(html: string, baseUrl?: string): Record<string,
     ['CQC (Dental)', /cqc[\s\-]?(registered|rated)[\s\S]{0,60}dent/i],
     ['GDC Practice', /gdc[\s\-]?(registered\s+)?practice|registered\s+with\s+the\s+gdc/i],
     // Veterinary
-    ['RCVS', /rcvs[\s\-]?(accredited|registered|practice\s+standards)|royal\s+college\s+of\s+veterinary/i],
+    [
+      'RCVS',
+      /rcvs[\s\-]?(accredited|registered|practice\s+standards)|royal\s+college\s+of\s+veterinary/i,
+    ],
     // ISO / quality management — allow &nbsp; and other HTML entity separators
     ['ISO 9001', /iso(?:[\s\-]|&nbsp;|&#160;)?9001/i],
     ['ISO 27001', /iso(?:[\s\-]|&nbsp;|&#160;)?27001/i],
@@ -150,7 +185,9 @@ export function parseHtmlSignals(html: string, baseUrl?: string): Record<string,
     ['Meta Business Partner', /meta\s+business\s+partner|facebook\s+marketing\s+partner/i],
     ['Microsoft Partner', /microsoft[\s\-]?(gold\s+|silver\s+)?partner/i],
   ];
-  const foundAccreditations = accreditationPatterns.filter(([, re]) => re.test(html) || re.test(text)).map(([name]) => name);
+  const foundAccreditations = accreditationPatterns
+    .filter(([, re]) => re.test(html) || re.test(text))
+    .map(([name]) => name);
   if (foundAccreditations.length > 0) signals.accreditations = foundAccreditations;
 
   // Awards & memberships
@@ -170,7 +207,10 @@ export function parseHtmlSignals(html: string, baseUrl?: string): Record<string,
     ['WPA', /wpa[\s\-]?(approved|recognised)/i],
     // Health & wellbeing awards
     ['Health and Protection Award', /health\s+(?:and|&amp;)\s+protection\s+award/i],
-    ['WSB Health and Wellbeing Award', /wsb[\s\S]{0,80}health\s+(?:and|&amp;)\s+wellbeing|health\s+(?:and|&amp;)\s+wellbeing\s+provider\s+of\s+the\s+year/i],
+    [
+      'WSB Health and Wellbeing Award',
+      /wsb[\s\S]{0,80}health\s+(?:and|&amp;)\s+wellbeing|health\s+(?:and|&amp;)\s+wellbeing\s+provider\s+of\s+the\s+year/i,
+    ],
     ['UK Business Awards', /uk\s+business\s+awards/i],
     ['Best Wellbeing Provider', /best\s+wellbeing\s+provider/i],
     // Dental specific
@@ -185,10 +225,19 @@ export function parseHtmlSignals(html: string, baseUrl?: string): Record<string,
     ['Klaviyo Partner', /klaviyo[\s\-]?(partner|master)/i],
     ['Yotpo Partner', /yotpo[\s\-]?partner/i],
   ];
-  const foundAwards = awardPatterns.filter(([, re]) => re.test(html) || re.test(text)).map(([name]) => name);
+  const foundAwards = awardPatterns
+    .filter(([, re]) => re.test(html) || re.test(text))
+    .map(([name]) => name);
   // Generic: capture named awards/prizes/commendations near "winner"/"commended"/"finalist"
-  const namedAwardMatches = text.match(/(?:winner|commended|finalist|awarded)[^.]{0,80}?([A-Z][A-Za-z0-9\s&,]+(?:Award|Prize|Trophy|Recognition|Provider of the Year|Agency of the Year))/g);
-  if (namedAwardMatches) foundAwards.push(...namedAwardMatches.map(s => s.replace(/^(winner|commended|finalist|awarded)[^A-Z]*/i, '').trim()).slice(0, 5));
+  const namedAwardMatches = text.match(
+    /(?:winner|commended|finalist|awarded)[^.]{0,80}?([A-Z][A-Za-z0-9\s&,]+(?:Award|Prize|Trophy|Recognition|Provider of the Year|Agency of the Year))/g,
+  );
+  if (namedAwardMatches)
+    foundAwards.push(
+      ...namedAwardMatches
+        .map((s) => s.replace(/^(winner|commended|finalist|awarded)[^A-Z]*/i, '').trim())
+        .slice(0, 5),
+    );
   if (foundAwards.length > 0) signals.awardsAndMemberships = [...new Set(foundAwards)];
 
   // Certifications — professional qualifications
@@ -218,7 +267,10 @@ export function parseHtmlSignals(html: string, baseUrl?: string): Record<string,
     ['CHAS', /chas[\s\-]?(accredited|registered|approved)/i],
     ['Safe Contractor', /safe\s*contractor[\s\-]?(approved|accredited)/i],
     ['SSIP', /ssip[\s\-]?(accredited|member)/i],
-    ['RICS', /rics[\s\-]?(qualified|member|chartered)|royal\s+institution\s+of\s+chartered\s+surveyors/i],
+    [
+      'RICS',
+      /rics[\s\-]?(qualified|member|chartered)|royal\s+institution\s+of\s+chartered\s+surveyors/i,
+    ],
     ['CIAT', /ciat[\s\-]?(member|chartered)|chartered\s+institute\s+of\s+architectural/i],
     ['ARB', /arb[\s\-]?registered|architects\s+registration\s+board/i],
     ['RIBA', /riba[\s\-]?(chartered|member)|royal\s+institute\s+of\s+british\s+architects/i],
@@ -250,25 +302,39 @@ export function parseHtmlSignals(html: string, baseUrl?: string): Record<string,
     ['CIM', /cim[\s\-]?(qualified|member)|chartered\s+institute\s+of\s+marketing/i],
     ['CIMA', /cima[\s\-]?(qualified|member)/i],
   ];
-  const foundCerts = certPatterns.filter(([, re]) => re.test(html) || re.test(text)).map(([name]) => name);
+  const foundCerts = certPatterns
+    .filter(([, re]) => re.test(html) || re.test(text))
+    .map(([name]) => name);
   if (foundCerts.length > 0) signals.certifications = foundCerts;
 
   // Guarantees
-  const guaranteeMatches = [...text.matchAll(/(\d+[\s\-](?:day|month|year)[\s\-](?:money[\s\-]back\s+)?guarantee|satisfaction\s+guarantee|workmanship\s+guarantee)/gi)];
-  const guarantees = [...new Set(guaranteeMatches.map(m => m[0].trim()))];
+  const guaranteeMatches = [
+    ...text.matchAll(
+      /(\d+[\s\-](?:day|month|year)[\s\-](?:money[\s\-]back\s+)?guarantee|satisfaction\s+guarantee|workmanship\s+guarantee)/gi,
+    ),
+  ];
+  const guarantees = [...new Set(guaranteeMatches.map((m) => m[0].trim()))];
   if (guarantees.length > 0) signals.guaranteesMentioned = guarantees;
 
   // Internal link count
   let baseHostname: string | null = null;
   if (baseUrl) {
-    try { baseHostname = new URL(baseUrl).hostname; } catch { /* ignore */ }
+    try {
+      baseHostname = new URL(baseUrl).hostname;
+    } catch {
+      /* ignore */
+    }
   }
-  const allHrefs = [...html.matchAll(/href=["']([^"'#][^"']*?)["']/gi)].map(m => m[1]);
-  const internalLinks = allHrefs.filter(href => {
+  const allHrefs = [...html.matchAll(/href=["']([^"'#][^"']*?)["']/gi)].map((m) => m[1]);
+  const internalLinks = allHrefs.filter((href) => {
     if (/^(mailto|tel|javascript):/i.test(href)) return false;
     if (/^https?:\/\//i.test(href)) {
       if (!baseHostname) return false;
-      try { return new URL(href).hostname === baseHostname; } catch { return false; }
+      try {
+        return new URL(href).hostname === baseHostname;
+      } catch {
+        return false;
+      }
     }
     return true; // relative paths like /page, ./page, ../page
   });
@@ -299,18 +365,24 @@ export function parseHtmlSignals(html: string, baseUrl?: string): Record<string,
   }
 
   // Call to action — common CTA phrases in buttons, links, or prominent text
-  const CTA_RE = /\b(book\s*(now|online|an?\s+appointment|a\s+session|today)|get\s*(a\s+)?(free\s+)?(quote|estimate|consultation)|request\s*(a\s+)?(quote|appointment|callback|call back)|schedule\s*(an?\s+)?(appointment|consultation|visit)|reserve\s*(now|your\s+spot)|free\s+consultation|contact\s+us\s+today|call\s+us\s+now|get\s+started|start\s+today|claim\s+offer|try\s+(it\s+)?free)\b/i;
+  const CTA_RE =
+    /\b(book\s*(now|online|an?\s+appointment|a\s+session|today)|get\s*(a\s+)?(free\s+)?(quote|estimate|consultation)|request\s*(a\s+)?(quote|appointment|callback|call back)|schedule\s*(an?\s+)?(appointment|consultation|visit)|reserve\s*(now|your\s+spot)|free\s+consultation|contact\s+us\s+today|call\s+us\s+now|get\s+started|start\s+today|claim\s+offer|try\s+(it\s+)?free)\b/i;
   const ctaMatches = [...html.matchAll(/<(?:button|a)\b[^>]*>([\s\S]*?)<\/(?:button|a)>/gi)]
-    .map(m => {
+    .map((m) => {
       let t = m[1].replace(/<[^>]+>/g, ''); // strip inner tags
       // If attribute content leaked in via unescaped > in attribute values, take text after last >
       if (t.includes('>')) t = t.slice(t.lastIndexOf('>') + 1);
       // Decode HTML entities
-      t = t.replace(/&quot;/gi, '"').replace(/&amp;/gi, '&').replace(/&lt;/gi, '<').replace(/&gt;/gi, '>').replace(/&#\d+;/g, '');
+      t = t
+        .replace(/&quot;/gi, '"')
+        .replace(/&amp;/gi, '&')
+        .replace(/&lt;/gi, '<')
+        .replace(/&gt;/gi, '>')
+        .replace(/&#\d+;/g, '');
       // Collapse whitespace (tabs, newlines, multiple spaces)
       return t.replace(/[\s\t\n\r]+/g, ' ').trim();
     })
-    .filter(t => t && t.length <= 100 && CTA_RE.test(t));
+    .filter((t) => t && t.length <= 100 && CTA_RE.test(t));
   if (ctaMatches.length > 0 || CTA_RE.test(text)) {
     signals.hasCallToAction = true;
     if (ctaMatches.length > 0) signals.ctaText = [...new Set(ctaMatches)].slice(0, 5);
@@ -319,7 +391,9 @@ export function parseHtmlSignals(html: string, baseUrl?: string): Record<string,
   // Phone number prominent — tel: link present, or phone in a heading/header element
   signals.hasPhoneNumberProminent =
     /href=["']tel:/i.test(html) ||
-    /<(?:h[1-4]|header)[^>]*>[\s\S]*?\b(?:\+44[\s\d]{9,12}|0[1-9]\d{8,10}|\(\d{3,5}\)\s*[\d\s\-]{7,})\b[\s\S]*?<\/(?:h[1-4]|header)>/i.test(html);
+    /<(?:h[1-4]|header)[^>]*>[\s\S]*?\b(?:\+44[\s\d]{9,12}|0[1-9]\d{8,10}|\(\d{3,5}\)\s*[\d\s\-]{7,})\b[\s\S]*?<\/(?:h[1-4]|header)>/i.test(
+      html,
+    );
 
   return signals;
 }

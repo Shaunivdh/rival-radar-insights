@@ -14,9 +14,37 @@ export class CrawlDisallowedError extends Error {
 }
 
 const USE_MOCK = process.env.USE_MOCK_CRAWL === 'true';
-const mock = USE_MOCK ? (require('@/services/crawl.mock') as typeof import('@/services/crawl.mock')) : null;
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const mock = USE_MOCK
+  ? (require('@/services/crawl.mock') as typeof import('@/services/crawl.mock'))
+  : null;
 
-const PRIORITY_KEYWORDS = ['services', 'service', 'blog', 'articles', 'article', 'news', 'resources', 'pricing', 'price', 'about', 'treatments', 'treatment', 'contact', 'accreditation', 'certification', 'award', 'quality', 'standards', 'team', 'people', 'faq', 'faqs', 'help', 'support'];
+const PRIORITY_KEYWORDS = [
+  'services',
+  'service',
+  'blog',
+  'articles',
+  'article',
+  'news',
+  'resources',
+  'pricing',
+  'price',
+  'about',
+  'treatments',
+  'treatment',
+  'contact',
+  'accreditation',
+  'certification',
+  'award',
+  'quality',
+  'standards',
+  'team',
+  'people',
+  'faq',
+  'faqs',
+  'help',
+  'support',
+];
 
 /**
  * Extract unique internal links from raw HTML, sorted by priority keyword score.
@@ -24,7 +52,11 @@ const PRIORITY_KEYWORDS = ['services', 'service', 'blog', 'articles', 'article',
  */
 export function extractPriorityLinks(html: string, baseUrl: string, limit: number): string[] {
   let base: URL;
-  try { base = new URL(baseUrl); } catch { return []; }
+  try {
+    base = new URL(baseUrl);
+  } catch {
+    return [];
+  }
 
   const seen = new Set<string>();
   const scored: Array<{ url: string; score: number }> = [];
@@ -43,16 +75,18 @@ export function extractPriorityLinks(html: string, baseUrl: string, limit: numbe
       if (seen.has(clean)) continue;
       seen.add(clean);
       const path = resolved.pathname.toLowerCase();
-      const score = PRIORITY_KEYWORDS.filter(kw => path.includes(kw)).length;
+      const score = PRIORITY_KEYWORDS.filter((kw) => path.includes(kw)).length;
       scored.push({ url: clean, score });
-    } catch { /* skip invalid */ }
+    } catch {
+      /* skip invalid */
+    }
   }
 
   return scored
-    .filter(s => s.score > 0)
+    .filter((s) => s.score > 0)
     .sort((a, b) => b.score - a.score || a.url.localeCompare(b.url))
     .slice(0, limit)
-    .map(s => s.url);
+    .map((s) => s.url);
 }
 
 /**
@@ -63,18 +97,22 @@ export async function crawlSinglePage(
   url: string,
   prompt: string,
   credentials: CrawlCredentials,
-  extraOptions?: Pick<CrawlOptions, 'gotoOptions' | 'waitForSelector'>
+  extraOptions?: Pick<CrawlOptions, 'gotoOptions' | 'waitForSelector'>,
 ): Promise<RawCrawlResult['pages'][0] | null> {
   let jobId: string;
   try {
-    jobId = await startCrawl(url, { maxPages: 1, render: true, jsonOptions: { prompt }, ...extraOptions }, credentials);
+    jobId = await startCrawl(
+      url,
+      { maxPages: 1, render: true, jsonOptions: { prompt }, ...extraOptions },
+      credentials,
+    );
   } catch (e) {
     console.warn(`[crawlSinglePage] Failed to start crawl for ${url}:`, e);
     return null;
   }
 
   for (let i = 0; i < 20; i++) {
-    await new Promise(r => setTimeout(r, 3000));
+    await new Promise((r) => setTimeout(r, 3000));
     try {
       const { status } = await pollCrawlStatus(jobId, credentials);
       if (status === 'completed') {
@@ -101,7 +139,7 @@ function cfHeaders(apiToken: string) {
 export async function startCrawl(
   url: string,
   options: CrawlOptions,
-  credentials: CrawlCredentials
+  credentials: CrawlCredentials,
 ): Promise<string> {
   if (USE_MOCK) return mock!.startCrawl(url, options, credentials);
 
@@ -124,7 +162,10 @@ export async function startCrawl(
 
   const resText = await res.text();
   if (!res.ok) {
-    if (res.status === 400 && (resText.includes('Content-Signal directive') || resText.includes('disallowed by robots'))) {
+    if (
+      res.status === 400 &&
+      (resText.includes('Content-Signal directive') || resText.includes('disallowed by robots'))
+    ) {
       throw new CrawlDisallowedError(url, resText);
     }
     throw new Error(`CF crawl start failed: ${res.status} ${resText}`);
@@ -138,7 +179,7 @@ export async function startCrawl(
 
 export async function pollCrawlStatus(
   jobId: string,
-  credentials: CrawlCredentials
+  credentials: CrawlCredentials,
 ): Promise<{ status: string }> {
   if (USE_MOCK) return mock!.pollCrawlStatus(jobId, credentials);
 
@@ -155,7 +196,7 @@ export async function pollCrawlStatus(
 
 export async function getCrawlResults(
   jobId: string,
-  credentials: CrawlCredentials
+  credentials: CrawlCredentials,
 ): Promise<RawCrawlResult> {
   if (USE_MOCK) return mock!.getCrawlResults(jobId, credentials);
 
@@ -169,7 +210,12 @@ export async function getCrawlResults(
     success: boolean;
     result: {
       status: RawCrawlResult['status'];
-      records: Array<{ url: string; json?: Record<string, unknown>; markdown?: string; html?: string }>;
+      records: Array<{
+        url: string;
+        json?: Record<string, unknown>;
+        markdown?: string;
+        html?: string;
+      }>;
     };
   };
   if (!data.success) throw new Error('CF get results: success=false');
@@ -182,7 +228,7 @@ export async function getCrawlResults(
 export async function startIncrementalCrawl(
   url: string,
   _modifiedSince: number,
-  credentials: CrawlCredentials
+  credentials: CrawlCredentials,
 ): Promise<string> {
   // NOTE: modifiedSince was removed (caused CF jobs to hang). render:true is required
   // because many modern sites (SPAs, React/Vue) return near-empty HTML without JS execution.
@@ -194,7 +240,7 @@ export async function startIncrementalCrawl(
       render: true,
       gotoOptions: { waitUntil: 'networkidle0', timeout: 30000 },
     },
-    credentials
+    credentials,
   );
 }
 
@@ -207,7 +253,7 @@ export async function fetchPageDirect(url: string): Promise<string | null> {
     const res = await fetch(url, {
       headers: {
         'User-Agent': 'Mozilla/5.0 (compatible; RivalRadar/1.0)',
-        'Accept': 'text/html',
+        Accept: 'text/html',
       },
       redirect: 'follow',
       signal: AbortSignal.timeout(15000),

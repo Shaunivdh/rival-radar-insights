@@ -21,7 +21,10 @@ export const DemoBanner = () => {
           Sign up to track your own business →
         </button>
       </p>
-      <button onClick={dismissDemoBanner} className="text-muted-foreground hover:text-foreground ml-4 shrink-0">
+      <button
+        onClick={dismissDemoBanner}
+        className="text-muted-foreground hover:text-foreground ml-4 shrink-0"
+      >
         <X className="w-4 h-4" />
       </button>
     </div>

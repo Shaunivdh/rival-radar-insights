@@ -5,9 +5,17 @@ const PROTECTED = ['/dashboard', '/competitors', '/changes', '/settings', '/setu
 
 async function signUnlockToken(password: string): Promise<string> {
   const enc = new TextEncoder();
-  const key = await crypto.subtle.importKey('raw', enc.encode(password), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+  const key = await crypto.subtle.importKey(
+    'raw',
+    enc.encode(password),
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['sign'],
+  );
   const sig = await crypto.subtle.sign('HMAC', key, enc.encode('rival-radar-site-unlock'));
-  return Array.from(new Uint8Array(sig)).map(b => b.toString(16).padStart(2, '0')).join('');
+  return Array.from(new Uint8Array(sig))
+    .map((b) => b.toString(16).padStart(2, '0'))
+    .join('');
 }
 
 export async function middleware(request: NextRequest) {
@@ -40,24 +48,29 @@ export async function middleware(request: NextRequest) {
           cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value));
           response = NextResponse.next({ request: { headers: request.headers } });
           cookiesToSet.forEach(({ name, value, options }) =>
-            response.cookies.set(name, value, options)
+            response.cookies.set(name, value, options),
           );
         },
       },
-    }
+    },
   );
 
-  const { data: { user }, error: authError } = await supabase.auth.getUser();
+  const {
+    data: { user },
+    error: authError,
+  } = await supabase.auth.getUser();
 
   if (authError) {
     console.error(`[middleware] supabase.auth.getUser error path=${pathname}:`, authError.message);
   }
 
-  const isProtected = PROTECTED.some(p => pathname.startsWith(p));
+  const isProtected = PROTECTED.some((p) => pathname.startsWith(p));
   const isDemo = request.cookies.get('rr-demo')?.value === '1';
   const isServerAction = request.headers.has('next-action');
 
-  console.log(`[middleware] path=${pathname} userId=${user?.id ?? 'none'} isProtected=${isProtected} isDemo=${isDemo} isServerAction=${isServerAction}`);
+  console.log(
+    `[middleware] path=${pathname} userId=${user?.id ?? 'none'} isProtected=${isProtected} isDemo=${isDemo} isServerAction=${isServerAction}`,
+  );
 
   if (isProtected && !user && !isDemo) {
     console.log(`[middleware] redirect→/ reason=unauthenticated-protected path=${pathname}`);

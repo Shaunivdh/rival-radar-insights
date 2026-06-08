@@ -9,22 +9,34 @@ interface MetricCardProps {
   detail: string;
   source: string;
   sourceTooltip?: string;
-  error?: string;    // enrichment error — amber warning
-  noData?: string;   // "Not yet tested" / "Insufficient data" — grey
+  error?: string; // enrichment error — amber warning
+  noData?: string; // "Not yet tested" / "Insufficient data" — grey
 }
 
 function scoreColor(s: number) {
-  if (s >= 70) return { bar: 'bg-green-500', text: 'text-green-600', bg: 'bg-green-50 dark:bg-green-950/30' };
-  if (s >= 40) return { bar: 'bg-amber-400', text: 'text-amber-600', bg: 'bg-amber-50 dark:bg-amber-950/30' };
+  if (s >= 70)
+    return { bar: 'bg-green-500', text: 'text-green-600', bg: 'bg-green-50 dark:bg-green-950/30' };
+  if (s >= 40)
+    return { bar: 'bg-amber-400', text: 'text-amber-600', bg: 'bg-amber-50 dark:bg-amber-950/30' };
   return { bar: 'bg-red-500', text: 'text-red-600', bg: 'bg-red-50 dark:bg-red-950/30' };
 }
 
-function MetricCard({ emoji, title, score, subtitle, detail, source, sourceTooltip, error, noData }: MetricCardProps) {
+function MetricCard({
+  emoji,
+  title,
+  score,
+  subtitle,
+  detail,
+  source,
+  sourceTooltip,
+  error,
+  noData,
+}: MetricCardProps) {
   const overrideMsg = error ?? noData;
   const colors = overrideMsg
-    ? (error
-        ? { bar: '', text: 'text-amber-600', bg: 'bg-amber-50 dark:bg-amber-950/30' }
-        : { bar: '', text: 'text-muted-foreground', bg: '' })
+    ? error
+      ? { bar: '', text: 'text-amber-600', bg: 'bg-amber-50 dark:bg-amber-950/30' }
+      : { bar: '', text: 'text-muted-foreground', bg: '' }
     : scoreColor(score);
 
   return (
@@ -36,7 +48,8 @@ function MetricCard({ emoji, title, score, subtitle, detail, source, sourceToolt
         </div>
         {overrideMsg ? (
           <span className={cn('text-xs font-medium text-right max-w-[60%]', colors.text)}>
-            {error && <span className="mr-1">⚠</span>}{overrideMsg}
+            {error && <span className="mr-1">⚠</span>}
+            {overrideMsg}
           </span>
         ) : (
           <span className={cn('text-2xl font-bold tabular-nums', colors.text)}>{score}</span>
@@ -94,33 +107,41 @@ export function MetricsGrid({ business }: MetricsGridProps) {
 
   const localPackPos = serpData?.localVisibilityPosition ?? null;
   const localPackLabel =
-    localPackPos === 1 ? '#1 in local 3-pack'
-    : localPackPos === 2 ? '#2 in local 3-pack'
-    : localPackPos === 3 ? '#3 in local 3-pack'
-    : localPackPos != null ? `Position ${localPackPos}`
-    : 'Not in top 7';
+    localPackPos === 1
+      ? '#1 in local 3-pack'
+      : localPackPos === 2
+        ? '#2 in local 3-pack'
+        : localPackPos === 3
+          ? '#3 in local 3-pack'
+          : localPackPos != null
+            ? `Position ${localPackPos}`
+            : 'Not in top 7';
 
   const ratingLabel = googleData
     ? `${googleData.googleRating.toFixed(1)}★ · ${googleData.reviewCount.toLocaleString()} reviews`
     : 'No Google data';
 
-  const recent30 = googleData?.recentReviews.filter((r) => r.time >= Date.now() - 30 * 86400000) ?? [];
-  const recencyLabel = recent30.length > 0
-    ? `${recent30.length} review${recent30.length > 1 ? 's' : ''} in last 30 days`
-    : 'No reviews in last 30 days';
+  const recent30 =
+    googleData?.recentReviews.filter((r) => r.time >= Date.now() - 30 * 86400000) ?? [];
+  const recencyLabel =
+    recent30.length > 0
+      ? `${recent30.length} review${recent30.length > 1 ? 's' : ''} in last 30 days`
+      : 'No reviews in last 30 days';
 
   const aiLabel = aiVisibility
     ? `Mentioned in ${aiVisibility.mentionCount} of ${aiVisibility.totalPrompts} test prompts`
     : 'Not yet tested';
 
-  const gbpFields = googleData ? [
-    googleData.photos > 0,
-    (googleData.openingHours?.length ?? 0) > 0,
-    !!googleData.phoneNumber,
-    !!googleData.address,
-    !!googleData.description,
-    !!googleData.website,
-  ].filter(Boolean).length : 0;
+  const gbpFields = googleData
+    ? [
+        googleData.photos > 0,
+        (googleData.openingHours?.length ?? 0) > 0,
+        !!googleData.phoneNumber,
+        !!googleData.address,
+        !!googleData.description,
+        !!googleData.website,
+      ].filter(Boolean).length
+    : 0;
 
   const gbpLabel = googleData ? `${gbpFields} of 6 key fields complete` : 'No GBP data';
 
@@ -178,7 +199,9 @@ export function MetricsGrid({ business }: MetricsGridProps) {
         subtitle="New Google reviews per 30 days"
         detail="5 reviews/month = 100 · 0 = losing ground"
         source="Google Places"
-        noData={!googleData || googleData.recentReviews.length === 0 ? 'Insufficient data' : undefined}
+        noData={
+          !googleData || googleData.recentReviews.length === 0 ? 'Insufficient data' : undefined
+        }
       />
       <MetricCard
         emoji="📱"

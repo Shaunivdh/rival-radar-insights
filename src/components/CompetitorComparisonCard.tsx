@@ -45,7 +45,9 @@ export function CompetitorComparisonCard() {
           {own.aiScore?.weeklyDelta !== undefined && (
             <Trend delta={own.aiScore.weeklyDelta ?? null} />
           )}
-          <span className={`text-sm font-bold tabular-nums ${own.aiScore ? scoreColor(own.aiScore.overallScore) : 'text-muted-foreground'}`}>
+          <span
+            className={`text-sm font-bold tabular-nums ${own.aiScore ? scoreColor(own.aiScore.overallScore) : 'text-muted-foreground'}`}
+          >
             {own.aiScore?.overallScore ?? '—'}
           </span>
           {own.googleData && (
@@ -78,7 +80,9 @@ export function CompetitorComparisonCard() {
             {/* Trend | Score | Rating */}
             <div className="flex items-center gap-3 shrink-0">
               <Trend delta={c.aiScore?.weeklyDelta ?? null} />
-              <span className={`text-sm font-bold tabular-nums w-6 text-right ${c.aiScore ? scoreColor(c.aiScore.overallScore) : 'text-muted-foreground'}`}>
+              <span
+                className={`text-sm font-bold tabular-nums w-6 text-right ${c.aiScore ? scoreColor(c.aiScore.overallScore) : 'text-muted-foreground'}`}
+              >
                 {c.aiScore?.overallScore ?? '—'}
               </span>
               <span className="text-xs text-gray-500 tabular-nums w-10 text-right">

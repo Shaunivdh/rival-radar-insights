@@ -164,7 +164,7 @@ export const PRIORITY_TEMPLATES: PriorityTemplate[] = [
       'If you use WordPress, install the free "Schema & Structured Data for WP & AMP" plugin — it adds the labels automatically.',
       'If you use Wix, Squarespace, or Shopify, look in your site\'s SEO settings for "Structured data" or "Schema" and enable it.',
       'At minimum, add your business name, address, phone number, opening hours, and business type.',
-      'Test it using Google\'s Rich Results Test (search for it) to confirm Google can read it.',
+      "Test it using Google's Rich Results Test (search for it) to confirm Google can read it.",
     ],
     outcome: 'Richer appearance in Google search results',
   },
@@ -221,7 +221,7 @@ export const PRIORITY_TEMPLATES: PriorityTemplate[] = [
     whyItMattersTemplate:
       'Not everyone wants to call — especially outside business hours. A contact form lets people reach you on their terms, which means you capture enquiries that would otherwise go to a competitor. It also makes you look more professional and established.',
     steps: [
-      'Add a contact form to your website using your builder\'s built-in form tool (all major builders have one).',
+      "Add a contact form to your website using your builder's built-in form tool (all major builders have one).",
       'Keep it short: name, phone number or email, and a message field.',
       'Make sure form submissions send to an email you check regularly.',
       'Add a note like "We reply within 24 hours" to set expectations and encourage more people to submit.',
@@ -340,7 +340,7 @@ export const PRIORITY_TEMPLATES: PriorityTemplate[] = [
     estimatedImpact: 'high',
     timeframe: '4–8 weeks',
     action: 'Get your business into the Google map results',
-    reason: 'Your business is not showing in Google\'s map section',
+    reason: "Your business is not showing in Google's map section",
     whyItMattersTemplate:
       'The map section at the top of Google search results (the box showing three businesses with a map) gets the majority of clicks for local searches. If you are not there, most people searching for what you do nearby will never find you. Getting into this section is the single biggest lever for local visibility.',
     steps: [
@@ -409,7 +409,7 @@ export const PRIORITY_TEMPLATES: PriorityTemplate[] = [
     action: 'Get your business mentioned by AI assistants',
     reason: 'Your business rarely shows up when AI tools recommend local services',
     whyItMattersTemplate:
-      'More and more people are asking AI tools like ChatGPT and Google\'s AI to recommend local businesses. If your name is not coming up, you are missing a growing source of referrals. AI tools tend to recommend businesses with strong Google profiles, plenty of reviews, and clear information online — improving these gives you a better chance of being named.',
+      "More and more people are asking AI tools like ChatGPT and Google's AI to recommend local businesses. If your name is not coming up, you are missing a growing source of referrals. AI tools tend to recommend businesses with strong Google profiles, plenty of reviews, and clear information online — improving these gives you a better chance of being named.",
     steps: [
       'Make sure your Google Business Profile is complete with a detailed description, all services listed, and recent photos.',
       'Build up your Google reviews — businesses with more reviews are more likely to be referenced by AI tools.',
@@ -495,7 +495,7 @@ export type ApplyWithHistoryResult = {
  */
 export function applyTemplatesWithHistory(
   b: Business,
-  previousActions: PriorityAction[]
+  previousActions: PriorityAction[],
 ): ApplyWithHistoryResult {
   const actions: PriorityAction[] = [];
   const firedIds: string[] = [];
@@ -512,7 +512,7 @@ export function applyTemplatesWithHistory(
         (prev) =>
           prev.category === tpl.category &&
           (prev.action.toLowerCase().includes(actionLower) ||
-            actionLower.includes(prev.action.toLowerCase()))
+            actionLower.includes(prev.action.toLowerCase())),
       );
 
       actions.push({
@@ -545,7 +545,7 @@ export function applyTemplatesWithHistory(
         !firedIds.some((id) => {
           const tpl = PRIORITY_TEMPLATES.find((t) => t.id === id);
           return tpl && tpl.category === prev.category;
-        })
+        }),
     )
     .map((prev) => prev.action);
 

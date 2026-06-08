@@ -20,11 +20,9 @@ export async function checkDirectSignals(url: string): Promise<{
       }),
     ]);
 
-    const hasRobotsTxt =
-      robotsRes.status === 'fulfilled' && robotsRes.value.ok;
+    const hasRobotsTxt = robotsRes.status === 'fulfilled' && robotsRes.value.ok;
 
-    let hasSitemap =
-      sitemapRes.status === 'fulfilled' && sitemapRes.value.ok;
+    let hasSitemap = sitemapRes.status === 'fulfilled' && sitemapRes.value.ok;
 
     // If sitemap.xml not found, check robots.txt body for Sitemap: directive
     if (!hasSitemap && robotsRes.status === 'fulfilled' && robotsRes.value.ok) {

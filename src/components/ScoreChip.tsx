@@ -14,17 +14,21 @@ export const ScoreChip = ({ label, score, size = 'sm', weeklyDelta }: ScoreChipP
     return 'bg-destructive/10 text-destructive';
   };
 
-  const delta = weeklyDelta != null ? (
-    weeklyDelta > 0
-      ? <span className="text-xs text-green-600 ml-1">↑+{weeklyDelta}</span>
-      : weeklyDelta < 0
-      ? <span className="text-xs text-red-500 ml-1">↓{weeklyDelta}</span>
-      : <span className="text-xs text-gray-400 ml-1">±0</span>
-  ) : null;
+  const delta =
+    weeklyDelta != null ? (
+      weeklyDelta > 0 ? (
+        <span className="text-xs text-green-600 ml-1">↑+{weeklyDelta}</span>
+      ) : weeklyDelta < 0 ? (
+        <span className="text-xs text-red-500 ml-1">↓{weeklyDelta}</span>
+      ) : (
+        <span className="text-xs text-gray-400 ml-1">±0</span>
+      )
+    ) : null;
 
   return (
     <span className={cn('score-chip', getColor(score), size === 'md' && 'px-4 py-1.5 text-sm')}>
-      {label} <span className="font-bold">{score}</span>{delta}
+      {label} <span className="font-bold">{score}</span>
+      {delta}
     </span>
   );
 };

@@ -190,5 +190,5 @@ export const SERVICE_CATEGORIES: Record<ServiceCategory, ServiceCategoryConfig> 
 };
 
 export const SERVICE_CATEGORY_OPTIONS = (Object.keys(SERVICE_CATEGORIES) as ServiceCategory[]).map(
-  (key) => ({ value: key, label: SERVICE_CATEGORIES[key].label })
+  (key) => ({ value: key, label: SERVICE_CATEGORIES[key].label }),
 );

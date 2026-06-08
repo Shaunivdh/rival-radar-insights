@@ -8,21 +8,64 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import {
-  Accordion, AccordionContent, AccordionItem, AccordionTrigger,
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
 } from '@/components/ui/accordion';
 import {
-  Search, BookOpen, Mail, Rocket,
-  Eye, Users, Star, CreditCard, Shield, ArrowRight, Send,
-  FileText, Lightbulb,
+  Search,
+  BookOpen,
+  Mail,
+  Rocket,
+  Eye,
+  Users,
+  Star,
+  CreditCard,
+  Shield,
+  ArrowRight,
+  Send,
+  FileText,
+  Lightbulb,
 } from 'lucide-react';
 
 const categories = [
   { icon: Rocket, label: 'Getting started', count: 8, color: 'text-primary', bg: 'bg-primary/10' },
-  { icon: Eye, label: 'Understanding your score', count: 12, color: 'text-accent', bg: 'bg-accent/10' },
-  { icon: Users, label: 'Competitors', count: 6, color: 'text-score-excellent', bg: 'bg-score-excellent/10' },
-  { icon: Star, label: 'Reviews & replies', count: 9, color: 'text-score-average', bg: 'bg-score-average/10' },
-  { icon: CreditCard, label: 'Billing', count: 5, color: 'text-muted-foreground', bg: 'bg-muted/60' },
-  { icon: Shield, label: 'Account & security', count: 4, color: 'text-score-poor', bg: 'bg-score-poor/10' },
+  {
+    icon: Eye,
+    label: 'Understanding your score',
+    count: 12,
+    color: 'text-accent',
+    bg: 'bg-accent/10',
+  },
+  {
+    icon: Users,
+    label: 'Competitors',
+    count: 6,
+    color: 'text-score-excellent',
+    bg: 'bg-score-excellent/10',
+  },
+  {
+    icon: Star,
+    label: 'Reviews & replies',
+    count: 9,
+    color: 'text-score-average',
+    bg: 'bg-score-average/10',
+  },
+  {
+    icon: CreditCard,
+    label: 'Billing',
+    count: 5,
+    color: 'text-muted-foreground',
+    bg: 'bg-muted/60',
+  },
+  {
+    icon: Shield,
+    label: 'Account & security',
+    count: 4,
+    color: 'text-score-poor',
+    bg: 'bg-score-poor/10',
+  },
 ];
 
 const faqs = [
@@ -36,23 +79,23 @@ const faqs = [
   },
   {
     q: 'Can I track more than 5 competitors?',
-    a: 'The Pro plan tracks up to 5 competitors. We\'ve capped this on purpose — most local businesses only really compete with 3–5 rivals, and tracking more dilutes the focus of your action plan. Reach out if you need an enterprise quota.',
+    a: "The Pro plan tracks up to 5 competitors. We've capped this on purpose — most local businesses only really compete with 3–5 rivals, and tracking more dilutes the focus of your action plan. Reach out if you need an enterprise quota.",
   },
   {
-    q: 'Why don\'t I see reply timestamps on Google reviews?',
-    a: 'Google\'s Places API doesn\'t return the date a business owner replied — only the review\'s original timestamp. We surface everything they do return: rating, body text, author, review date, and the reply text itself.',
+    q: "Why don't I see reply timestamps on Google reviews?",
+    a: "Google's Places API doesn't return the date a business owner replied — only the review's original timestamp. We surface everything they do return: rating, body text, author, review date, and the reply text itself.",
   },
   {
     q: 'How do AI-suggested review replies work?',
-    a: 'We generate a draft reply in your business\'s tone using the review\'s content + your historical replies as context. Drafts are starting points — always read and edit before posting to Google.',
+    a: "We generate a draft reply in your business's tone using the review's content + your historical replies as context. Drafts are starting points — always read and edit before posting to Google.",
   },
   {
     q: 'Can I cancel anytime?',
-    a: 'Yes. Cancel from Settings → Billing and you\'ll keep access until the end of your current billing period. We don\'t charge cancellation fees and we don\'t lock your data — you can export everything before you leave.',
+    a: "Yes. Cancel from Settings → Billing and you'll keep access until the end of your current billing period. We don't charge cancellation fees and we don't lock your data — you can export everything before you leave.",
   },
   {
     q: 'What happens if a competitor blocks crawling?',
-    a: 'If a competitor\'s site blocks our crawler, we fall back to publicly available signals (Google Business profile, schema markup, public review data). You\'ll see a small note on their card if data is partial.',
+    a: "If a competitor's site blocks our crawler, we fall back to publicly available signals (Google Business profile, schema markup, public review data). You'll see a small note on their card if data is partial.",
   },
 ];
 
@@ -83,7 +126,8 @@ const HelpPage = () => {
         </div>
         <h1 className="font-display text-3xl lg:text-4xl font-bold mb-3">How can we help?</h1>
         <p className="text-muted-foreground mb-6 max-w-xl mx-auto">
-          Search guides, browse FAQs, or chat with our team. We usually reply within 2 hours on weekdays.
+          Search guides, browse FAQs, or chat with our team. We usually reply within 2 hours on
+          weekdays.
         </p>
         <div className="relative max-w-xl mx-auto">
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
@@ -112,7 +156,9 @@ const HelpPage = () => {
               style={{ boxShadow: 'var(--neu-shadow)' }}
             >
               <CardContent className="p-5 flex items-start gap-4">
-                <div className={`w-12 h-12 rounded-xl ${c.bg} ${c.color} flex items-center justify-center shrink-0`}>
+                <div
+                  className={`w-12 h-12 rounded-xl ${c.bg} ${c.color} flex items-center justify-center shrink-0`}
+                >
                   <c.icon className="w-5 h-5" />
                 </div>
                 <div className="flex-1 min-w-0">
@@ -137,7 +183,11 @@ const HelpPage = () => {
               {filteredFaqs.length > 0 ? (
                 <Accordion type="single" collapsible className="w-full">
                   {filteredFaqs.map((f, i) => (
-                    <AccordionItem key={i} value={`item-${i}`} className="border-border/50 last:border-0 px-4">
+                    <AccordionItem
+                      key={i}
+                      value={`item-${i}`}
+                      className="border-border/50 last:border-0 px-4"
+                    >
                       <AccordionTrigger className="text-left text-sm font-semibold hover:no-underline">
                         {f.q}
                       </AccordionTrigger>
@@ -149,8 +199,12 @@ const HelpPage = () => {
                 </Accordion>
               ) : (
                 <div className="p-8 text-center">
-                  <p className="text-muted-foreground text-sm mb-3">No articles match &ldquo;{query}&rdquo;.</p>
-                  <Button variant="outline" size="sm" onClick={() => setQuery('')}>Clear search</Button>
+                  <p className="text-muted-foreground text-sm mb-3">
+                    No articles match &ldquo;{query}&rdquo;.
+                  </p>
+                  <Button variant="outline" size="sm" onClick={() => setQuery('')}>
+                    Clear search
+                  </Button>
                 </div>
               )}
             </CardContent>
@@ -174,14 +228,14 @@ const HelpPage = () => {
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-semibold leading-tight mb-0.5">{g.title}</p>
                     <p className="text-xs text-muted-foreground flex items-center gap-1">
-                      <FileText className="w-3 h-3" />{g.time}
+                      <FileText className="w-3 h-3" />
+                      {g.time}
                     </p>
                   </div>
                 </CardContent>
               </Card>
             ))}
           </div>
-
         </div>
       </div>
 
@@ -202,15 +256,20 @@ const HelpPage = () => {
           </CardHeader>
           <CardContent className="space-y-3">
             <div className="space-y-2">
-              <Label htmlFor="subject" className="text-xs">Subject</Label>
+              <Label htmlFor="subject" className="text-xs">
+                Subject
+              </Label>
               <Input id="subject" placeholder="What's it about?" />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="msg" className="text-xs">Message</Label>
+              <Label htmlFor="msg" className="text-xs">
+                Message
+              </Label>
               <Textarea id="msg" placeholder="Tell us what's going on..." rows={3} />
             </div>
             <Button className="w-full gap-2 bg-primary text-white hover:bg-primary/90">
-              <Send className="w-4 h-4" />Send message
+              <Send className="w-4 h-4" />
+              Send message
             </Button>
           </CardContent>
         </Card>

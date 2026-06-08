@@ -2,51 +2,79 @@ import type { GoogleData } from '@/types';
 
 const NEW_PLACES_BASE = 'https://places.googleapis.com/v1/places';
 
-const PLACE_FIELD_MASK = 'id,displayName,rating,userRatingCount,formattedAddress,nationalPhoneNumber,regularOpeningHours,reviews,priceLevel,types,photos,location,websiteUri,editorialSummary,generativeSummary';
+const PLACE_FIELD_MASK =
+  'id,displayName,rating,userRatingCount,formattedAddress,nationalPhoneNumber,regularOpeningHours,reviews,priceLevel,types,photos,location,websiteUri,editorialSummary,generativeSummary';
 const SEARCH_FIELD_MASK = `places.${PLACE_FIELD_MASK.split(',').join(',places.')}`;
 
 // Generic Google Place types that carry no useful business-specific information
-const GENERIC_TYPES = new Set(['point_of_interest', 'establishment', 'store', 'business', 'premise', 'food', 'health']);
+const GENERIC_TYPES = new Set([
+  'point_of_interest',
+  'establishment',
+  'store',
+  'business',
+  'premise',
+  'food',
+  'health',
+]);
 
 // When multiple specific types are present, prefer the more descriptive/canonical one.
 // Lower index = higher priority. hair_care is a sub-type of beauty_salon; spa is also covered by beauty_salon.
-const TYPE_PRIORITY: string[] = ['beauty_salon', 'nail_salon', 'spa', 'gym', 'dentist', 'doctor', 'lawyer', 'restaurant', 'cafe', 'bakery', 'bar', 'hotel', 'lodging'];
+const TYPE_PRIORITY: string[] = [
+  'beauty_salon',
+  'nail_salon',
+  'spa',
+  'gym',
+  'dentist',
+  'doctor',
+  'lawyer',
+  'restaurant',
+  'cafe',
+  'bakery',
+  'bar',
+  'hotel',
+  'lodging',
+];
 
 function pickBusinessCategory(types: string[]): string {
-  const specific = types.filter(t => !GENERIC_TYPES.has(t));
+  const specific = types.filter((t) => !GENERIC_TYPES.has(t));
   if (specific.length === 0) return types[0] ?? '';
-  const prioritised = specific.find(t => TYPE_PRIORITY.includes(t));
+  const prioritised = specific.find((t) => TYPE_PRIORITY.includes(t));
   return prioritised ?? specific[0];
 }
 
 function mapPlaceToGoogleData(place: Record<string, unknown>): GoogleData {
   return {
-    placeId: place.id as string ?? '',
-    googleRating: place.rating as number ?? 0,
-    reviewCount: place.userRatingCount as number ?? 0,
+    placeId: (place.id as string) ?? '',
+    googleRating: (place.rating as number) ?? 0,
+    reviewCount: (place.userRatingCount as number) ?? 0,
     businessCategory: pickBusinessCategory((place.types as string[]) ?? []),
-    address: place.formattedAddress as string ?? '',
-    phoneNumber: place.nationalPhoneNumber as string ?? '',
-    openingHours: (place.regularOpeningHours as Record<string, unknown>)?.weekdayDescriptions as string[] ?? [],
-    recentReviews: ((place.reviews as unknown[]) ?? []).slice(0, 5).map((r: Record<string, unknown>) => ({
-      rating: r.rating as number,
-      text: (r.text as Record<string, unknown>)?.text as string ?? '',
-      time: r.publishTime ? new Date(r.publishTime as string).getTime() : 0,
-      authorName: (r.authorAttribution as Record<string, unknown>)?.displayName as string ?? '',
-      ownerReply: (r.ownerResponse as Record<string, unknown>)?.text as string ?? undefined,
-    })),
+    address: (place.formattedAddress as string) ?? '',
+    phoneNumber: (place.nationalPhoneNumber as string) ?? '',
+    openingHours:
+      ((place.regularOpeningHours as Record<string, unknown>)?.weekdayDescriptions as string[]) ??
+      [],
+    recentReviews: ((place.reviews as unknown[]) ?? [])
+      .slice(0, 5)
+      .map((r: Record<string, unknown>) => ({
+        rating: r.rating as number,
+        text: ((r.text as Record<string, unknown>)?.text as string) ?? '',
+        time: r.publishTime ? new Date(r.publishTime as string).getTime() : 0,
+        authorName: ((r.authorAttribution as Record<string, unknown>)?.displayName as string) ?? '',
+        ownerReply: ((r.ownerResponse as Record<string, unknown>)?.text as string) ?? undefined,
+      })),
     photos: (place.photos as unknown[] | undefined)?.length ?? 0,
     priceLevel: (place.priceLevel as number | undefined) ?? null,
-    description: (place.editorialSummary as Record<string, unknown>)?.text as string
-      ?? (place.generativeSummary as Record<string, unknown>)?.text as string
-      ?? undefined,
-    website: place.websiteUri as string ?? undefined,
+    description:
+      ((place.editorialSummary as Record<string, unknown>)?.text as string) ??
+      ((place.generativeSummary as Record<string, unknown>)?.text as string) ??
+      undefined,
+    website: (place.websiteUri as string) ?? undefined,
   };
 }
 
 export async function getPlaceDataById(
   placeId: string,
-  apiKey: string
+  apiKey: string,
 ): Promise<GoogleData | null> {
   const res = await fetch(`${NEW_PLACES_BASE}/${placeId}`, {
     headers: {
@@ -55,14 +83,14 @@ export async function getPlaceDataById(
     },
   });
   if (!res.ok) return null;
-  const place = await res.json() as Record<string, unknown>;
+  const place = (await res.json()) as Record<string, unknown>;
   if (!place.id) return null;
   return mapPlaceToGoogleData(place);
 }
 
 export async function postcodeToLatLng(
   postcode: string,
-  apiKey: string
+  apiKey: string,
 ): Promise<{ lat: number; lng: number } | null> {
   const res = await fetch(`${NEW_PLACES_BASE}:searchText`, {
     method: 'POST',
@@ -82,9 +110,13 @@ export async function postcodeToLatLng(
 // Uses postcodes.io (free, no API key) to derive canonical location string from postcode
 export async function postcodeToLocation(postcode: string): Promise<string | null> {
   try {
-    const res = await fetch(`https://api.postcodes.io/postcodes/${encodeURIComponent(postcode.trim())}`);
+    const res = await fetch(
+      `https://api.postcodes.io/postcodes/${encodeURIComponent(postcode.trim())}`,
+    );
     if (!res.ok) return null;
-    const json = await res.json() as { result?: { admin_district?: string; admin_county?: string } };
+    const json = (await res.json()) as {
+      result?: { admin_district?: string; admin_county?: string };
+    };
     const r = json.result;
     if (!r) return null;
     const town = r.admin_district ?? '';
@@ -100,7 +132,7 @@ export async function getPlaceData(
   name: string,
   url: string,
   apiKey: string,
-  postcode?: string
+  postcode?: string,
 ): Promise<GoogleData | null> {
   let locationBias: object | undefined;
   if (postcode) {
@@ -141,8 +173,16 @@ export async function getPlaceData(
   // 1. Domain match — most accurate
   if (domain) {
     const domainMatch = places.find((p) => {
-      const placeHost = (() => { try { return new URL(p.websiteUri as string).hostname.replace(/^www\./, ''); } catch { return ''; } })();
-      return placeHost === domain || placeHost.endsWith(`.${domain}`) || domain.endsWith(`.${placeHost}`);
+      const placeHost = (() => {
+        try {
+          return new URL(p.websiteUri as string).hostname.replace(/^www\./, '');
+        } catch {
+          return '';
+        }
+      })();
+      return (
+        placeHost === domain || placeHost.endsWith(`.${domain}`) || domain.endsWith(`.${placeHost}`)
+      );
     });
     if (domainMatch) return mapPlaceToGoogleData(domainMatch);
   }
@@ -151,9 +191,15 @@ export async function getPlaceData(
   //    only accept places[0] (Google's top-ranked result), all significant words must match
   if (postcode && places.length > 0) {
     const top = places[0];
-    const displayName = ((top.displayName as Record<string, unknown>)?.text as string ?? '').toLowerCase();
-    const nameWords = name.toLowerCase().trim().split(/\s+/).filter(w => w.length > 2);
-    if (nameWords.length > 0 && nameWords.every(w => displayName.includes(w))) {
+    const displayName = (
+      ((top.displayName as Record<string, unknown>)?.text as string) ?? ''
+    ).toLowerCase();
+    const nameWords = name
+      .toLowerCase()
+      .trim()
+      .split(/\s+/)
+      .filter((w) => w.length > 2);
+    if (nameWords.length > 0 && nameWords.every((w) => displayName.includes(w))) {
       console.log(`[google] name fallback matched "${displayName}" for "${name}"`);
       return mapPlaceToGoogleData(top);
     }

@@ -8,9 +8,7 @@ const severityStyles = {
 };
 
 export const SeverityBadge = ({ severity }: { severity: 'high' | 'medium' | 'low' }) => (
-  <span className={cn('score-chip capitalize', severityStyles[severity])}>
-    {severity}
-  </span>
+  <span className={cn('score-chip capitalize', severityStyles[severity])}>{severity}</span>
 );
 
 export const TransparencyBadge = ({ level }: { level: 'high' | 'medium' | 'low' | 'none' }) => {
@@ -33,7 +31,13 @@ function timeAgo(ts: number): string {
   return `${Math.floor(days / 30)}mo ago`;
 }
 
-export const ChangeEventCard = ({ event, competitorName }: { event: ChangeEvent; competitorName?: string }) => {
+export const ChangeEventCard = ({
+  event,
+  competitorName,
+}: {
+  event: ChangeEvent;
+  competitorName?: string;
+}) => {
   const actionItems = event.changes?.map((c) => c.actionItem).filter(Boolean) ?? [];
   return (
     <div className="card-surface flex gap-4">

@@ -3,13 +3,24 @@ import type { RawCrawlResult, ExtractedSignals } from '@/types';
 type PageJson = Record<string, unknown>;
 
 /** Titles that indicate a bot challenge or loading screen — not real site content. */
-const CHALLENGE_TITLES = ['one moment, please', 'just a moment', 'attention required', 'access denied'];
+const CHALLENGE_TITLES = [
+  'one moment, please',
+  'just a moment',
+  'attention required',
+  'access denied',
+];
 
-function pickStr(pages: PageJson[], key: string, fallback = '', skipChallengeTitles = false): string {
+function pickStr(
+  pages: PageJson[],
+  key: string,
+  fallback = '',
+  skipChallengeTitles = false,
+): string {
   for (const p of pages) {
     const v = p[key];
     if (typeof v === 'string' && v) {
-      if (skipChallengeTitles && CHALLENGE_TITLES.some(t => v.toLowerCase().includes(t))) continue;
+      if (skipChallengeTitles && CHALLENGE_TITLES.some((t) => v.toLowerCase().includes(t)))
+        continue;
       return v;
     }
   }

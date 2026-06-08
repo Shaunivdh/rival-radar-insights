@@ -17,8 +17,14 @@ const ChangesPage = () => {
   const ownName = project.ownBusiness.name;
 
   const allChanges: (CE & { competitorName: string; isOwn: boolean })[] = [
-    ...project.ownBusiness.changeEvents.map((e) => ({ ...e, competitorName: ownName, isOwn: true })),
-    ...project.competitors.flatMap((c) => c.changeEvents.map((e) => ({ ...e, competitorName: c.name, isOwn: false }))),
+    ...project.ownBusiness.changeEvents.map((e) => ({
+      ...e,
+      competitorName: ownName,
+      isOwn: true,
+    })),
+    ...project.competitors.flatMap((c) =>
+      c.changeEvents.map((e) => ({ ...e, competitorName: c.name, isOwn: false })),
+    ),
   ].sort((a, b) => b.detectedAt - a.detectedAt);
 
   const filtered = allChanges
@@ -39,7 +45,8 @@ const ChangesPage = () => {
           <Bell className="w-10 h-10 text-muted-foreground/50 mx-auto" />
           <p className="text-sm font-medium text-muted-foreground">No changes detected yet</p>
           <p className="text-xs text-muted-foreground/70 max-w-sm mx-auto">
-            We compare your competitors&apos; websites on each scan. Changes will appear here after the next rescan.
+            We compare your competitors&apos; websites on each scan. Changes will appear here after
+            the next rescan.
           </p>
         </div>
       ) : (
@@ -49,7 +56,12 @@ const ChangesPage = () => {
             <Filter className="w-4 h-4 text-muted-foreground" />
             <button
               onClick={() => setSeverityFilter(null)}
-              className={cn('score-chip', !severityFilter ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground')}
+              className={cn(
+                'score-chip',
+                !severityFilter
+                  ? 'bg-primary text-primary-foreground'
+                  : 'bg-muted text-muted-foreground',
+              )}
             >
               All
             </button>
@@ -63,7 +75,12 @@ const ChangesPage = () => {
               <button
                 key={c}
                 onClick={() => setCompetitorFilter(c === competitorFilter ? null : c)}
-                className={cn('score-chip flex items-center gap-1', competitorFilter === c ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground')}
+                className={cn(
+                  'score-chip flex items-center gap-1',
+                  competitorFilter === c
+                    ? 'bg-primary text-primary-foreground'
+                    : 'bg-muted text-muted-foreground',
+                )}
               >
                 {c === ownName ? <Building2 className="w-3 h-3" /> : <Users className="w-3 h-3" />}
                 {c}

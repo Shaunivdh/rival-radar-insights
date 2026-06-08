@@ -9,11 +9,29 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import {
-  Lightbulb, Star, Globe, Brain, Shield,
-  MousePointerClick, Clock, ChevronDown, ChevronUp, CheckCircle2,
-  AlertTriangle, ArrowRight, Flame, Target, Zap,
-  MapPin, MessageSquare,
-  TrendingUp, Check, RotateCcw, Hourglass, ShieldCheck, EyeOff,
+  Lightbulb,
+  Star,
+  Globe,
+  Brain,
+  Shield,
+  MousePointerClick,
+  Clock,
+  ChevronDown,
+  ChevronUp,
+  CheckCircle2,
+  AlertTriangle,
+  ArrowRight,
+  Flame,
+  Target,
+  Zap,
+  MapPin,
+  MessageSquare,
+  TrendingUp,
+  Check,
+  RotateCcw,
+  Hourglass,
+  ShieldCheck,
+  EyeOff,
 } from 'lucide-react';
 import type { PriorityAction } from '@/types';
 
@@ -50,13 +68,13 @@ type ActionStatus = {
 
 const CATEGORY_ICONS: Record<string, React.ElementType> = {
   'AI Visibility': Brain,
-  'Reviews': Star,
+  Reviews: Star,
   'Local SEO': MapPin,
-  'Website': Globe,
-  'Trust': Shield,
-  'Conversion': MousePointerClick,
+  Website: Globe,
+  Trust: Shield,
+  Conversion: MousePointerClick,
   'Review Replies': MessageSquare,
-  'Reputation': AlertTriangle,
+  Reputation: AlertTriangle,
 };
 
 function toPriorityBucket(action: PriorityAction): Priority {
@@ -70,7 +88,10 @@ function mapAction(action: PriorityAction): Recommendation {
   return {
     id: action.id,
     dbId: action.id,
-    dbStatus: (action.status === 'queued' ? 'active' : action.status) as 'active' | 'snoozed' | 'completed',
+    dbStatus: (action.status === 'queued' ? 'active' : action.status) as
+      | 'active'
+      | 'snoozed'
+      | 'completed',
     dbNote: action.note ?? null,
     dbActionedAt: action.actionedAt ?? null,
     priority: toPriorityBucket(action),
@@ -87,11 +108,34 @@ function mapAction(action: PriorityAction): Recommendation {
   };
 }
 
-const priorityConfig: Record<Priority, { label: string; icon: React.ElementType; color: string; description: string }> = {
-  critical: { label: 'Start with these', icon: Flame, color: 'text-destructive', description: "These are costing you visibility right now" },
-  high: { label: "When you've got a moment", icon: Target, color: 'text-amber-600', description: "A bit more effort, but they'll genuinely move the needle" },
-  medium: { label: 'Worth a look soon', icon: TrendingUp, color: 'text-primary', description: "Nice gains when you've got half an hour spare" },
-  'quick-win': { label: 'Easy wins', icon: Zap, color: 'text-green-600', description: "Little changes you could do today — they all add up" },
+const priorityConfig: Record<
+  Priority,
+  { label: string; icon: React.ElementType; color: string; description: string }
+> = {
+  critical: {
+    label: 'Start with these',
+    icon: Flame,
+    color: 'text-destructive',
+    description: 'These are costing you visibility right now',
+  },
+  high: {
+    label: "When you've got a moment",
+    icon: Target,
+    color: 'text-amber-600',
+    description: "A bit more effort, but they'll genuinely move the needle",
+  },
+  medium: {
+    label: 'Worth a look soon',
+    icon: TrendingUp,
+    color: 'text-primary',
+    description: "Nice gains when you've got half an hour spare",
+  },
+  'quick-win': {
+    label: 'Easy wins',
+    icon: Zap,
+    color: 'text-green-600',
+    description: 'Little changes you could do today — they all add up',
+  },
 };
 
 const effortColor: Record<string, string> = {
@@ -111,20 +155,29 @@ const formatDoneAt = (iso?: string) => {
 const VerificationBadge = ({ state }: { state: VerificationState }) => {
   if (state === 'verified') {
     return (
-      <Badge variant="outline" className="text-[11px] bg-green-50 text-green-700 border-green-200 gap-1">
+      <Badge
+        variant="outline"
+        className="text-[11px] bg-green-50 text-green-700 border-green-200 gap-1"
+      >
         <ShieldCheck className="w-3 h-3" /> Confirmed by last scan
       </Badge>
     );
   }
   if (state === 'not-verified') {
     return (
-      <Badge variant="outline" className="text-[11px] bg-amber-50 text-amber-700 border-amber-200 gap-1">
+      <Badge
+        variant="outline"
+        className="text-[11px] bg-amber-50 text-amber-700 border-amber-200 gap-1"
+      >
         <AlertTriangle className="w-3 h-3" /> Not picked up yet
       </Badge>
     );
   }
   return (
-    <Badge variant="outline" className="text-[11px] bg-muted text-muted-foreground border-border gap-1">
+    <Badge
+      variant="outline"
+      className="text-[11px] bg-muted text-muted-foreground border-border gap-1"
+    >
       <Hourglass className="w-3 h-3" /> We'll check on the next scan
     </Badge>
   );
@@ -171,19 +224,23 @@ const RecommendationCard = ({
       transition={{ delay: 0.04 * index }}
       layout
     >
-      <Card className={`neu overflow-hidden hover:shadow-lg transition-shadow ${isDone || isDismissed ? 'opacity-90' : ''}`}>
+      <Card
+        className={`neu overflow-hidden hover:shadow-lg transition-shadow ${isDone || isDismissed ? 'opacity-90' : ''}`}
+      >
         <CardContent className="p-0">
-          <button
-            onClick={() => setExpanded(!expanded)}
-            className="w-full text-left p-6 pb-4"
-          >
+          <button onClick={() => setExpanded(!expanded)} className="w-full text-left p-6 pb-4">
             <div className="flex items-start justify-between gap-4 mb-3">
               <div className="flex items-center gap-2 flex-wrap">
                 <rec.categoryIcon className="w-4 h-4 text-primary shrink-0" />
-                <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{rec.category}</span>
+                <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                  {rec.category}
+                </span>
                 {isDone && <VerificationBadge state={status?.verification ?? 'pending'} />}
                 {isDismissed && (
-                  <Badge variant="outline" className="text-[11px] bg-muted text-muted-foreground border-border gap-1">
+                  <Badge
+                    variant="outline"
+                    className="text-[11px] bg-muted text-muted-foreground border-border gap-1"
+                  >
                     <EyeOff className="w-3 h-3" /> Snoozed
                   </Badge>
                 )}
@@ -194,27 +251,47 @@ const RecommendationCard = ({
                     {rec.effort} effort
                   </Badge>
                 )}
-                {expanded ? <ChevronUp className="w-4 h-4 text-muted-foreground" /> : <ChevronDown className="w-4 h-4 text-muted-foreground" />}
+                {expanded ? (
+                  <ChevronUp className="w-4 h-4 text-muted-foreground" />
+                ) : (
+                  <ChevronDown className="w-4 h-4 text-muted-foreground" />
+                )}
               </div>
             </div>
             <div className="flex items-start gap-3">
               <button
-                onClick={isDone ? (e) => { e.stopPropagation(); onUndo(rec.id); } : isDismissed ? (e) => { e.stopPropagation(); onRestore(rec.id); } : handleQuickDone}
-                aria-label={isDone ? 'Mark as not done' : isDismissed ? 'Restore action' : 'Mark as done'}
+                onClick={
+                  isDone
+                    ? (e) => {
+                        e.stopPropagation();
+                        onUndo(rec.id);
+                      }
+                    : isDismissed
+                      ? (e) => {
+                          e.stopPropagation();
+                          onRestore(rec.id);
+                        }
+                      : handleQuickDone
+                }
+                aria-label={
+                  isDone ? 'Mark as not done' : isDismissed ? 'Restore action' : 'Mark as done'
+                }
                 disabled={isDismissed}
                 className={`mt-0.5 shrink-0 w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all ${
                   isDone
                     ? 'bg-primary border-primary text-primary-foreground'
                     : isDismissed
-                    ? 'border-border bg-muted cursor-default'
-                    : 'border-border bg-background hover:border-primary hover:bg-primary/5'
+                      ? 'border-border bg-muted cursor-default'
+                      : 'border-border bg-background hover:border-primary hover:bg-primary/5'
                 }`}
               >
                 {isDone && <Check className="w-3.5 h-3.5" strokeWidth={3} />}
                 {isDismissed && <EyeOff className="w-3 h-3 text-muted-foreground" />}
               </button>
               <div className="flex-1 min-w-0">
-                <h3 className={`font-display text-base font-semibold mb-2 ${isDone || isDismissed ? 'text-muted-foreground' : ''} ${isDone ? 'line-through' : ''}`}>
+                <h3
+                  className={`font-display text-base font-semibold mb-2 ${isDone || isDismissed ? 'text-muted-foreground' : ''} ${isDone ? 'line-through' : ''}`}
+                >
                   {rec.title}
                 </h3>
                 {!isDone && !isDismissed && (
@@ -227,30 +304,59 @@ const RecommendationCard = ({
                   <div className="flex items-start gap-2 p-3 rounded-lg bg-muted/50 text-sm text-muted-foreground">
                     <EyeOff className="w-4 h-4 shrink-0 mt-0.5" />
                     <p className="leading-relaxed">
-                      You marked this as not a priority {formatDoneAt(status?.dismissedAt ?? rec.dbActionedAt ?? undefined)}. We'll keep monitoring and flag it again if it gets worse.
+                      You marked this as not a priority{' '}
+                      {formatDoneAt(status?.dismissedAt ?? rec.dbActionedAt ?? undefined)}. We'll
+                      keep monitoring and flag it again if it gets worse.
                     </p>
                   </div>
                 )}
                 {isDone && (
-                  <div className={`flex items-start gap-2 p-3 rounded-lg text-sm ${
-                    (status?.verification ?? 'pending') === 'verified'
-                      ? 'bg-green-50 text-green-800'
-                      : (status?.verification ?? 'pending') === 'not-verified'
-                      ? 'bg-amber-50 text-amber-800'
-                      : 'bg-muted/50 text-muted-foreground'
-                  }`}>
-                    {(status?.verification ?? 'pending') === 'verified' && <CheckCircle2 className="w-4 h-4 shrink-0 mt-0.5" />}
-                    {(status?.verification ?? 'pending') === 'not-verified' && <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />}
-                    {(status?.verification ?? 'pending') === 'pending' && <Hourglass className="w-4 h-4 shrink-0 mt-0.5" />}
+                  <div
+                    className={`flex items-start gap-2 p-3 rounded-lg text-sm ${
+                      (status?.verification ?? 'pending') === 'verified'
+                        ? 'bg-green-50 text-green-800'
+                        : (status?.verification ?? 'pending') === 'not-verified'
+                          ? 'bg-amber-50 text-amber-800'
+                          : 'bg-muted/50 text-muted-foreground'
+                    }`}
+                  >
+                    {(status?.verification ?? 'pending') === 'verified' && (
+                      <CheckCircle2 className="w-4 h-4 shrink-0 mt-0.5" />
+                    )}
+                    {(status?.verification ?? 'pending') === 'not-verified' && (
+                      <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
+                    )}
+                    {(status?.verification ?? 'pending') === 'pending' && (
+                      <Hourglass className="w-4 h-4 shrink-0 mt-0.5" />
+                    )}
                     <p className="leading-relaxed">
-                      {(status?.verification ?? 'pending') === 'verified' && <>Our latest scan confirms this is sorted. Marked done {formatDoneAt(status?.doneAt ?? rec.dbActionedAt ?? undefined)}.</>}
-                      {(status?.verification ?? 'pending') === 'not-verified' && <>You marked this done {formatDoneAt(status?.doneAt ?? rec.dbActionedAt ?? undefined)}, but our last scan hasn't picked up a change yet. Worth a quick double-check.</>}
-                      {(status?.verification ?? 'pending') === 'pending' && <>Marked done {formatDoneAt(status?.doneAt ?? rec.dbActionedAt ?? undefined)}. We'll re-check on the next weekly scan.</>}
+                      {(status?.verification ?? 'pending') === 'verified' && (
+                        <>
+                          Our latest scan confirms this is sorted. Marked done{' '}
+                          {formatDoneAt(status?.doneAt ?? rec.dbActionedAt ?? undefined)}.
+                        </>
+                      )}
+                      {(status?.verification ?? 'pending') === 'not-verified' && (
+                        <>
+                          You marked this done{' '}
+                          {formatDoneAt(status?.doneAt ?? rec.dbActionedAt ?? undefined)}, but our
+                          last scan hasn't picked up a change yet. Worth a quick double-check.
+                        </>
+                      )}
+                      {(status?.verification ?? 'pending') === 'pending' && (
+                        <>
+                          Marked done{' '}
+                          {formatDoneAt(status?.doneAt ?? rec.dbActionedAt ?? undefined)}. We'll
+                          re-check on the next weekly scan.
+                        </>
+                      )}
                     </p>
                   </div>
                 )}
                 {isDone && (status?.note || rec.dbNote) && (
-                  <p className="text-xs text-muted-foreground italic mt-2 pl-1">"{status?.note ?? rec.dbNote}"</p>
+                  <p className="text-xs text-muted-foreground italic mt-2 pl-1">
+                    "{status?.note ?? rec.dbNote}"
+                  </p>
                 )}
               </div>
             </div>
@@ -269,13 +375,17 @@ const RecommendationCard = ({
                     <Lightbulb className="w-3.5 h-3.5 text-primary" />
                     Why this matters for your business
                   </h4>
-                  <p className="text-sm text-muted-foreground leading-relaxed">{rec.whyItMatters}</p>
+                  <p className="text-sm text-muted-foreground leading-relaxed">
+                    {rec.whyItMatters}
+                  </p>
                 </div>
 
                 {rec.competitorReference && (
                   <div className="flex items-start gap-2 p-3 rounded-lg bg-muted/50 text-sm">
                     <TrendingUp className="w-4 h-4 text-primary shrink-0 mt-0.5" />
-                    <p className="text-muted-foreground leading-relaxed">{rec.competitorReference}</p>
+                    <p className="text-muted-foreground leading-relaxed">
+                      {rec.competitorReference}
+                    </p>
                   </div>
                 )}
 
@@ -295,12 +405,23 @@ const RecommendationCard = ({
 
                 <div className="flex items-center justify-between pt-3 border-t border-border/50 flex-wrap gap-3">
                   <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                    <span className="flex items-center gap-1"><ArrowRight className="w-3 h-3" />{rec.impact}</span>
-                    <span className="flex items-center gap-1"><Clock className="w-3 h-3" />{rec.timeframe}</span>
+                    <span className="flex items-center gap-1">
+                      <ArrowRight className="w-3 h-3" />
+                      {rec.impact}
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <Clock className="w-3 h-3" />
+                      {rec.timeframe}
+                    </span>
                   </div>
                   {!isDone && !isDismissed && !showNote && (
                     <div className="flex gap-2 flex-wrap">
-                      <Button size="sm" variant="ghost" onClick={() => onDismiss(rec.id)} className="gap-1.5 text-muted-foreground">
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => onDismiss(rec.id)}
+                        className="gap-1.5 text-muted-foreground"
+                      >
                         <EyeOff className="w-3.5 h-3.5" /> Not a priority
                       </Button>
                       <Button size="sm" variant="outline" onClick={() => setShowNote(true)}>
@@ -312,12 +433,22 @@ const RecommendationCard = ({
                     </div>
                   )}
                   {isDone && (
-                    <Button size="sm" variant="ghost" onClick={() => onUndo(rec.id)} className="gap-1.5 text-muted-foreground">
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => onUndo(rec.id)}
+                      className="gap-1.5 text-muted-foreground"
+                    >
                       <RotateCcw className="w-3.5 h-3.5" /> Undo
                     </Button>
                   )}
                   {isDismissed && (
-                    <Button size="sm" variant="ghost" onClick={() => onRestore(rec.id)} className="gap-1.5 text-muted-foreground">
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => onRestore(rec.id)}
+                      className="gap-1.5 text-muted-foreground"
+                    >
                       <RotateCcw className="w-3.5 h-3.5" /> Bring back
                     </Button>
                   )}
@@ -332,7 +463,14 @@ const RecommendationCard = ({
                       className="min-h-[70px] text-sm"
                     />
                     <div className="flex gap-2 justify-end">
-                      <Button size="sm" variant="ghost" onClick={() => { setShowNote(false); setNote(''); }}>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => {
+                          setShowNote(false);
+                          setNote('');
+                        }}
+                      >
                         Cancel
                       </Button>
                       <Button size="sm" onClick={handleSaveWithNote} className="gap-1.5">
@@ -353,13 +491,18 @@ const RecommendationCard = ({
 const EmptyState = ({ aiError }: { aiError?: string }) => (
   <div className="flex flex-col items-center justify-center py-20 text-center">
     <div className="p-3 rounded-xl bg-primary/10 mb-4">
-      {aiError ? <AlertTriangle className="w-6 h-6 text-amber-500" /> : <Lightbulb className="w-6 h-6 text-primary" />}
+      {aiError ? (
+        <AlertTriangle className="w-6 h-6 text-amber-500" />
+      ) : (
+        <Lightbulb className="w-6 h-6 text-primary" />
+      )}
     </div>
     {aiError ? (
       <>
         <h2 className="font-semibold text-base mb-1">Recommendations temporarily unavailable</h2>
         <p className="text-sm text-muted-foreground max-w-xs">
-          We couldn&apos;t generate this week&apos;s actions — we&apos;ll retry automatically on the next scan. Your previous recommendations are still saved.
+          We couldn&apos;t generate this week&apos;s actions — we&apos;ll retry automatically on the
+          next scan. Your previous recommendations are still saved.
         </p>
       </>
     ) : (
@@ -381,11 +524,13 @@ const ActionPlan = () => {
   // Load from DB on mount if store is empty (e.g. direct page navigation)
   useEffect(() => {
     if (priorityActions.length || !project?.id) return;
-    fetchPriorityActions(project.id).then((actions) => {
-      if (actions.length) setPriorityActions(actions);
-    }).catch((err) => {
-      console.error('[ActionPlan] Failed to fetch priority actions:', err);
-    });
+    fetchPriorityActions(project.id)
+      .then((actions) => {
+        if (actions.length) setPriorityActions(actions);
+      })
+      .catch((err) => {
+        console.error('[ActionPlan] Failed to fetch priority actions:', err);
+      });
   }, [project?.id, priorityActions.length, setPriorityActions]);
 
   const recommendations = useMemo(
@@ -406,7 +551,11 @@ const ActionPlan = () => {
   };
 
   const handleUndo = (id: string) => {
-    setStatuses((prev) => { const next = { ...prev }; delete next[id]; return next; });
+    setStatuses((prev) => {
+      const next = { ...prev };
+      delete next[id];
+      return next;
+    });
     if (!project?.id) return;
     updateActionStatus(id, project.id, 'active').then((updated) => {
       setPriorityActions(updated);
@@ -417,7 +566,12 @@ const ActionPlan = () => {
     // Optimistic update
     setStatuses((prev) => ({
       ...prev,
-      [id]: { done: false, verification: 'pending', dismissed: true, dismissedAt: new Date().toISOString() },
+      [id]: {
+        done: false,
+        verification: 'pending',
+        dismissed: true,
+        dismissedAt: new Date().toISOString(),
+      },
     }));
     if (!project?.id) return;
     updateActionStatus(id, project.id, 'snoozed').then((updated) => {
@@ -426,7 +580,11 @@ const ActionPlan = () => {
   };
 
   const handleRestore = (id: string) => {
-    setStatuses((prev) => { const next = { ...prev }; delete next[id]; return next; });
+    setStatuses((prev) => {
+      const next = { ...prev };
+      delete next[id];
+      return next;
+    });
     if (!project?.id) return;
     updateActionStatus(id, project.id, 'active').then((updated) => {
       setPriorityActions(updated);
@@ -463,10 +621,13 @@ const ActionPlan = () => {
           <div className="p-2.5 rounded-xl bg-primary/10">
             <Lightbulb className="w-5 h-5 text-primary" />
           </div>
-          <h1 className="font-display text-2xl font-bold">Here's what I'd focus on for {businessName}</h1>
+          <h1 className="font-display text-2xl font-bold">
+            Here's what I'd focus on for {businessName}
+          </h1>
         </div>
         <p className="text-muted-foreground text-sm ml-12">
-          Based on your latest crawl, Google data, and competitor analysis — tick things off as you go and I'll confirm they've landed on the next scan.
+          Based on your latest crawl, Google data, and competitor analysis — tick things off as you
+          go and I'll confirm they've landed on the next scan.
         </p>
       </motion.div>
 
@@ -474,12 +635,20 @@ const ActionPlan = () => {
         <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="mb-6">
           <div className="flex items-start gap-3 p-4 rounded-lg bg-amber-50 border border-amber-200 text-sm text-amber-800">
             <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
-            <p>We couldn&apos;t refresh your recommendations on the last scan — showing your most recent actions below. We&apos;ll retry on the next scan.</p>
+            <p>
+              We couldn&apos;t refresh your recommendations on the last scan — showing your most
+              recent actions below. We&apos;ll retry on the next scan.
+            </p>
           </div>
         </motion.div>
       )}
 
-      <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }} className="mb-8">
+      <motion.div
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.05 }}
+        className="mb-8"
+      >
         <Card className="neu">
           <CardContent className="p-5">
             <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
@@ -489,7 +658,10 @@ const ActionPlan = () => {
                   {active.length} to look at · {completed.length} sorted · {verifiedCount} confirmed
                 </p>
               </div>
-              <Badge variant="outline" className="text-[11px] gap-1 bg-accent/10 text-accent-foreground border-accent/30">
+              <Badge
+                variant="outline"
+                className="text-[11px] gap-1 bg-accent/10 text-accent-foreground border-accent/30"
+              >
                 <Clock className="w-3 h-3" /> Re-checked each scan
               </Badge>
             </div>
@@ -500,7 +672,9 @@ const ActionPlan = () => {
                 return (
                   <div key={p} className="flex items-center gap-2 text-sm">
                     <config.icon className={`w-4 h-4 ${config.color}`} />
-                    <span className="text-muted-foreground">{count} {config.label}</span>
+                    <span className="text-muted-foreground">
+                      {count} {config.label}
+                    </span>
                   </div>
                 );
               })}
@@ -543,7 +717,9 @@ const ActionPlan = () => {
           <div>
             <div className="flex items-center gap-2 mb-4">
               <CheckCircle2 className="w-5 h-5 text-primary" />
-              <h2 className="font-display text-lg font-semibold">Nice work — you've sorted these</h2>
+              <h2 className="font-display text-lg font-semibold">
+                Nice work — you've sorted these
+              </h2>
               <span className="text-xs text-muted-foreground ml-1">
                 — {verifiedCount} confirmed · {completed.length - verifiedCount} pending next scan
               </span>

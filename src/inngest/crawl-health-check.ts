@@ -35,14 +35,25 @@ export const crawlHealthCheckFunction = inngest.createFunction(
         .is('crawl_job_id', null);
 
       const allStale = [
-        ...(staleJobs ?? []).map((j) => ({ id: j.business_id, crawl_job_id: j.id as string | undefined })),
-        ...(orphaned ?? []).filter((b) => !staleBusinessIds.has(b.id)).map((b) => ({ id: b.id, crawl_job_id: undefined })),
+        ...(staleJobs ?? []).map((j) => ({
+          id: j.business_id,
+          crawl_job_id: j.id as string | undefined,
+        })),
+        ...(orphaned ?? [])
+          .filter((b) => !staleBusinessIds.has(b.id))
+          .map((b) => ({ id: b.id, crawl_job_id: undefined })),
       ];
       if (!allStale.length) return 0;
 
       for (const biz of allStale) {
         await markCrawlFailed(biz.id, biz.crawl_job_id ?? undefined);
-        logCrawlStep(biz.id, biz.crawl_job_id ?? null, 'health-check', 'warning', 'Recovered stale crawl (stuck in running)');
+        logCrawlStep(
+          biz.id,
+          biz.crawl_job_id ?? null,
+          'health-check',
+          'warning',
+          'Recovered stale crawl (stuck in running)',
+        );
       }
 
       console.log(`[crawl-health-check] Recovered ${allStale.length} stale crawls`);
@@ -56,14 +67,30 @@ export const crawlHealthCheckFunction = inngest.createFunction(
       const { count: totalCount } = await supabaseAdmin
         .from('crawl_logs')
         .select('id', { count: 'exact', head: true })
-        .in('step', ['start-crawl', 'persist-signals', 'enrich-google', 'enrich-serp', 'enrich-pagespeed', 'check-ai-visibility', 'calculate-scores'])
+        .in('step', [
+          'start-crawl',
+          'persist-signals',
+          'enrich-google',
+          'enrich-serp',
+          'enrich-pagespeed',
+          'check-ai-visibility',
+          'calculate-scores',
+        ])
         .gte('created_at', since);
 
       const { count: successCount } = await supabaseAdmin
         .from('crawl_logs')
         .select('id', { count: 'exact', head: true })
         .eq('status', 'success')
-        .in('step', ['start-crawl', 'persist-signals', 'enrich-google', 'enrich-serp', 'enrich-pagespeed', 'check-ai-visibility', 'calculate-scores'])
+        .in('step', [
+          'start-crawl',
+          'persist-signals',
+          'enrich-google',
+          'enrich-serp',
+          'enrich-pagespeed',
+          'check-ai-visibility',
+          'calculate-scores',
+        ])
         .gte('created_at', since);
 
       const { count: failedCount } = await supabaseAdmin
@@ -137,5 +164,5 @@ export const crawlHealthCheckFunction = inngest.createFunction(
       staleRecovered,
       overdueRequeued,
     };
-  }
+  },
 );

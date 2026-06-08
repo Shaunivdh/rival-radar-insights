@@ -54,7 +54,11 @@ const StatusBadge = ({ status }: { status: string }) => (
 
 const getDomain = (url: string) => {
   const normalized = /^https?:\/\//i.test(url.trim()) ? url.trim() : `https://${url.trim()}`;
-  try { return new URL(normalized).hostname; } catch { return url.trim(); }
+  try {
+    return new URL(normalized).hostname;
+  } catch {
+    return url.trim();
+  }
 };
 
 const BusinessSetupPage = () => {
@@ -72,7 +76,9 @@ const BusinessSetupPage = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [projectId, setProjectId] = useState<string | null>(null);
-  const [bizStatuses, setBizStatuses] = useState<Array<{ id: string; name: string; crawl_status: string }>>([]);
+  const [bizStatuses, setBizStatuses] = useState<
+    Array<{ id: string; name: string; crawl_status: string }>
+  >([]);
   const [savedProjectRef, setSavedProjectRef] = useState<Project | null>(null);
 
   useEffect(() => {
@@ -93,12 +99,13 @@ const BusinessSetupPage = () => {
         const data = await res.json();
         setBizStatuses(data.businesses ?? []);
         const allDone = (data.businesses ?? []).every(
-          (b: { crawl_status: string }) => b.crawl_status === 'complete' || b.crawl_status === 'failed'
+          (b: { crawl_status: string }) =>
+            b.crawl_status === 'complete' || b.crawl_status === 'failed',
         );
         if (allDone) {
           clearInterval(interval);
           const anyFailed = (data.businesses ?? []).some(
-            (b: { crawl_status: string }) => b.crawl_status === 'failed'
+            (b: { crawl_status: string }) => b.crawl_status === 'failed',
           );
           if (anyFailed) {
             setError('Some scans failed. You can retry from the dashboard.');
@@ -114,16 +121,16 @@ const BusinessSetupPage = () => {
     return () => clearInterval(interval);
   }, [step, projectId, router, savedProjectRef, setProject]);
 
-  if (!authReady) return (
-    <div className="flex min-h-screen items-center justify-center">
-      <div className="w-6 h-6 rounded-full border-2 border-primary border-t-transparent animate-spin" />
-    </div>
-  );
+  if (!authReady)
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <div className="w-6 h-6 rounded-full border-2 border-primary border-t-transparent animate-spin" />
+      </div>
+    );
 
   if (!user || project) return null;
 
-  const updateOwn = (field: 'name' | 'url', val: string) =>
-    setOwn((b) => ({ ...b, [field]: val }));
+  const updateOwn = (field: 'name' | 'url', val: string) => setOwn((b) => ({ ...b, [field]: val }));
 
   const updateCompetitor = (i: number, field: 'name' | 'url', val: string) => {
     const c = [...competitors];
@@ -135,8 +142,7 @@ const BusinessSetupPage = () => {
     if (competitors.length < 5) setCompetitors([...competitors, emptyBusiness()]);
   };
 
-  const removeCompetitor = (i: number) =>
-    setCompetitors(competitors.filter((_, idx) => idx !== i));
+  const removeCompetitor = (i: number) => setCompetitors(competitors.filter((_, idx) => idx !== i));
 
   const handleFinish = async () => {
     setLoading(true);
@@ -199,7 +205,9 @@ const BusinessSetupPage = () => {
           <div className="card-surface space-y-4">
             <h2 className="text-sm font-semibold text-foreground">Your Business</h2>
             <div>
-              <label className="text-xs font-medium text-muted-foreground mb-1 block">Business Name</label>
+              <label className="text-xs font-medium text-muted-foreground mb-1 block">
+                Business Name
+              </label>
               <input
                 value={own.name}
                 onChange={(e) => updateOwn('name', e.target.value)}
@@ -208,7 +216,9 @@ const BusinessSetupPage = () => {
               />
             </div>
             <div>
-              <label className="text-xs font-medium text-muted-foreground mb-1 block">Website URL</label>
+              <label className="text-xs font-medium text-muted-foreground mb-1 block">
+                Website URL
+              </label>
               <input
                 value={own.url}
                 onChange={(e) => updateOwn('url', e.target.value)}
@@ -217,20 +227,28 @@ const BusinessSetupPage = () => {
               />
             </div>
             <div>
-              <label className="text-xs font-medium text-muted-foreground mb-1 block">Primary Service</label>
+              <label className="text-xs font-medium text-muted-foreground mb-1 block">
+                Primary Service
+              </label>
               <select
                 value={primaryService}
                 onChange={(e) => setPrimaryService(e.target.value as ServiceCategory)}
                 className="w-full px-3 py-2 text-sm bg-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/30 text-foreground"
               >
-                <option value="" disabled>Select your industry…</option>
+                <option value="" disabled>
+                  Select your industry…
+                </option>
                 {SERVICE_CATEGORY_OPTIONS.map((opt) => (
-                  <option key={opt.value} value={opt.value}>{opt.label}</option>
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </option>
                 ))}
               </select>
             </div>
             <div>
-              <label className="text-xs font-medium text-muted-foreground mb-1 block">Location</label>
+              <label className="text-xs font-medium text-muted-foreground mb-1 block">
+                Location
+              </label>
               <input
                 value={location}
                 onChange={(e) => setLocation(e.target.value)}
@@ -239,10 +257,15 @@ const BusinessSetupPage = () => {
               />
             </div>
             <div>
-              <label className="text-xs font-medium text-muted-foreground mb-1 block">Postcode</label>
+              <label className="text-xs font-medium text-muted-foreground mb-1 block">
+                Postcode
+              </label>
               <input
                 value={postcode}
-                onChange={(e) => { setPostcode(e.target.value); setPostcodeError(''); }}
+                onChange={(e) => {
+                  setPostcode(e.target.value);
+                  setPostcodeError('');
+                }}
                 className={`w-full px-3 py-2 text-sm bg-background border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/30 ${postcodeError ? 'border-destructive' : 'border-border'}`}
                 placeholder="e.g. M1 1AA"
               />
@@ -284,14 +307,20 @@ const BusinessSetupPage = () => {
                   placeholder="https://competitor.co.uk"
                 />
                 {competitors.length > 1 && (
-                  <button onClick={() => removeCompetitor(i)} className="text-muted-foreground hover:text-destructive">
+                  <button
+                    onClick={() => removeCompetitor(i)}
+                    className="text-muted-foreground hover:text-destructive"
+                  >
                     <Trash2 className="w-4 h-4" />
                   </button>
                 )}
               </div>
             ))}
             {competitors.length < 5 && (
-              <button onClick={addCompetitor} className="text-sm text-primary font-medium flex items-center gap-1 hover:opacity-80">
+              <button
+                onClick={addCompetitor}
+                className="text-sm text-primary font-medium flex items-center gap-1 hover:opacity-80"
+              >
                 <Plus className="w-4 h-4" /> Add competitor
               </button>
             )}
@@ -315,7 +344,9 @@ const BusinessSetupPage = () => {
         {step === 2 && (
           <div className="card-surface space-y-4">
             <h2 className="text-sm font-semibold text-foreground">Scanning your businesses…</h2>
-            <p className="text-xs text-muted-foreground">This may take a minute. You'll be redirected when complete.</p>
+            <p className="text-xs text-muted-foreground">
+              This may take a minute. You'll be redirected when complete.
+            </p>
             <div className="space-y-2">
               {bizStatuses.map((b) => (
                 <div key={b.id} className="flex items-center justify-between py-1.5">

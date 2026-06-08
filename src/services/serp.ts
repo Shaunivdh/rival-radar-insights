@@ -17,20 +17,24 @@ interface SerpApiResponse {
 
 // Normalize a URL/domain to bare hostname for comparison
 const normalizeDomain = (s: string) =>
-  s.replace(/^https?:\/\//, '').replace(/^www\./, '').split('/')[0].toLowerCase();
+  s
+    .replace(/^https?:\/\//, '')
+    .replace(/^www\./, '')
+    .split('/')[0]
+    .toLowerCase();
 
 // Check if name words match: first significant word must appear in title,
 // OR majority of words match (handles "Vets" vs "Veterinary" divergence)
 function nameMatches(title: string, normalizedName: string): boolean {
   const titleLower = title.toLowerCase();
-  const nameWords = normalizedName.split(/\s+/).filter(w => w.length > 2);
+  const nameWords = normalizedName.split(/\s+/).filter((w) => w.length > 2);
   if (nameWords.length === 0) return false;
   // First word (most distinctive) must always match
   if (!titleLower.includes(nameWords[0])) return false;
   // If only one significant word, that's enough
   if (nameWords.length === 1) return true;
   // Otherwise, require first word + at least one other word to match
-  const remainingMatches = nameWords.slice(1).filter(w => titleLower.includes(w)).length;
+  const remainingMatches = nameWords.slice(1).filter((w) => titleLower.includes(w)).length;
   return remainingMatches >= 1 || nameWords.length <= 2;
 }
 
@@ -40,7 +44,7 @@ export async function getRankingData(
   location: string,
   apiKey: string,
   domain: string,
-  ll?: { lat: number; lng: number }
+  ll?: { lat: number; lng: number },
 ): Promise<SerpData> {
   const base = 'https://serpapi.com/search.json';
   const common = `&engine=google_maps&api_key=${apiKey}&gl=gb&hl=en`;
@@ -49,14 +53,12 @@ export async function getRankingData(
 
   let localJson: SerpApiResponse;
   try {
-    const localRes = await fetch(
-      `${base}?q=${encodeURIComponent(searchTerm)}${common}${llParam}`
-    );
+    const localRes = await fetch(`${base}?q=${encodeURIComponent(searchTerm)}${common}${llParam}`);
     if (!localRes.ok) {
       console.error('[serp] HTTP error:', localRes.status, localRes.statusText);
       return emptyResult(searchTerm);
     }
-    localJson = await localRes.json() as SerpApiResponse;
+    localJson = (await localRes.json()) as SerpApiResponse;
   } catch (err) {
     console.error('[serp] fetch failed:', err);
     return emptyResult(searchTerm);
@@ -84,10 +86,13 @@ export async function getRankingData(
   const getLocalWebsite = (r: SerpApiLocalResult) => r.website ?? r.links?.website;
 
   // Check top 20 so positions >10 are still recorded
-  const top20 = localResults.filter(r => r.position <= 20);
-  console.log('[serp] top20 results:', top20.map(r => ({ pos: r.position, title: r.title, site: r.website ?? r.links?.website })));
+  const top20 = localResults.filter((r) => r.position <= 20);
+  console.log(
+    '[serp] top20 results:',
+    top20.map((r) => ({ pos: r.position, title: r.title, site: r.website ?? r.links?.website })),
+  );
 
-  const localMatch = top20.find(r => {
+  const localMatch = top20.find((r) => {
     const site = getLocalWebsite(r);
     if (normalizedDomain && site && normalizeDomain(site).includes(normalizedDomain)) return true;
     // Name fallback: first significant word must match + at least one other (or single/two-word names)
@@ -116,7 +121,6 @@ export async function getRankingData(
     searchTerm,
   };
 }
-
 
 function emptyResult(searchTerm: string): SerpData {
   return {

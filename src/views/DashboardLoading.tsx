@@ -14,7 +14,7 @@ const steps = [
   {
     icon: Users,
     title: 'Mapping local competitors',
-    detail: 'Identifying who\'s ranking near you and gathering their public data.',
+    detail: "Identifying who's ranking near you and gathering their public data.",
   },
   {
     icon: Star,
@@ -54,7 +54,9 @@ export default function DashboardLoading() {
               className="absolute inset-0 rounded-full bg-[#5B4EE8]/20"
             />
             <div className="relative w-full h-full rounded-full bg-white shadow-md flex items-center justify-center">
-              <span className="text-5xl" role="img" aria-label="owl">🦉</span>
+              <span className="text-5xl" role="img" aria-label="owl">
+                🦉
+              </span>
             </div>
           </div>
 
@@ -67,8 +69,9 @@ export default function DashboardLoading() {
             We're getting your info together
           </h1>
           <p className="text-foreground/70 max-w-xl mx-auto leading-relaxed">
-            Your first scan takes <span className="font-semibold text-foreground">10–15 minutes</span>.
-            We'll send you an email the moment your dashboard is ready — no need to wait around.
+            Your first scan takes{' '}
+            <span className="font-semibold text-foreground">10–15 minutes</span>. We'll send you an
+            email the moment your dashboard is ready — no need to wait around.
           </p>
 
           <div className="flex flex-wrap items-center justify-center gap-3 mt-6">
@@ -118,7 +121,9 @@ export default function DashboardLoading() {
               </div>
               <div className="min-w-0 flex-1">
                 <p className="font-semibold text-sm text-foreground">{step.title}</p>
-                <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">{step.detail}</p>
+                <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">
+                  {step.detail}
+                </p>
               </div>
               <div className="shrink-0">
                 <motion.div

@@ -13,6 +13,7 @@ const compat = new FlatCompat({ baseDirectory: __dirname });
 export default tseslint.config(
   { ignores: ["dist", ".next"] },
   ...compat.extends("next/core-web-vitals"),
+  ...tseslint.configs.recommended,
   {
     files: ["**/*.{ts,tsx}"],
     languageOptions: {

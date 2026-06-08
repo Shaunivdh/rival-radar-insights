@@ -9,13 +9,20 @@ export async function GET(request: NextRequest) {
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       cookies: {
-        getAll() { return cookieStore.getAll(); },
-        setAll(c) { c.forEach(({ name, value, options }) => cookieStore.set(name, value, options)); },
+        getAll() {
+          return cookieStore.getAll();
+        },
+        setAll(c) {
+          c.forEach(({ name, value, options }) => cookieStore.set(name, value, options));
+        },
       },
-    }
+    },
   );
 
-  const { data: { user }, error: authError } = await supabase.auth.getUser();
+  const {
+    data: { user },
+    error: authError,
+  } = await supabase.auth.getUser();
   if (!user) {
     console.warn('[gbp-auth] GET no session - redirecting to /');
     if (authError) console.error('[gbp-auth] getUser error:', authError.message);
@@ -36,9 +43,7 @@ export async function GET(request: NextRequest) {
     state,
   });
 
-  const response = NextResponse.redirect(
-    `https://accounts.google.com/o/oauth2/v2/auth?${params}`
-  );
+  const response = NextResponse.redirect(`https://accounts.google.com/o/oauth2/v2/auth?${params}`);
   // Store state + userId so callback can verify + know which user to update
   response.cookies.set('gbp_oauth_state', `${state}:${user.id}`, {
     httpOnly: true,

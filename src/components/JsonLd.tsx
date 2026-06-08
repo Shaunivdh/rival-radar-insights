@@ -16,9 +16,5 @@ export function JsonLd() {
     },
   };
 
-  return (
-    <script type="application/ld+json">
-      {JSON.stringify(schema)}
-    </script>
-  );
+  return <script type="application/ld+json">{JSON.stringify(schema)}</script>;
 }

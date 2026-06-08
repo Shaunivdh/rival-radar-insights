@@ -85,7 +85,6 @@ export interface EngagementSignals {
   hasPhoneNumberProminent: boolean;
 }
 
-
 export interface GoogleData {
   googleRating: number;
   reviewCount: number;
@@ -121,12 +120,12 @@ export interface AIHealthScore {
   overallScore: number;
   weeklyDelta: number | null; // +/- vs 7 days ago
 
-  reputationScore: number;        // weighted rating × reviews × recency
-  localVisibilityScore: number;   // local pack position (0–100)
-  websiteHealthScore: number;     // crawl-derived: speed, CTA, contact, errors
-  gbpCompletenessScore: number;   // Google Business Profile completeness
-  aiPresenceScore: number;             // multi-prompt AI mention check (0–100)
-  reviewVelocityScore: number;         // Google: new reviews in last 30d
+  reputationScore: number; // weighted rating × reviews × recency
+  localVisibilityScore: number; // local pack position (0–100)
+  websiteHealthScore: number; // crawl-derived: speed, CTA, contact, errors
+  gbpCompletenessScore: number; // Google Business Profile completeness
+  aiPresenceScore: number; // multi-prompt AI mention check (0–100)
+  reviewVelocityScore: number; // Google: new reviews in last 30d
 
   summary?: string;
   generatedAt: string;
@@ -151,11 +150,11 @@ export interface PriorityAction {
   status: 'active' | 'snoozed' | 'completed' | 'queued';
   category: string;
   effort: 'low' | 'medium' | 'high';
-  action: string;           // conversational headline describing the gap
-  reason: string;           // ≤15-word summary (used in dashboard panel)
-  whyItMatters: string;     // 2–3 sentence paragraph with business impact
-  steps: string[];          // 3–5 specific action items
-  outcome: string;          // goal statement e.g. "Appear in AI recommendations"
+  action: string; // conversational headline describing the gap
+  reason: string; // ≤15-word summary (used in dashboard panel)
+  whyItMatters: string; // 2–3 sentence paragraph with business impact
+  steps: string[]; // 3–5 specific action items
+  outcome: string; // goal statement e.g. "Appear in AI recommendations"
   competitorReference: string | null;
   estimatedImpact: 'high' | 'medium' | 'low';
   timeframe: string;
@@ -191,7 +190,13 @@ export interface CrawlOptions {
 }
 
 export interface RawCrawlResult {
-  status: 'running' | 'completed' | 'errored' | 'cancelled_due_to_timeout' | 'cancelled_due_to_limits' | 'cancelled_by_user';
+  status:
+    | 'running'
+    | 'completed'
+    | 'errored'
+    | 'cancelled_due_to_timeout'
+    | 'cancelled_due_to_limits'
+    | 'cancelled_by_user';
   pages: Array<{
     url: string;
     json?: Record<string, unknown>;
@@ -216,10 +221,10 @@ export interface ChangeSummary {
 
 export interface PageSpeedMetrics {
   performanceScore: number; // 0-100
-  lcp: number | null;       // ms
-  cls: number | null;       // 0–1
-  inp: number | null;       // ms
-  fcp: number | null;       // ms
+  lcp: number | null; // ms
+  cls: number | null; // 0–1
+  inp: number | null; // ms
+  fcp: number | null; // ms
 }
 
 export interface PageSpeedData {
@@ -229,9 +234,9 @@ export interface PageSpeedData {
 }
 
 export interface ReviewSentiment {
-  positiveThemes: string[];   // top 3 things customers praise
-  negativeThemes: string[];   // top 3 complaints
-  summary: string;            // ≤15 words
+  positiveThemes: string[]; // top 3 things customers praise
+  negativeThemes: string[]; // top 3 complaints
+  summary: string; // ≤15 words
   generatedAt: string;
 }
 

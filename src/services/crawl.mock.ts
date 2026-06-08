@@ -18,7 +18,7 @@ const MOCK_PAGES: RawCrawlResult['pages'] = [
 export async function startCrawl(
   url: string,
   _options: CrawlOptions,
-  _credentials: { accountId: string; apiToken: string }
+  _credentials: { accountId: string; apiToken: string },
 ): Promise<string> {
   const jobId = `mock-job-${++jobCounter}-${Date.now()}`;
   console.log(`[mock crawl] startCrawl url=${url} → jobId=${jobId}`);
@@ -27,7 +27,7 @@ export async function startCrawl(
 
 export async function pollCrawlStatus(
   jobId: string,
-  _credentials: { accountId: string; apiToken: string }
+  _credentials: { accountId: string; apiToken: string },
 ): Promise<{ status: string }> {
   console.log(`[mock crawl] pollCrawlStatus jobId=${jobId} → completed`);
   return { status: 'completed' };
@@ -35,7 +35,7 @@ export async function pollCrawlStatus(
 
 export async function getCrawlResults(
   jobId: string,
-  _credentials: { accountId: string; apiToken: string }
+  _credentials: { accountId: string; apiToken: string },
 ): Promise<RawCrawlResult> {
   console.log(`[mock crawl] getCrawlResults jobId=${jobId}`);
   return { status: 'completed', pages: MOCK_PAGES };
@@ -44,7 +44,7 @@ export async function getCrawlResults(
 export async function startIncrementalCrawl(
   url: string,
   _modifiedSince: number,
-  credentials: { accountId: string; apiToken: string }
+  credentials: { accountId: string; apiToken: string },
 ): Promise<string> {
   return startCrawl(url, { maxPages: 10, render: false }, credentials);
 }

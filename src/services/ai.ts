@@ -1,6 +1,13 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { createHash } from 'crypto';
-import type { ExtractedSignals, PriorityAction, ChangeSummary, Business, ReviewSentiment, AIVisibility } from '@/types';
+import type {
+  ExtractedSignals,
+  PriorityAction,
+  ChangeSummary,
+  Business,
+  ReviewSentiment,
+  AIVisibility,
+} from '@/types';
 import { SERVICE_CATEGORIES, GENERIC_AI_QUERY_TEMPLATES } from '@/lib/serviceCategories';
 import type { ServiceCategory } from '@/lib/serviceCategories';
 import { withRetry } from '@/lib/aiRetry';
@@ -63,15 +70,18 @@ function getClient(): Anthropic {
  */
 export async function callLLMRaw(
   params: Anthropic.MessageCreateParamsNonStreaming,
-  retryOpts?: { backoffMs?: number; label?: string }
+  retryOpts?: { backoffMs?: number; label?: string },
 ): Promise<Anthropic.Message> {
-  return withRetry(
-    () => getClient().messages.create(params),
-    { label: retryOpts?.label ?? 'callLLMRaw', ...(retryOpts?.backoffMs ? { backoffMs: retryOpts.backoffMs } : {}) }
-  );
+  return withRetry(() => getClient().messages.create(params), {
+    label: retryOpts?.label ?? 'callLLMRaw',
+    ...(retryOpts?.backoffMs ? { backoffMs: retryOpts.backoffMs } : {}),
+  });
 }
 
-export async function extractPageSignals(html: string, prompt: string): Promise<Record<string, unknown>> {
+export async function extractPageSignals(
+  html: string,
+  prompt: string,
+): Promise<Record<string, unknown>> {
   if (SKIP_AI) return {};
   const t0 = Date.now();
   const stripped = html
@@ -80,29 +90,51 @@ export async function extractPageSignals(html: string, prompt: string): Promise<
     .replace(/<svg\b[^>]*>[\s\S]*?<\/svg>/gi, '')
     .slice(0, 24000);
   try {
-    const msg = await callLLMRaw({
-      model: AI_MODEL_FAST,
-      max_tokens: 1024,
-      messages: [{ role: 'user', content: `${prompt}\n\nHTML:\n${stripped}\n\nReturn JSON only, no markdown.` }],
-    }, { label: 'extractPageSignals' });
+    const msg = await callLLMRaw(
+      {
+        model: AI_MODEL_FAST,
+        max_tokens: 1024,
+        messages: [
+          {
+            role: 'user',
+            content: `${prompt}\n\nHTML:\n${stripped}\n\nReturn JSON only, no markdown.`,
+          },
+        ],
+      },
+      { label: 'extractPageSignals' },
+    );
     const text = (msg.content[0] as { type: string; text: string }).text.trim();
     const json = text.replace(/^```(?:json)?\n?/, '').replace(/\n?```$/, '');
     const result = JSON.parse(json) as Record<string, unknown>;
-    logAIEvent({ event: 'extract_signals', model: AI_MODEL_FAST, success: true, durationMs: Date.now() - t0 });
+    logAIEvent({
+      event: 'extract_signals',
+      model: AI_MODEL_FAST,
+      success: true,
+      durationMs: Date.now() - t0,
+    });
     return result;
   } catch (e) {
-    logAIEvent({ event: 'extract_signals', model: AI_MODEL_FAST, success: false, durationMs: Date.now() - t0, errorType: (e as Error).name });
+    logAIEvent({
+      event: 'extract_signals',
+      model: AI_MODEL_FAST,
+      success: false,
+      durationMs: Date.now() - t0,
+      errorType: (e as Error).name,
+    });
     console.warn('[extractPageSignals] failed:', e);
     return {};
   }
 }
 
 async function askClaude<T>(prompt: string, maxTokens = 512): Promise<T> {
-  const msg = await callLLMRaw({
-    model: AI_MODEL_FAST,
-    max_tokens: maxTokens,
-    messages: [{ role: 'user', content: prompt }],
-  }, { label: 'askClaude' });
+  const msg = await callLLMRaw(
+    {
+      model: AI_MODEL_FAST,
+      max_tokens: maxTokens,
+      messages: [{ role: 'user', content: prompt }],
+    },
+    { label: 'askClaude' },
+  );
   const text = (msg.content[0] as { type: string; text: string }).text.trim();
   const json = text.replace(/^```(?:json)?\n?/, '').replace(/\n?```$/, '');
   // Extract the outermost JSON array or object to strip trailing prose
@@ -111,7 +143,7 @@ async function askClaude<T>(prompt: string, maxTokens = 512): Promise<T> {
 }
 
 export async function generateReviewSentiment(
-  reviews: Array<{ rating: number; text: string }>
+  reviews: Array<{ rating: number; text: string }>,
 ): Promise<ReviewSentiment | null> {
   if (SKIP_AI) return null;
   if (!reviews.length) return null;
@@ -128,10 +160,21 @@ Rules: positiveThemes = top 3 praised topics (2-4 words each), negativeThemes = 
 Reviews:\n${texts}`;
   try {
     const result = await askClaude<Omit<ReviewSentiment, 'generatedAt'>>(prompt);
-    logAIEvent({ event: 'sentiment', model: AI_MODEL_FAST, success: true, durationMs: Date.now() - t0 });
+    logAIEvent({
+      event: 'sentiment',
+      model: AI_MODEL_FAST,
+      success: true,
+      durationMs: Date.now() - t0,
+    });
     return { ...result, generatedAt: new Date().toISOString() };
   } catch (e) {
-    logAIEvent({ event: 'sentiment', model: AI_MODEL_FAST, success: false, durationMs: Date.now() - t0, errorType: (e as Error).name });
+    logAIEvent({
+      event: 'sentiment',
+      model: AI_MODEL_FAST,
+      success: false,
+      durationMs: Date.now() - t0,
+      errorType: (e as Error).name,
+    });
     return null;
   }
 }
@@ -145,7 +188,11 @@ Reviews:\n${texts}`;
  * LLM call is skipped entirely. Otherwise the LLM is told which gaps are
  * already covered and asked to fill the remaining slots.
  */
-export async function generatePriorityActions(own: Business, competitors: Business[], serviceCategory?: ServiceCategory): Promise<PriorityAction[]> {
+export async function generatePriorityActions(
+  own: Business,
+  competitors: Business[],
+  serviceCategory?: ServiceCategory,
+): Promise<PriorityAction[]> {
   if (SKIP_AI) return [];
 
   // ── Tier-1 templates ────────────────────────────────────────────────
@@ -154,7 +201,15 @@ export async function generatePriorityActions(own: Business, competitors: Busine
 
   if (templatesUsed >= 5) {
     console.log('[priority] 5 templates fired, skipping LLM');
-    logAIEvent({ event: 'generation', model: AI_MODEL_FAST, success: true, durationMs: 0, serviceCategory, templatesUsed, templatesFired: firedIds });
+    logAIEvent({
+      event: 'generation',
+      model: AI_MODEL_FAST,
+      success: true,
+      durationMs: 0,
+      serviceCategory,
+      templatesUsed,
+      templatesFired: firedIds,
+    });
     return await validateActionsHybrid(templateActions.slice(0, 5), own, competitors);
   }
 
@@ -182,16 +237,17 @@ export async function generatePriorityActions(own: Business, competitors: Busine
           reviewVelocity: b.aiScore.reviewVelocityScore,
         }
       : null,
-    signals: (!isOwn && b.enrichmentErrors?.crawl) ? null : b.signals,
+    signals: !isOwn && b.enrichmentErrors?.crawl ? null : b.signals,
   });
 
   const ownCrawlIssue = own.enrichmentErrors?.crawl
-    ? '\nNote: There were issues crawling this business\'s website, so website-related data may be incomplete.'
+    ? "\nNote: There were issues crawling this business's website, so website-related data may be incomplete."
     : '';
 
-  const coveredNote = templatesUsed > 0
-    ? `\nThese priority slots are already covered by automatic checks: ${templateActions.map(a => `"${a.action}"`).join(', ')}. Fill the remaining ${remainingSlots} slots with different gaps.\n`
-    : '';
+  const coveredNote =
+    templatesUsed > 0
+      ? `\nThese priority slots are already covered by automatic checks: ${templateActions.map((a) => `"${a.action}"`).join(', ')}. Fill the remaining ${remainingSlots} slots with different gaps.\n`
+      : '';
 
   const prompt = `You are Scoutly, an ongoing local business monitor. Based on this week's data, surface the TOP ${remainingSlots} most important actions this business should take right now.
 ${industryFocus ? `\n${industryFocus}\n` : ''}${ownCrawlIssue}${coveredNote}
@@ -235,24 +291,49 @@ Schema (JSON array only, no markdown):
 [{"priority":1,"category":"string","effort":"low"|"medium"|"high","action":"string","reason":"string","whyItMatters":"string","steps":["string"],"outcome":"string","competitorReference":"string|null","estimatedImpact":"high"|"medium","timeframe":"string"}]
 
 Own business: ${JSON.stringify(summariseBiz(own, true))}
-Competitors: ${JSON.stringify(competitors.map(b => summariseBiz(b, false)))}`;
+Competitors: ${JSON.stringify(competitors.map((b) => summariseBiz(b, false)))}`;
 
   const tokensPerSlot = 833;
   const maxTokens = remainingSlots * tokensPerSlot;
 
   const t0 = Date.now();
   try {
-    const llmActions = await generateWithDistributionCheck(prompt, own.aiScore, 'generatePriorityActions', maxTokens);
+    const llmActions = await generateWithDistributionCheck(
+      prompt,
+      own.aiScore,
+      'generatePriorityActions',
+      maxTokens,
+    );
 
     // Combine: templates first, then LLM actions, renumber 1–5
-    const combined = [...templateActions, ...llmActions.slice(0, remainingSlots).map(a => ({ ...a, _source: 'llm' as const }))]
+    const combined = [
+      ...templateActions,
+      ...llmActions.slice(0, remainingSlots).map((a) => ({ ...a, _source: 'llm' as const })),
+    ]
       .slice(0, 5)
       .map((a, i) => ({ ...a, priority: (i + 1) as PriorityAction['priority'] }));
 
-    logAIEvent({ event: 'generation', model: AI_MODEL_FAST, success: true, durationMs: Date.now() - t0, serviceCategory, templatesUsed, templatesFired: firedIds });
+    logAIEvent({
+      event: 'generation',
+      model: AI_MODEL_FAST,
+      success: true,
+      durationMs: Date.now() - t0,
+      serviceCategory,
+      templatesUsed,
+      templatesFired: firedIds,
+    });
     return await validateActionsHybrid(combined, own, competitors);
   } catch (e) {
-    logAIEvent({ event: 'generation', model: AI_MODEL_FAST, success: false, durationMs: Date.now() - t0, serviceCategory, templatesUsed, templatesFired: firedIds, errorType: (e as Error).name });
+    logAIEvent({
+      event: 'generation',
+      model: AI_MODEL_FAST,
+      success: false,
+      durationMs: Date.now() - t0,
+      serviceCategory,
+      templatesUsed,
+      templatesFired: firedIds,
+      errorType: (e as Error).name,
+    });
     console.warn('[generatePriorityActions] failed:', e);
     throw new AIUnavailableError(e);
   }
@@ -260,12 +341,12 @@ Competitors: ${JSON.stringify(competitors.map(b => summariseBiz(b, false)))}`;
 
 /** Map action categories to their corresponding score field on AIHealthScore. */
 const CATEGORY_SCORE_MAP_FULL: Record<string, keyof NonNullable<Business['aiScore']>> = {
-  'Reviews': 'reputationScore',
+  Reviews: 'reputationScore',
   'Local SEO': 'localVisibilityScore',
-  'Website': 'websiteHealthScore',
-  'Trust': 'gbpCompletenessScore',
+  Website: 'websiteHealthScore',
+  Trust: 'gbpCompletenessScore',
   'AI Visibility': 'aiPresenceScore',
-  'Conversion': 'websiteHealthScore',
+  Conversion: 'websiteHealthScore',
 };
 
 /**
@@ -277,7 +358,7 @@ const CATEGORY_SCORE_MAP_FULL: Record<string, keyof NonNullable<Business['aiScor
  */
 export function checkCategoryDistribution(
   actions: PriorityAction[],
-  ownScores: NonNullable<Business['aiScore']> | null
+  ownScores: NonNullable<Business['aiScore']> | null,
 ): { overrepresented: string[]; shouldRegenerate: boolean } {
   const counts: Record<string, number> = {};
   for (const a of actions) {
@@ -316,28 +397,34 @@ async function generateWithDistributionCheck(
   prompt: string,
   ownScores: NonNullable<Business['aiScore']> | null,
   label: string,
-  maxTokens = 2500
+  maxTokens = 2500,
 ): Promise<PriorityAction[]> {
   let sorted = sortTop5(await askClaude<PriorityAction[]>(prompt, maxTokens));
 
   const dist = checkCategoryDistribution(sorted, ownScores);
   if (dist.shouldRegenerate) {
     const dupeNote = dist.overrepresented
-      .map(cat => {
+      .map((cat) => {
         const field = CATEGORY_SCORE_MAP_FULL[cat];
         const score = field && ownScores ? ownScores[field] : '?';
-        const count = sorted.filter(a => a.category === cat).length;
+        const count = sorted.filter((a) => a.category === cat).length;
         return `${count} actions in the "${cat}" category, but this business already scores ${score} there`;
       })
       .join('; ');
-    console.log(`[${label}] over-represented categories detected (${dist.overrepresented.join(', ')}), regenerating once`);
+    console.log(
+      `[${label}] over-represented categories detected (${dist.overrepresented.join(', ')}), regenerating once`,
+    );
 
-    const retryPrompt = prompt + `\n\nPREVIOUS ATTEMPT DUPLICATE: Your last attempt returned ${dupeNote}. Pick at least 2 different categories for the 3 actions.`;
+    const retryPrompt =
+      prompt +
+      `\n\nPREVIOUS ATTEMPT DUPLICATE: Your last attempt returned ${dupeNote}. Pick at least 2 different categories for the 3 actions.`;
     sorted = sortTop5(await askClaude<PriorityAction[]>(retryPrompt, maxTokens));
 
     const retryDist = checkCategoryDistribution(sorted, ownScores);
     if (retryDist.shouldRegenerate) {
-      console.warn(`[${label}] regeneration still has duplicate categories (${retryDist.overrepresented.join(', ')}), proceeding anyway`);
+      console.warn(
+        `[${label}] regeneration still has duplicate categories (${retryDist.overrepresented.join(', ')}), proceeding anyway`,
+      );
     }
   }
 
@@ -363,15 +450,20 @@ const COMPETITOR_WEAKNESS_RE = /\b(zero|lack|none)\b|\bno\s|\b0\s/;
 function matchesNearCompetitor(
   text: string,
   pattern: RegExp,
-  competitorNames: string[]
+  competitorNames: string[],
 ): RegExpMatchArray | null {
   const lower = text.toLowerCase();
-  const anchors = ['competitor', 'competitors', 'rival', 'rivals',
-    ...competitorNames.map(n => n.toLowerCase())];
+  const anchors = [
+    'competitor',
+    'competitors',
+    'rival',
+    'rivals',
+    ...competitorNames.map((n) => n.toLowerCase()),
+  ];
 
   for (const anchor of anchors) {
     let searchFrom = 0;
-    // eslint-disable-next-line no-constant-condition
+     
     while (true) {
       const pos = lower.indexOf(anchor, searchFrom);
       if (pos === -1) break;
@@ -387,10 +479,22 @@ function matchesNearCompetitor(
   return null;
 }
 
-const ALLOWED_PATCH_FIELDS = new Set(['action', 'reason', 'whyItMatters', 'competitorReference', 'timeframe', 'outcome']);
+const ALLOWED_PATCH_FIELDS = new Set([
+  'action',
+  'reason',
+  'whyItMatters',
+  'competitorReference',
+  'timeframe',
+  'outcome',
+]);
 
 type ExistenceCheck =
-  | { kind: 'list'; signalPath: (b: Business) => string[] | null | undefined; keywords: string[]; label: string }
+  | {
+      kind: 'list';
+      signalPath: (b: Business) => string[] | null | undefined;
+      keywords: string[];
+      label: string;
+    }
   | { kind: 'flag'; signalPath: (b: Business) => boolean; phrases: string[]; label: string };
 
 const EXISTENCE_CHECKS: ExistenceCheck[] = [
@@ -429,7 +533,7 @@ const EXISTENCE_CHECKS: ExistenceCheck[] = [
 function deterministicChecks(
   actions: PriorityAction[],
   own: Business,
-  competitors: Business[]
+  competitors: Business[],
 ): ValidationFlag[] {
   const flags: ValidationFlag[] = [];
 
@@ -442,7 +546,11 @@ function deterministicChecks(
 
     // (a) unverified_average — regex for average claims
     if (/competitors?\s+average|on average|industry average/.test(text)) {
-      flags.push({ actionIndex: i, type: 'unverified_average', detail: `Action "${a.action}" references an unverified average` });
+      flags.push({
+        actionIndex: i,
+        type: 'unverified_average',
+        detail: `Action "${a.action}" references an unverified average`,
+      });
     }
 
     // (b) recommends_existing — check signals the business already has
@@ -459,7 +567,11 @@ function deterministicChecks(
             const escaped = item.toLowerCase().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
             const pattern = new RegExp(`(${check.keywords.join('|')})\\s+.*?${escaped}`, 'i');
             if (pattern.test(text)) {
-              flags.push({ actionIndex: i, type: 'recommends_existing', detail: `Recommends adding "${item}" but business already has it (signal: ${check.label})` });
+              flags.push({
+                actionIndex: i,
+                type: 'recommends_existing',
+                detail: `Recommends adding "${item}" but business already has it (signal: ${check.label})`,
+              });
               existenceFlags++;
               break; // one flag per check — avoid duplicates from multi-item matches
             }
@@ -469,7 +581,11 @@ function deterministicChecks(
           if (!check.signalPath(own)) continue;
           for (const phrase of check.phrases) {
             if (text.includes(phrase.toLowerCase())) {
-              flags.push({ actionIndex: i, type: 'recommends_existing', detail: `Recommends adding "${phrase}" but business already has it (signal: ${check.label})` });
+              flags.push({
+                actionIndex: i,
+                type: 'recommends_existing',
+                detail: `Recommends adding "${phrase}" but business already has it (signal: ${check.label})`,
+              });
               existenceFlags++;
               break; // one flag per check — avoid duplicates from multi-phrase matches
             }
@@ -483,7 +599,7 @@ function deterministicChecks(
     if (scoreField && own.aiScore) {
       const score = own.aiScore[scoreField];
       if (typeof score === 'number' && score >= 85 && a.whyItMatters) {
-        const compNames = competitors.map(c => c.name);
+        const compNames = competitors.map((c) => c.name);
         const weakMatch = matchesNearCompetitor(a.whyItMatters, WEAKNESS_RE, compNames);
         if (weakMatch) {
           const wim = a.whyItMatters.toLowerCase();
@@ -491,7 +607,11 @@ function deterministicChecks(
           const ctxStart = Math.max(0, matchIdx - 20);
           const ctxEnd = Math.min(wim.length, matchIdx + weakMatch[0].trim().length + 20);
           const context = wim.slice(ctxStart, ctxEnd);
-          flags.push({ actionIndex: i, type: 'score_contradiction', detail: `${a.category} score is ${score} (≥85) but whyItMatters uses weakness language ("...${context}...")` });
+          flags.push({
+            actionIndex: i,
+            type: 'score_contradiction',
+            detail: `${a.category} score is ${score} (≥85) but whyItMatters uses weakness language ("...${context}...")`,
+          });
         }
       }
     }
@@ -501,7 +621,11 @@ function deterministicChecks(
       const cr = a.competitorReference.toLowerCase();
       const wim = a.whyItMatters.toLowerCase();
       if (COMPETITOR_WEAKNESS_RE.test(cr) && STRENGTH_RE.test(wim)) {
-        flags.push({ actionIndex: i, type: 'self_contradiction', detail: `competitorReference implies weakness but whyItMatters implies strength` });
+        flags.push({
+          actionIndex: i,
+          type: 'self_contradiction',
+          detail: `competitorReference implies weakness but whyItMatters implies strength`,
+        });
       }
     }
   }
@@ -523,7 +647,7 @@ function stripSource(actions: PriorityAction[]): PriorityAction[] {
 async function validateActionsHybrid(
   actions: PriorityAction[],
   own: Business,
-  competitors: Business[]
+  competitors: Business[],
 ): Promise<PriorityAction[]> {
   if (SKIP_AI || !actions.length) return stripSource(actions);
   const t0 = Date.now();
@@ -532,32 +656,40 @@ async function validateActionsHybrid(
 
   if (flags.length === 0) {
     console.log('[validator] no issues found, skipping LLM');
-    logAIEvent({ event: 'validation', model: AI_MODEL_FAST, success: true, durationMs: Date.now() - t0, flagsFound: 0 });
+    logAIEvent({
+      event: 'validation',
+      model: AI_MODEL_FAST,
+      success: true,
+      durationMs: Date.now() - t0,
+      flagsFound: 0,
+    });
     return stripSource(actions);
   }
 
   console.log(`[validator] ${flags.length} issue(s) found, requesting LLM patches`);
 
-  const flaggedIndices = Array.from(new Set(flags.map(f => f.actionIndex)));
-  const flaggedActions = flaggedIndices.map(i => ({ index: i, action: actions[i] }));
+  const flaggedIndices = Array.from(new Set(flags.map((f) => f.actionIndex)));
+  const flaggedActions = flaggedIndices.map((i) => ({ index: i, action: actions[i] }));
 
   const prompt = `You are a fact-checker for Scoutly reports. The following actions have been flagged by automated checks. Fix ONLY the flagged issues with minimal text changes.
 
 Flags:
-${flags.map(f => `- Action ${f.actionIndex} (${f.type}): ${f.detail}`).join('\n')}
+${flags.map((f) => `- Action ${f.actionIndex} (${f.type}): ${f.detail}`).join('\n')}
 
 Flagged actions:
 ${JSON.stringify(flaggedActions, null, 2)}
 
 Own business signals: ${JSON.stringify(own.signals)}
-Competitor signals: ${JSON.stringify(competitors.map(c => ({ name: c.name, signals: c.signals })))}
+Competitor signals: ${JSON.stringify(competitors.map((c) => ({ name: c.name, signals: c.signals })))}
 
 Return JSON only. Each patch fixes one field on one action. Allowed fields: action, reason, whyItMatters, competitorReference, timeframe, outcome.
 Schema: {"patches":[{"actionIndex":0,"field":"string","newValue":"string"}]}`;
 
   try {
-    const result = await askClaude<{ patches: Array<{ actionIndex: number; field: string; newValue: string }> }>(prompt, 1500);
-    const patched = actions.map(a => ({ ...a }));
+    const result = await askClaude<{
+      patches: Array<{ actionIndex: number; field: string; newValue: string }>;
+    }>(prompt, 1500);
+    const patched = actions.map((a) => ({ ...a }));
 
     for (const patch of result.patches) {
       if (patch.actionIndex < 0 || patch.actionIndex >= actions.length) {
@@ -569,17 +701,32 @@ Schema: {"patches":[{"actionIndex":0,"field":"string","newValue":"string"}]}`;
         continue;
       }
       if (typeof patch.newValue !== 'string' && patch.newValue !== null) {
-        console.warn(`[validator] skipping patch: invalid newValue type for field "${patch.field}"`);
+        console.warn(
+          `[validator] skipping patch: invalid newValue type for field "${patch.field}"`,
+        );
         continue;
       }
       console.log(`[validator] patching action ${patch.actionIndex}.${patch.field}`);
       (patched[patch.actionIndex] as Record<string, unknown>)[patch.field] = patch.newValue;
     }
 
-    logAIEvent({ event: 'validation', model: AI_MODEL_FAST, success: true, durationMs: Date.now() - t0, flagsFound: flags.length });
+    logAIEvent({
+      event: 'validation',
+      model: AI_MODEL_FAST,
+      success: true,
+      durationMs: Date.now() - t0,
+      flagsFound: flags.length,
+    });
     return stripSource(patched);
   } catch (e) {
-    logAIEvent({ event: 'validation', model: AI_MODEL_FAST, success: false, durationMs: Date.now() - t0, flagsFound: flags.length, errorType: (e as Error).name });
+    logAIEvent({
+      event: 'validation',
+      model: AI_MODEL_FAST,
+      success: false,
+      durationMs: Date.now() - t0,
+      flagsFound: flags.length,
+      errorType: (e as Error).name,
+    });
     console.warn('[validator] LLM patch call failed, returning original actions:', e);
     return stripSource(actions);
   }
@@ -591,12 +738,16 @@ export async function generatePriorityActionsWithHistory(
   previousActions: PriorityAction[],
   previousSignals: ExtractedSignals | null,
   currentSignals: ExtractedSignals,
-  serviceCategory?: ServiceCategory
+  serviceCategory?: ServiceCategory,
 ): Promise<PriorityAction[]> {
   if (SKIP_AI) return [];
 
   // ── Tier-1 templates (with continuity awareness) ─────────────────────
-  const { actions: templateActions, firedIds: firedIds2, closedFromLastWeek } = applyTemplatesWithHistory(own, previousActions);
+  const {
+    actions: templateActions,
+    firedIds: firedIds2,
+    closedFromLastWeek,
+  } = applyTemplatesWithHistory(own, previousActions);
   const templatesUsed = templateActions.length;
 
   if (templatesUsed >= 5) {
@@ -609,7 +760,15 @@ export async function generatePriorityActionsWithHistory(
         whyItMatters: `Last week you closed "${win}" — that gap is gone. ${templateActions[0].whyItMatters}`,
       };
     }
-    logAIEvent({ event: 'generation', model: AI_MODEL_FAST, success: true, durationMs: 0, serviceCategory, templatesUsed, templatesFired: firedIds2 });
+    logAIEvent({
+      event: 'generation',
+      model: AI_MODEL_FAST,
+      success: true,
+      durationMs: 0,
+      serviceCategory,
+      templatesUsed,
+      templatesFired: firedIds2,
+    });
     return await validateActionsHybrid(templateActions.slice(0, 5), own, competitors);
   }
 
@@ -622,15 +781,17 @@ export async function generatePriorityActionsWithHistory(
 
   const summariseBiz = (b: Business, isOwn = false) => ({
     name: b.name,
-    scores: b.aiScore ? {
-      overall: b.aiScore.overallScore,
-      reputation: b.aiScore.reputationScore,
-      localSEO: b.aiScore.localVisibilityScore,
-      websiteQuality: b.aiScore.websiteHealthScore,
-      gbpCompleteness: b.aiScore.gbpCompletenessScore,
-      reviewVelocity: b.aiScore.reviewVelocityScore,
-    } : null,
-    signals: (!isOwn && b.enrichmentErrors?.crawl) ? null : b.signals,
+    scores: b.aiScore
+      ? {
+          overall: b.aiScore.overallScore,
+          reputation: b.aiScore.reputationScore,
+          localSEO: b.aiScore.localVisibilityScore,
+          websiteQuality: b.aiScore.websiteHealthScore,
+          gbpCompleteness: b.aiScore.gbpCompletenessScore,
+          reviewVelocity: b.aiScore.reviewVelocityScore,
+        }
+      : null,
+    signals: !isOwn && b.enrichmentErrors?.crawl ? null : b.signals,
   });
 
   const changedSignals: Record<string, { before: unknown; after: unknown }> = {};
@@ -642,13 +803,15 @@ export async function generatePriorityActionsWithHistory(
     }
   }
 
-  const coveredNote = templatesUsed > 0
-    ? `\nThese priority slots are already covered by automatic checks: ${templateActions.map(a => `"${a.action}"`).join(', ')}. Fill the remaining ${remainingSlots} slots with different gaps.\n`
-    : '';
+  const coveredNote =
+    templatesUsed > 0
+      ? `\nThese priority slots are already covered by automatic checks: ${templateActions.map((a) => `"${a.action}"`).join(', ')}. Fill the remaining ${remainingSlots} slots with different gaps.\n`
+      : '';
 
-  const closedNote = closedFromLastWeek.length > 0
-    ? `\nClosed since last week: ${closedFromLastWeek.map(h => `"${h}"`).join(', ')}. The first action's continuityNote should briefly acknowledge one of these wins.\n`
-    : '';
+  const closedNote =
+    closedFromLastWeek.length > 0
+      ? `\nClosed since last week: ${closedFromLastWeek.map((h) => `"${h}"`).join(', ')}. The first action's continuityNote should briefly acknowledge one of these wins.\n`
+      : '';
 
   const prompt = `You are Scoutly, continuing an ongoing conversation with a local business owner. Last week you gave them 3 actions. This week, decide what to tell them next.
 
@@ -674,7 +837,7 @@ INTERNAL COHERENCE CHECK (do this before returning):
 
 Return exactly ${remainingSlots} action${remainingSlots > 1 ? 's' : ''}. Every action must have estimatedImpact "high" or "medium". Effort distribution across these ${remainingSlots} actions: 2 'low', 2 'medium', 1 'high' (adjust proportionally if fewer than 5 slots remain).${templatesUsed > 0 ? ` (${templatesUsed} slot${templatesUsed > 1 ? 's are' : ' is'} already filled by automatic checks.)` : ''}
 
-Previous week's actions: ${JSON.stringify(previousActions.map(a => ({ action: a.action, category: a.category, reason: a.reason })))}
+Previous week's actions: ${JSON.stringify(previousActions.map((a) => ({ action: a.action, category: a.category, reason: a.reason })))}
 
 What changed in this business's signals since last week: ${Object.keys(changedSignals).length ? JSON.stringify(changedSignals) : '(nothing changed)'}
 
@@ -684,35 +847,59 @@ Schema (JSON array only, no markdown):
 continuityNote: short optional sentence like "You completed last week's portfolio action" or "Still outstanding from last week" or null for genuinely new items.
 
 Own business: ${JSON.stringify(summariseBiz(own, true))}
-Competitors: ${JSON.stringify(competitors.map(b => summariseBiz(b, false)))}`;
+Competitors: ${JSON.stringify(competitors.map((b) => summariseBiz(b, false)))}`;
 
   const tokensPerSlot = 833;
   const maxTokens = remainingSlots * tokensPerSlot;
 
   const t0 = Date.now();
   try {
-    const sorted = await generateWithDistributionCheck(prompt, own.aiScore, 'generatePriorityActionsWithHistory', maxTokens);
+    const sorted = await generateWithDistributionCheck(
+      prompt,
+      own.aiScore,
+      'generatePriorityActionsWithHistory',
+      maxTokens,
+    );
 
     // Combine: templates first, then LLM actions, renumber 1–5
-    const combined = [...templateActions, ...sorted.slice(0, remainingSlots).map(a => ({ ...a, _source: 'llm' as const }))]
+    const combined = [
+      ...templateActions,
+      ...sorted.slice(0, remainingSlots).map((a) => ({ ...a, _source: 'llm' as const })),
+    ]
       .slice(0, 5)
       .map((a, i) => ({ ...a, priority: (i + 1) as PriorityAction['priority'] }));
 
-    logAIEvent({ event: 'generation', model: AI_MODEL_FAST, success: true, durationMs: Date.now() - t0, serviceCategory, templatesUsed, templatesFired: firedIds2 });
+    logAIEvent({
+      event: 'generation',
+      model: AI_MODEL_FAST,
+      success: true,
+      durationMs: Date.now() - t0,
+      serviceCategory,
+      templatesUsed,
+      templatesFired: firedIds2,
+    });
     return await validateActionsHybrid(combined, own, competitors);
   } catch (e) {
-    logAIEvent({ event: 'generation', model: AI_MODEL_FAST, success: false, durationMs: Date.now() - t0, serviceCategory, templatesUsed, templatesFired: firedIds2, errorType: (e as Error).name });
+    logAIEvent({
+      event: 'generation',
+      model: AI_MODEL_FAST,
+      success: false,
+      durationMs: Date.now() - t0,
+      serviceCategory,
+      templatesUsed,
+      templatesFired: firedIds2,
+      errorType: (e as Error).name,
+    });
     console.warn('[generatePriorityActionsWithHistory] failed:', e);
     throw new AIUnavailableError(e);
   }
 }
 
-
 export async function generateChangeSummary(
   name: string,
   before: ExtractedSignals,
   after: ExtractedSignals,
-  isCompetitor: boolean
+  isCompetitor: boolean,
 ): Promise<ChangeSummary> {
   if (SKIP_AI) return { hasSignificantChanges: false, severity: 'low', summary: '', changes: [] };
   // Only send the fields that actually changed to reduce tokens
@@ -729,7 +916,12 @@ export async function generateChangeSummary(
 
   if (Object.keys(changedBefore).length === 0) {
     logAIEvent({ event: 'change_summary_skipped', model: 'none', success: true, durationMs: 0 });
-    return { hasSignificantChanges: false, severity: 'low', summary: 'No changes detected this scan.', changes: [] };
+    return {
+      hasSignificantChanges: false,
+      severity: 'low',
+      summary: 'No changes detected this scan.',
+      changes: [],
+    };
   }
 
   const framing = isCompetitor
@@ -755,10 +947,21 @@ After: ${JSON.stringify(changedAfter)}`;
 
   try {
     const result = await askClaude<ChangeSummary>(prompt);
-    logAIEvent({ event: 'change_summary', model: AI_MODEL_FAST, success: true, durationMs: Date.now() - t0 });
+    logAIEvent({
+      event: 'change_summary',
+      model: AI_MODEL_FAST,
+      success: true,
+      durationMs: Date.now() - t0,
+    });
     return result;
   } catch (e) {
-    logAIEvent({ event: 'change_summary', model: AI_MODEL_FAST, success: false, durationMs: Date.now() - t0, errorType: (e as Error).name });
+    logAIEvent({
+      event: 'change_summary',
+      model: AI_MODEL_FAST,
+      success: false,
+      durationMs: Date.now() - t0,
+      errorType: (e as Error).name,
+    });
     console.warn('[generateChangeSummary] failed:', e);
     throw new AIUnavailableError(e);
   }
@@ -768,7 +971,13 @@ After: ${JSON.stringify(changedAfter)}`;
 
 type MatchConfidence = 'exact' | 'high' | 'medium' | 'low' | 'none';
 
-const CONFIDENCE_TIERS = ['none', 'low', 'medium', 'high', 'exact'] as const satisfies readonly MatchConfidence[];
+const CONFIDENCE_TIERS = [
+  'none',
+  'low',
+  'medium',
+  'high',
+  'exact',
+] as const satisfies readonly MatchConfidence[];
 
 // We require medium confidence (≥80% token overlap or substring match) to count
 // as a mention. Low confidence (50-80% token overlap) is too noisy for businesses
@@ -776,7 +985,9 @@ const CONFIDENCE_TIERS = ['none', 'low', 'medium', 'high', 'exact'] as const sat
 const MENTION_CONFIDENCE_THRESHOLD: MatchConfidence = 'medium';
 
 function meetsMentionThreshold(confidence: MatchConfidence): boolean {
-  return CONFIDENCE_TIERS.indexOf(confidence) >= CONFIDENCE_TIERS.indexOf(MENTION_CONFIDENCE_THRESHOLD);
+  return (
+    CONFIDENCE_TIERS.indexOf(confidence) >= CONFIDENCE_TIERS.indexOf(MENTION_CONFIDENCE_THRESHOLD)
+  );
 }
 
 function normalizeStr(str: string): string {
@@ -794,7 +1005,9 @@ function normalizeStr(str: string): string {
  * recommendation response. Returns [] on any failure so callers can fall back
  * gracefully.
  */
-async function extractMentionedBusinesses(aiText: string): Promise<{ businesses: MentionedBusiness[]; cacheHit: boolean }> {
+async function extractMentionedBusinesses(
+  aiText: string,
+): Promise<{ businesses: MentionedBusiness[]; cacheHit: boolean }> {
   const capped = aiText.slice(0, 6000);
   const hash = hashText(capped);
 
@@ -836,10 +1049,10 @@ Text:\n${capped}`;
  */
 function matchBusinessName(
   target: string,
-  mentioned: MentionedBusiness[]
+  mentioned: MentionedBusiness[],
 ): { confidence: MatchConfidence; match: MentionedBusiness | null } {
   const normTarget = normalizeStr(target);
-  const targetTokens = normTarget.split(' ').filter(t => t.length >= 2);
+  const targetTokens = normTarget.split(' ').filter((t) => t.length >= 2);
 
   let bestConfidence: MatchConfidence = 'none';
   let bestMatch: MentionedBusiness | null = null;
@@ -853,9 +1066,9 @@ function matchBusinessName(
     } else if (normName.includes(normTarget) || normTarget.includes(normName)) {
       confidence = 'high';
     } else {
-      const mentionTokens = normName.split(' ').filter(t => t.length >= 2);
+      const mentionTokens = normName.split(' ').filter((t) => t.length >= 2);
       if (targetTokens.length > 0 && mentionTokens.length > 0) {
-        const overlap = targetTokens.filter(t => mentionTokens.includes(t)).length;
+        const overlap = targetTokens.filter((t) => mentionTokens.includes(t)).length;
         const ratio = overlap / Math.max(targetTokens.length, mentionTokens.length);
         if (ratio >= 0.8) confidence = 'medium';
         else if (ratio >= 0.5) confidence = 'low';
@@ -882,12 +1095,14 @@ function matchWithLocation(
   target: string,
   targetLocation: string,
   mentioned: MentionedBusiness[],
-  fullText: string
+  fullText: string,
 ): { confidence: MatchConfidence; match: MentionedBusiness | null } {
   const result = matchBusinessName(target, mentioned);
   if (!result.match || result.confidence === 'none') return result;
 
-  const locationTokens = normalizeStr(targetLocation).split(' ').filter(t => t.length >= 2);
+  const locationTokens = normalizeStr(targetLocation)
+    .split(' ')
+    .filter((t) => t.length >= 2);
   const textLower = fullText.toLowerCase();
   const matchNameLower = result.match.name.toLowerCase();
   const namePos = textLower.indexOf(matchNameLower);
@@ -897,7 +1112,7 @@ function matchWithLocation(
     const start = Math.max(0, namePos - 200);
     const end = Math.min(textLower.length, namePos + matchNameLower.length + 200);
     const window = textLower.slice(start, end);
-    locationNearby = locationTokens.some(t => window.includes(t));
+    locationNearby = locationTokens.some((t) => window.includes(t));
   }
 
   let confidence: MatchConfidence = result.confidence;
@@ -935,9 +1150,13 @@ export async function checkAIVisibility(
 ): Promise<AIVisibility | null> {
   if (SKIP_AI) {
     return {
-      aiPresenceScore: 0, mentionCount: 0, totalPrompts: 0,
+      aiPresenceScore: 0,
+      mentionCount: 0,
+      totalPrompts: 0,
       tested_at: new Date().toISOString(),
-      averagePosition: null, recommendedCount: 0, competitorsAhead: [],
+      averagePosition: null,
+      recommendedCount: 0,
+      competitorsAhead: [],
     };
   }
 
@@ -955,7 +1174,7 @@ export async function checkAIVisibility(
   const templates = catConfig?.aiQueryTemplates ?? GENERIC_AI_QUERY_TEMPLATES;
   const countryModifier = catConfig?.countryModifier ?? 'UK';
 
-  const queries = templates.map(t => {
+  const queries = templates.map((t) => {
     let q = t.replace(/\{service\}/g, primaryService).replace(/\{location\}/g, location);
     if (countryModifier) q += ` ${countryModifier}`;
     return q;
@@ -972,30 +1191,42 @@ export async function checkAIVisibility(
 
   for (const query of queries) {
     try {
-      const result = await callLLMRaw({
+      const result = await callLLMRaw(
+        {
           model: AI_MODEL_SMART,
           max_tokens: 1000,
-          system: 'You are a helpful local business recommendation assistant. When asked about businesses in a specific area, provide specific real business names and brief descriptions. Always include specific names.',
-          tools: [{ type: 'web_search_20250305', name: 'web_search' }] as unknown as Anthropic.MessageCreateParamsNonStreaming['tools'],
+          system:
+            'You are a helpful local business recommendation assistant. When asked about businesses in a specific area, provide specific real business names and brief descriptions. Always include specific names.',
+          tools: [
+            { type: 'web_search_20250305', name: 'web_search' },
+          ] as unknown as Anthropic.MessageCreateParamsNonStreaming['tools'],
           messages: [{ role: 'user', content: query }],
-        }, { backoffMs: 10000, label: 'ai-presence' });
+        },
+        { backoffMs: 10000, label: 'ai-presence' },
+      );
 
       const aiText = result.content
         .filter((c) => c.type === 'text')
         .map((c) => (c as { type: 'text'; text: string }).text)
         .join('\n');
 
-      console.log(`[ai-presence] query="${query}" textLength=${aiText.length} snippet="${aiText.slice(0, 200)}"`);
+      console.log(
+        `[ai-presence] query="${query}" textLength=${aiText.length} snippet="${aiText.slice(0, 200)}"`,
+      );
 
       // Quick check: if no name tokens appear in the response, skip the
       // extractMentionedBusinesses AI call entirely. This is the common case
       // for businesses not mentioned and saves one Haiku call per query.
-      const nameTokens = normalizeStr(businessName).split(' ').filter(t => t.length >= 2);
+      const nameTokens = normalizeStr(businessName)
+        .split(' ')
+        .filter((t) => t.length >= 2);
       const textLower = aiText.toLowerCase();
-      const hasAnyNameToken = nameTokens.some(t => textLower.includes(t));
+      const hasAnyNameToken = nameTokens.some((t) => textLower.includes(t));
 
       if (!hasAnyNameToken) {
-        console.log(`[ai-presence] no name tokens in response, skipping extraction for query="${query}"`);
+        console.log(
+          `[ai-presence] no name tokens in response, skipping extraction for query="${query}"`,
+        );
         continue;
       }
 
@@ -1003,7 +1234,9 @@ export async function checkAIVisibility(
       if (cacheHit) cacheHits++;
       const { confidence, match } = matchWithLocation(businessName, location, businesses, aiText);
 
-      console.log(`[ai-presence] match confidence="${confidence}" name="${match?.name ?? 'none'}" position=${match?.position ?? '-'}`);
+      console.log(
+        `[ai-presence] match confidence="${confidence}" name="${match?.name ?? 'none'}" position=${match?.position ?? '-'}`,
+      );
 
       if (CONFIDENCE_TIERS.indexOf(confidence) > CONFIDENCE_TIERS.indexOf(bestConfidence)) {
         bestConfidence = confidence;
@@ -1030,11 +1263,19 @@ export async function checkAIVisibility(
   const total = queries.length;
   const allFailed = queryFailures === total;
   const aiPresenceScore = total > 0 ? Math.round((mentionCount / total) * 100) : 0;
-  const averagePosition = positions.length > 0
-    ? Math.round((positions.reduce((sum, p) => sum + p, 0) / positions.length) * 10) / 10
-    : null;
+  const averagePosition =
+    positions.length > 0
+      ? Math.round((positions.reduce((sum, p) => sum + p, 0) / positions.length) * 10) / 10
+      : null;
 
-  logAIEvent({ event: 'visibility', model: AI_MODEL_SMART, success: !allFailed, durationMs: Date.now() - t0, mentionConfidence: bestConfidence, cacheHits });
+  logAIEvent({
+    event: 'visibility',
+    model: AI_MODEL_SMART,
+    success: !allFailed,
+    durationMs: Date.now() - t0,
+    mentionConfidence: bestConfidence,
+    cacheHits,
+  });
 
   return {
     aiPresenceScore,

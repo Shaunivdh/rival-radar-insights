@@ -2,7 +2,17 @@
 
 import Link from 'next/link';
 import { useRouter, usePathname } from 'next/navigation';
-import { LayoutDashboard, Users, Settings, Zap, LogOut, Building2, Lightbulb, HelpCircle, Eye } from 'lucide-react';
+import {
+  LayoutDashboard,
+  Users,
+  Settings,
+  Zap,
+  LogOut,
+  Building2,
+  Lightbulb,
+  HelpCircle,
+  Eye,
+} from 'lucide-react';
 import { Logo } from '@/components/Logo';
 import { cn } from '@/lib/utils';
 import { useRivalRadarStore } from '@/store/rivalradar';
@@ -47,18 +57,20 @@ export const AppSidebar = () => {
                 'w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors',
                 active
                   ? 'bg-primary text-primary-foreground'
-                  : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+                  : 'text-muted-foreground hover:bg-muted hover:text-foreground',
               )}
             >
               <item.icon className="w-4.5 h-4.5" />
               {item.label}
               {item.badge && priorityActions.length > 0 && (
-                <span className={cn(
-                  'ml-auto text-xs font-semibold rounded-full px-2 py-0.5',
-                  active
-                    ? 'bg-primary-foreground/20 text-primary-foreground'
-                    : 'bg-primary/10 text-primary'
-                )}>
+                <span
+                  className={cn(
+                    'ml-auto text-xs font-semibold rounded-full px-2 py-0.5',
+                    active
+                      ? 'bg-primary-foreground/20 text-primary-foreground'
+                      : 'bg-primary/10 text-primary',
+                  )}
+                >
                   +{priorityActions.length}
                 </span>
               )}
@@ -83,7 +95,7 @@ export const AppSidebar = () => {
                 'w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors',
                 active
                   ? 'bg-primary text-primary-foreground'
-                  : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+                  : 'text-muted-foreground hover:bg-muted hover:text-foreground',
               )}
             >
               <item.icon className="w-4.5 h-4.5" />
@@ -111,7 +123,9 @@ export const AppSidebar = () => {
           <Zap className="w-4 h-4 text-primary mt-0.5 shrink-0" />
           <div>
             <p className="text-xs font-medium text-foreground">Pro Tip</p>
-            <p className="text-xs text-muted-foreground mt-0.5">Add API keys in Settings to enable live scanning.</p>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Add API keys in Settings to enable live scanning.
+            </p>
           </div>
         </div>
       </div>

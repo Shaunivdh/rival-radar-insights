@@ -8,7 +8,21 @@ import { DemoBanner } from '@/components/DemoBanner';
 import { CompetitorComparisonCard } from '@/components/CompetitorComparisonCard';
 import { PriorityActionsPanel } from '@/components/PriorityActionsPanel';
 import { BusinessScoreCard } from '@/components/BusinessScoreCard';
-import { TrendingUp, TrendingDown, Star, Bot, Bell, Loader2, CheckCircle2, XCircle, Clock, RefreshCw, Plus, X, AlertTriangle } from 'lucide-react';
+import {
+  TrendingUp,
+  TrendingDown,
+  Star,
+  Bot,
+  Bell,
+  Loader2,
+  CheckCircle2,
+  XCircle,
+  Clock,
+  RefreshCw,
+  Plus,
+  X,
+  AlertTriangle,
+} from 'lucide-react';
 import { triggerSingleScan, rescanAll, addCompetitor } from '@/actions/projects';
 import { useState } from 'react';
 import type { ChangeEvent as CE } from '@/types';
@@ -24,9 +38,9 @@ const STATUS_ICON: Record<string, React.ReactNode> = {
   failed: <XCircle className="w-3.5 h-3.5 text-destructive" />,
 };
 
-
 const Dashboard = () => {
-  const { project, isDemoMode, syncBusinesses, setPriorityActions, addCompetitorToStore } = useRivalRadarStore();
+  const { project, isDemoMode, syncBusinesses, setPriorityActions, addCompetitorToStore } =
+    useRivalRadarStore();
   const router = useRouter();
   const searchParams = useSearchParams();
   const isSetupFlow = searchParams.get('setup') === '1';
@@ -41,16 +55,26 @@ const Dashboard = () => {
   const trackedProjectIdRef = useRef<string | null>(null);
 
   const allBusinesses = project ? [project.ownBusiness, ...project.competitors] : [];
-  const isScanning = allBusinesses.some((b) => b.crawlStatus === 'pending' || b.crawlStatus === 'running');
+  const isScanning = allBusinesses.some(
+    (b) => b.crawlStatus === 'pending' || b.crawlStatus === 'running',
+  );
   const noneScanned = allBusinesses.every((b) => b.crawlStatus === 'idle');
-  const noneComplete = allBusinesses.length > 0 && allBusinesses.every((b) => b.crawlStatus !== 'complete');
+  const noneComplete =
+    allBusinesses.length > 0 && allBusinesses.every((b) => b.crawlStatus !== 'complete');
   const anyFailed = allBusinesses.some((b) => b.crawlStatus === 'failed');
 
   const handleRescan = async () => {
     if (!project) return;
     setRescanning(true);
     await rescanAll(project.id);
-    syncBusinesses(allBusinesses.map((b) => ({ id: b.id, crawlStatus: 'pending', signals: b.signals, aiScore: b.aiScore })));
+    syncBusinesses(
+      allBusinesses.map((b) => ({
+        id: b.id,
+        crawlStatus: 'pending',
+        signals: b.signals,
+        aiScore: b.aiScore,
+      })),
+    );
     setRescanning(false);
   };
 
@@ -108,7 +132,9 @@ const Dashboard = () => {
       wasScanningRef.current = true;
       poll();
       intervalRef.current = setInterval(poll, 5000);
-      return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
+      return () => {
+        if (intervalRef.current) clearInterval(intervalRef.current);
+      };
     }
 
     // Scanning just finished — one trailing poll to catch any in-flight state changes.
@@ -138,24 +164,43 @@ const Dashboard = () => {
   const own = project.ownBusiness;
   const allChanges: (CE & { competitorName: string })[] = [
     ...own.changeEvents.map((e) => ({ ...e, competitorName: own.name })),
-    ...project.competitors.flatMap((c) => c.changeEvents.map((e) => ({ ...e, competitorName: c.name }))),
+    ...project.competitors.flatMap((c) =>
+      c.changeEvents.map((e) => ({ ...e, competitorName: c.name })),
+    ),
   ].sort((a, b) => b.detectedAt - a.detectedAt);
 
   function alertIcon(summary: string) {
     const s = summary.toLowerCase();
-    if (s.includes('search') || s.includes('local') || s.includes('ranking') || s.includes('climbing')) return <TrendingUp className="w-4 h-4 text-orange-500" />;
-    if (s.includes('review') || s.includes('rating') || s.includes('star')) return <Star className="w-4 h-4 text-yellow-500" />;
-    if (s.includes('ai') || s.includes('gpt') || s.includes('mention') || s.includes('chatgpt')) return <Bot className="w-4 h-4 text-blue-500" />;
-    if (s.includes('down') || s.includes('error') || s.includes('outage') || s.includes('500')) return <TrendingDown className="w-4 h-4 text-green-600" />;
+    if (
+      s.includes('search') ||
+      s.includes('local') ||
+      s.includes('ranking') ||
+      s.includes('climbing')
+    )
+      return <TrendingUp className="w-4 h-4 text-orange-500" />;
+    if (s.includes('review') || s.includes('rating') || s.includes('star'))
+      return <Star className="w-4 h-4 text-yellow-500" />;
+    if (s.includes('ai') || s.includes('gpt') || s.includes('mention') || s.includes('chatgpt'))
+      return <Bot className="w-4 h-4 text-blue-500" />;
+    if (s.includes('down') || s.includes('error') || s.includes('outage') || s.includes('500'))
+      return <TrendingDown className="w-4 h-4 text-green-600" />;
     return <Bell className="w-4 h-4 text-muted-foreground" />;
   }
 
   function alertIconBg(summary: string) {
     const s = summary.toLowerCase();
-    if (s.includes('search') || s.includes('local') || s.includes('ranking') || s.includes('climbing')) return 'bg-orange-50';
+    if (
+      s.includes('search') ||
+      s.includes('local') ||
+      s.includes('ranking') ||
+      s.includes('climbing')
+    )
+      return 'bg-orange-50';
     if (s.includes('review') || s.includes('rating') || s.includes('star')) return 'bg-yellow-50';
-    if (s.includes('ai') || s.includes('gpt') || s.includes('mention') || s.includes('chatgpt')) return 'bg-blue-50';
-    if (s.includes('down') || s.includes('error') || s.includes('outage') || s.includes('500')) return 'bg-green-50';
+    if (s.includes('ai') || s.includes('gpt') || s.includes('mention') || s.includes('chatgpt'))
+      return 'bg-blue-50';
+    if (s.includes('down') || s.includes('error') || s.includes('outage') || s.includes('500'))
+      return 'bg-green-50';
     return 'bg-muted';
   }
 
@@ -168,10 +213,13 @@ const Dashboard = () => {
         <div className="card-surface border-amber-200 bg-amber-50 flex items-start gap-3">
           <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
           <div className="space-y-1">
-            <p className="text-sm font-semibold text-amber-800">Duplicate competitor domains detected</p>
+            <p className="text-sm font-semibold text-amber-800">
+              Duplicate competitor domains detected
+            </p>
             {duplicateDomains.map(([domain, names]) => (
               <p key={domain} className="text-xs text-amber-700">
-                <span className="font-medium">{names.join(' & ')}</span> share the same domain (<span className="font-mono">{domain}</span>) — their data may overlap.
+                <span className="font-medium">{names.join(' & ')}</span> share the same domain (
+                <span className="font-mono">{domain}</span>) — their data may overlap.
               </p>
             ))}
           </div>
@@ -185,10 +233,16 @@ const Dashboard = () => {
             <div className="flex items-center gap-2">
               {isScanning && <Loader2 className="w-4 h-4 text-primary animate-spin shrink-0" />}
               <p className="text-sm font-semibold text-foreground">
-                {isScanning ? 'Scanning in progress…' : anyFailed ? 'Some scans failed' : 'Scans not started'}
+                {isScanning
+                  ? 'Scanning in progress…'
+                  : anyFailed
+                    ? 'Some scans failed'
+                    : 'Scans not started'}
               </p>
               {isScanning && (
-                <p className="text-xs text-muted-foreground">Initial scan takes 2–8 min per site. This page auto-refreshes.</p>
+                <p className="text-xs text-muted-foreground">
+                  Initial scan takes 2–8 min per site. This page auto-refreshes.
+                </p>
               )}
             </div>
             {(anyFailed || noneScanned || isScanning) && (
@@ -215,7 +269,9 @@ const Dashboard = () => {
                       disabled={rescanningId === b.id}
                       className="ml-auto flex items-center gap-1 px-2 py-0.5 rounded bg-destructive/10 text-destructive hover:bg-destructive/20 disabled:opacity-50"
                     >
-                      <RefreshCw className={`w-3 h-3 ${rescanningId === b.id ? 'animate-spin' : ''}`} />
+                      <RefreshCw
+                        className={`w-3 h-3 ${rescanningId === b.id ? 'animate-spin' : ''}`}
+                      />
                       Retry
                     </button>
                   )}
@@ -267,19 +323,27 @@ const Dashboard = () => {
           {/* What's happening */}
           <div className="card-surface">
             <div className="mb-4">
-              <h2 className="text-base font-semibold text-foreground">What's happening around you</h2>
-              <p className="text-xs text-muted-foreground mt-0.5">Friendly heads-ups from this week</p>
+              <h2 className="text-base font-semibold text-foreground">
+                What's happening around you
+              </h2>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Friendly heads-ups from this week
+              </p>
             </div>
             {allChanges.length > 0 ? (
               <div className="space-y-4">
                 {allChanges.slice(0, 5).map((event) => (
                   <div key={event.id} className="flex gap-3">
-                    <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${alertIconBg(event.summary)}`}>
+                    <div
+                      className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${alertIconBg(event.summary)}`}
+                    >
                       {alertIcon(event.summary)}
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-baseline gap-2 flex-wrap">
-                        <p className="text-sm font-semibold text-foreground leading-snug">{event.competitorName}</p>
+                        <p className="text-sm font-semibold text-foreground leading-snug">
+                          {event.competitorName}
+                        </p>
                         <span className="text-[11px] text-muted-foreground shrink-0">
                           {(() => {
                             const diff = Date.now() - event.detectedAt;
@@ -291,13 +355,17 @@ const Dashboard = () => {
                           })()}
                         </span>
                       </div>
-                      <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">{event.summary}</p>
+                      <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">
+                        {event.summary}
+                      </p>
                     </div>
                   </div>
                 ))}
               </div>
             ) : (
-              <p className="text-sm text-muted-foreground text-center py-6">No changes detected yet</p>
+              <p className="text-sm text-muted-foreground text-center py-6">
+                No changes detected yet
+              </p>
             )}
           </div>
         </div>
@@ -330,17 +398,28 @@ const Dashboard = () => {
           <div className="bg-background border border-border rounded-xl p-6 w-full max-w-sm space-y-4 shadow-xl">
             <div className="flex items-center justify-between">
               <h3 className="text-sm font-semibold text-foreground">Add Competitor</h3>
-              <button onClick={() => setShowAddModal(false)} className="text-muted-foreground hover:text-foreground">
+              <button
+                onClick={() => setShowAddModal(false)}
+                className="text-muted-foreground hover:text-foreground"
+              >
                 <X className="w-4 h-4" />
               </button>
             </div>
             <div className="space-y-3">
               {(['name', 'url', 'domain'] as const).map((field) => (
                 <div key={field}>
-                  <label className="text-xs text-muted-foreground capitalize mb-1 block">{field}</label>
+                  <label className="text-xs text-muted-foreground capitalize mb-1 block">
+                    {field}
+                  </label>
                   <input
                     className="w-full rounded-lg border border-border bg-muted px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary"
-                    placeholder={field === 'url' ? 'https://example.com' : field === 'domain' ? 'example.com' : 'Competitor Name'}
+                    placeholder={
+                      field === 'url'
+                        ? 'https://example.com'
+                        : field === 'domain'
+                          ? 'example.com'
+                          : 'Competitor Name'
+                    }
                     value={addForm[field]}
                     onChange={(e) => setAddForm((f) => ({ ...f, [field]: e.target.value }))}
                   />

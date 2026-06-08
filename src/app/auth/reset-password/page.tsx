@@ -15,8 +15,14 @@ export default function ResetPasswordPage() {
 
   const handleSubmit = async () => {
     setError('');
-    if (password.length < 8) { setError('Password must be at least 8 characters.'); return; }
-    if (password !== confirm) { setError('Passwords do not match.'); return; }
+    if (password.length < 8) {
+      setError('Password must be at least 8 characters.');
+      return;
+    }
+    if (password !== confirm) {
+      setError('Passwords do not match.');
+      return;
+    }
 
     setLoading(true);
     const { error } = await supabase.auth.updateUser({ password });
@@ -32,14 +38,20 @@ export default function ResetPasswordPage() {
     <div className="min-h-screen bg-background flex items-center justify-center p-6">
       <div className="w-full max-w-md space-y-8">
         <div className="text-center">
-          <div className="flex justify-center mb-4"><Logo /></div>
+          <div className="flex justify-center mb-4">
+            <Logo />
+          </div>
           <h1 className="text-2xl font-semibold text-foreground">Set a new password</h1>
-          <p className="text-sm text-muted-foreground mt-1">Choose a strong password for your account.</p>
+          <p className="text-sm text-muted-foreground mt-1">
+            Choose a strong password for your account.
+          </p>
         </div>
 
         <div className="card-surface space-y-4">
           <div>
-            <label className="text-xs font-medium text-muted-foreground mb-1 block">New Password</label>
+            <label className="text-xs font-medium text-muted-foreground mb-1 block">
+              New Password
+            </label>
             <input
               type="password"
               value={password}
@@ -51,7 +63,9 @@ export default function ResetPasswordPage() {
             />
           </div>
           <div>
-            <label className="text-xs font-medium text-muted-foreground mb-1 block">Confirm Password</label>
+            <label className="text-xs font-medium text-muted-foreground mb-1 block">
+              Confirm Password
+            </label>
             <input
               type="password"
               value={confirm}

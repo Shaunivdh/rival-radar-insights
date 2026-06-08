@@ -16,14 +16,21 @@ export const PriorityActionsPanel = () => {
     <div className="card-surface flex flex-col h-full">
       <div className="mb-4">
         <h2 className="text-base font-semibold text-foreground">Where to focus next</h2>
-        <p className="text-xs text-muted-foreground mt-0.5">A few friendly suggestions, ordered by impact</p>
+        <p className="text-xs text-muted-foreground mt-0.5">
+          A few friendly suggestions, ordered by impact
+        </p>
       </div>
       <div className="space-y-2 flex-1">
         {priorityActions.slice(0, 15).map((action, i) => {
           const cfg = IMPACT[action.estimatedImpact] ?? IMPACT.low;
           return (
-            <div key={i} className="flex items-start gap-3 p-3 rounded-xl border border-border hover:bg-muted/40 transition-colors cursor-pointer group">
-              <span className={`shrink-0 text-[10px] font-semibold px-2 py-1 rounded-md whitespace-nowrap mt-0.5 ${cfg.badge}`}>
+            <div
+              key={i}
+              className="flex items-start gap-3 p-3 rounded-xl border border-border hover:bg-muted/40 transition-colors cursor-pointer group"
+            >
+              <span
+                className={`shrink-0 text-[10px] font-semibold px-2 py-1 rounded-md whitespace-nowrap mt-0.5 ${cfg.badge}`}
+              >
                 {cfg.label}
               </span>
               <div className="flex-1 min-w-0">

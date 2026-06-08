@@ -8,9 +8,17 @@ async function getUser(cookieStore: Awaited<ReturnType<typeof cookies>>) {
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    { cookies: { getAll() { return cookieStore.getAll(); } } }
+    {
+      cookies: {
+        getAll() {
+          return cookieStore.getAll();
+        },
+      },
+    },
   );
-  const { data: { user } } = await supabase.auth.getUser();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
   return user;
 }
 
@@ -55,7 +63,11 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'No location selected' }, { status: 400 });
   }
 
-  const body = await request.json() as { action: 'reply' | 'delete_reply'; reviewId: string; comment?: string };
+  const body = (await request.json()) as {
+    action: 'reply' | 'delete_reply';
+    reviewId: string;
+    comment?: string;
+  };
 
   try {
     const token = await getValidToken(user.id);

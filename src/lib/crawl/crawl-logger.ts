@@ -12,7 +12,7 @@ export function logCrawlStep(
   step: string,
   status: CrawlLogStatus,
   message?: string,
-  meta?: Record<string, unknown>
+  meta?: Record<string, unknown>,
 ): void {
   supabaseAdmin
     .from('crawl_logs')
@@ -25,6 +25,10 @@ export function logCrawlStep(
       meta: meta ?? null,
     })
     .then(({ error }) => {
-      if (error) console.error(`[crawl-logger] Failed to log step="${step}" for business=${businessId}:`, error.message);
+      if (error)
+        console.error(
+          `[crawl-logger] Failed to log step="${step}" for business=${businessId}:`,
+          error.message,
+        );
     });
 }

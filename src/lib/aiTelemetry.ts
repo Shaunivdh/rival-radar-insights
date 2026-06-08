@@ -1,5 +1,12 @@
 export interface AIEvent {
-  event: 'generation' | 'validation' | 'visibility' | 'sentiment' | 'change_summary' | 'change_summary_skipped' | 'extract_signals';
+  event:
+    | 'generation'
+    | 'validation'
+    | 'visibility'
+    | 'sentiment'
+    | 'change_summary'
+    | 'change_summary_skipped'
+    | 'extract_signals';
   model: string;
   success: boolean;
   durationMs: number;

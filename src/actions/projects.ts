@@ -5,7 +5,19 @@ import { createServerClient } from '@supabase/ssr';
 import { supabaseAdmin } from '@/lib/supabase/server';
 import { inngest } from '@/inngest/client';
 import { calculateScores } from '@/services/scores';
-import type { Project, Business, ExtractedSignals, AIHealthScore, PriorityAction, ChangeEvent, AIVisibility, PageSpeedData, ReviewSentiment, GoogleData, SerpData } from '@/types';
+import type {
+  Project,
+  Business,
+  ExtractedSignals,
+  AIHealthScore,
+  PriorityAction,
+  ChangeEvent,
+  AIVisibility,
+  PageSpeedData,
+  ReviewSentiment,
+  GoogleData,
+  SerpData,
+} from '@/types';
 import { normalizeUrl, extractDomain, isValidUrl } from '@/lib/url';
 
 // ── Auth helper ───────────────────────────────────────────────────────────────
@@ -22,10 +34,13 @@ async function getSessionUserId(): Promise<string> {
           return cookieStore.getAll();
         },
       },
-    }
+    },
   );
 
-  const { data: { user }, error } = await supabase.auth.getUser();
+  const {
+    data: { user },
+    error,
+  } = await supabase.auth.getUser();
   if (error || !user) throw new Error('Not authenticated');
   return user.id;
 }
@@ -35,7 +50,7 @@ async function getSessionUserId(): Promise<string> {
 function mapBusiness(
   b: Record<string, unknown>,
   signals: ExtractedSignals | null = null,
-  changeEvents: ChangeEvent[] = []
+  changeEvents: ChangeEvent[] = [],
 ): Business {
   return {
     id: b.id as string,
@@ -59,14 +74,14 @@ function mapBusiness(
 }
 
 function rowsToProject(p: Record<string, unknown>, businesses: Record<string, unknown>[]): Project {
-  const own = businesses.find(b => b.is_own_business);
-  const competitors = businesses.filter(b => !b.is_own_business);
+  const own = businesses.find((b) => b.is_own_business);
+  const competitors = businesses.filter((b) => !b.is_own_business);
   return {
     id: p.id as string,
     name: p.name as string,
     createdAt: new Date(p.created_at as string).getTime(),
     ownBusiness: mapBusiness(own!),
-    competitors: competitors.map(b => mapBusiness(b)),
+    competitors: competitors.map((b) => mapBusiness(b)),
   };
 }
 
@@ -91,15 +106,17 @@ function rowToSignals(sig: Record<string, unknown> | null): ExtractedSignals | n
 export async function createProject(
   name: string,
   ownBusiness: Pick<Business, 'name' | 'url' | 'domain'>,
-  competitors: Pick<Business, 'name' | 'url' | 'domain'>[]
+  competitors: Pick<Business, 'name' | 'url' | 'domain'>[],
 ): Promise<Project> {
   const userId = await getSessionUserId();
 
-  const allUrls = [ownBusiness.url, ...competitors.map(c => c.url)];
-  const invalidUrl = allUrls.find(u => !isValidUrl(u));
+  const allUrls = [ownBusiness.url, ...competitors.map((c) => c.url)];
+  const invalidUrl = allUrls.find((u) => !isValidUrl(u));
   if (invalidUrl) throw new Error(`Invalid website URL: ${invalidUrl}`);
 
-  console.log(`[createProject] userId=${userId} name="${name}" own="${ownBusiness.name}" competitors=${competitors.length}`);
+  console.log(
+    `[createProject] userId=${userId} name="${name}" own="${ownBusiness.name}" competitors=${competitors.length}`,
+  );
 
   const { data: project, error: projectError } = await supabaseAdmin
     .from('projects')
@@ -120,7 +137,11 @@ export async function createProject(
 
   const businessRows = [
     { project_id: project.id, ...normalizeEntry(ownBusiness), is_own_business: true },
-    ...competitors.map(c => ({ project_id: project.id, ...normalizeEntry(c), is_own_business: false })),
+    ...competitors.map((c) => ({
+      project_id: project.id,
+      ...normalizeEntry(c),
+      is_own_business: false,
+    })),
   ];
 
   const { data: businesses, error: bizError } = await supabaseAdmin
@@ -129,13 +150,18 @@ export async function createProject(
     .select();
 
   if (bizError) {
-    console.error(`[createProject] businesses insert failed projectId=${project.id}:`, bizError.message);
+    console.error(
+      `[createProject] businesses insert failed projectId=${project.id}:`,
+      bizError.message,
+    );
     // Clean up orphaned project
     await supabaseAdmin.from('projects').delete().eq('id', project.id);
     throw new Error(bizError.message);
   }
 
-  console.log(`[createProject] created projectId=${project.id} businesses=${businesses?.length ?? 0}`);
+  console.log(
+    `[createProject] created projectId=${project.id} businesses=${businesses?.length ?? 0}`,
+  );
   return rowsToProject(project, businesses);
 }
 
@@ -153,7 +179,7 @@ export async function getProject(userId: string): Promise<Project | null> {
   const bizRows: Record<string, unknown>[] = project.businesses ?? [];
 
   const enriched = await Promise.all(
-    bizRows.map(async b => {
+    bizRows.map(async (b) => {
       const [{ data: sig }, { data: events }] = await Promise.all([
         supabaseAdmin
           .from('extracted_signals')
@@ -171,7 +197,7 @@ export async function getProject(userId: string): Promise<Project | null> {
       ]);
 
       const signals = rowToSignals(sig);
-      const changeEvents: ChangeEvent[] = (events ?? []).map(e => ({
+      const changeEvents: ChangeEvent[] = (events ?? []).map((e) => ({
         id: e.id as string,
         detectedAt: new Date(e.detected_at as string).getTime(),
         severity: e.severity as ChangeEvent['severity'],
@@ -191,29 +217,47 @@ export async function getProject(userId: string): Promise<Project | null> {
         await supabaseAdmin.from('businesses').update({ ai_score: aiScore }).eq('id', b.id);
       }
 
-      return { business: mapBusiness({ ...b, ai_score: aiScore }, signals, changeEvents), isOwn: b.is_own_business as boolean };
-    })
+      return {
+        business: mapBusiness({ ...b, ai_score: aiScore }, signals, changeEvents),
+        isOwn: b.is_own_business as boolean,
+      };
+    }),
   );
 
   return {
     id: project.id as string,
     name: project.name as string,
     createdAt: new Date(project.created_at as string).getTime(),
-    ownBusiness: enriched.find(e => e.isOwn)!.business,
-    competitors: enriched.filter(e => !e.isOwn).map(e => e.business),
+    ownBusiness: enriched.find((e) => e.isOwn)!.business,
+    competitors: enriched.filter((e) => !e.isOwn).map((e) => e.business),
   };
 }
 
 export async function updateBusiness(
   businessId: string,
-  partial: Partial<Pick<Business, 'crawlStatus' | 'crawlJobId' | 'lastCrawledAt' | 'aiScore' | 'googleData' | 'serpData' | 'aiVisibility' | 'pagespeedData' | 'reviewSentiment'>>,
-  extras?: { googlePlaceId?: string }
+  partial: Partial<
+    Pick<
+      Business,
+      | 'crawlStatus'
+      | 'crawlJobId'
+      | 'lastCrawledAt'
+      | 'aiScore'
+      | 'googleData'
+      | 'serpData'
+      | 'aiVisibility'
+      | 'pagespeedData'
+      | 'reviewSentiment'
+    >
+  >,
+  extras?: { googlePlaceId?: string },
 ): Promise<void> {
   const row: Record<string, unknown> = {};
   if (partial.crawlStatus !== undefined) row.crawl_status = partial.crawlStatus;
   if (partial.crawlJobId !== undefined) row.crawl_job_id = partial.crawlJobId;
   if (partial.lastCrawledAt !== undefined)
-    row.last_crawled_at = partial.lastCrawledAt ? new Date(partial.lastCrawledAt).toISOString() : null;
+    row.last_crawled_at = partial.lastCrawledAt
+      ? new Date(partial.lastCrawledAt).toISOString()
+      : null;
   if (partial.aiScore !== undefined) row.ai_score = partial.aiScore;
   if (partial.googleData !== undefined) row.google_data = partial.googleData;
   if (partial.serpData !== undefined) row.serp_data = partial.serpData;
@@ -256,36 +300,52 @@ export async function triggerInitialScans(projectId: string): Promise<void> {
     return;
   }
 
-  const stale = businesses.filter(b => isStale(b.last_crawled_at as string | null));
+  const stale = businesses.filter((b) => isStale(b.last_crawled_at as string | null));
   if (!stale.length) {
-    console.log(`[triggerInitialScans] all businesses fresh, skipping projectId=${projectId} total=${businesses.length}`);
+    console.log(
+      `[triggerInitialScans] all businesses fresh, skipping projectId=${projectId} total=${businesses.length}`,
+    );
     return;
   }
 
-  console.log(`[triggerInitialScans] queuing ${stale.length}/${businesses.length} businesses for projectId=${projectId} ids=${stale.map(b => b.id).join(',')}`);
+  console.log(
+    `[triggerInitialScans] queuing ${stale.length}/${businesses.length} businesses for projectId=${projectId} ids=${stale.map((b) => b.id).join(',')}`,
+  );
 
   await supabaseAdmin
     .from('businesses')
     .update({ crawl_status: 'pending' })
-    .in('id', stale.map(b => b.id));
+    .in(
+      'id',
+      stale.map((b) => b.id),
+    );
 
   await inngest.send(
     stale.map((b, i) => ({
       name: 'crawl/business.scan' as const,
       data: { businessId: b.id as string, mode: 'initial' as const },
       ts: Date.now() + i * 15000, // stagger by 15s each
-    }))
+    })),
   );
   console.log(`[triggerInitialScans] inngest events sent for projectId=${projectId}`);
 }
 
 export async function syncProject(projectId: string): Promise<{
-  businesses: { id: string; crawlStatus: Business['crawlStatus']; signals: ExtractedSignals | null; aiScore: AIHealthScore | null; enrichmentErrors: Business['enrichmentErrors']; changeEvents: ChangeEvent[] }[];
+  businesses: {
+    id: string;
+    crawlStatus: Business['crawlStatus'];
+    signals: ExtractedSignals | null;
+    aiScore: AIHealthScore | null;
+    enrichmentErrors: Business['enrichmentErrors'];
+    changeEvents: ChangeEvent[];
+  }[];
   priorityActions: PriorityAction[];
 }> {
   const { data: rows } = await supabaseAdmin
     .from('businesses')
-    .select('id, crawl_status, ai_score, google_data, serp_data, ai_visibility, enrichment_errors, pagespeed_data')
+    .select(
+      'id, crawl_status, ai_score, google_data, serp_data, ai_visibility, enrichment_errors, pagespeed_data',
+    )
     .eq('project_id', projectId);
 
   if (!rows?.length) return { businesses: [], priorityActions: [] };
@@ -293,7 +353,7 @@ export async function syncProject(projectId: string): Promise<{
   // Reset stale "running" jobs — if started_at > 35 min ago, mark as failed
   // CF poll loop max: 120 attempts × 5s = 10 min, plus Inngest step overhead per step
   const staleThreshold = new Date(Date.now() - 35 * 60 * 1000).toISOString();
-  const runningIds = rows.filter(b => b.crawl_status === 'running').map(b => b.id as string);
+  const runningIds = rows.filter((b) => b.crawl_status === 'running').map((b) => b.id as string);
   if (runningIds.length) {
     const { data: staleJobs } = await supabaseAdmin
       .from('crawl_jobs')
@@ -303,7 +363,7 @@ export async function syncProject(projectId: string): Promise<{
       .lt('started_at', staleThreshold);
 
     if (staleJobs?.length) {
-      const staleBusinessIds = staleJobs.map(j => j.business_id as string);
+      const staleBusinessIds = staleJobs.map((j) => j.business_id as string);
       await supabaseAdmin
         .from('businesses')
         .update({ crawl_status: 'failed' })
@@ -321,7 +381,7 @@ export async function syncProject(projectId: string): Promise<{
   }
 
   const businesses = await Promise.all(
-    rows.map(async b => {
+    rows.map(async (b) => {
       let signals: ExtractedSignals | null = null;
       let aiScore: AIHealthScore | null = (b.ai_score as AIHealthScore) ?? null;
 
@@ -337,7 +397,11 @@ export async function syncProject(projectId: string): Promise<{
         signals = rowToSignals(sig);
 
         // Recalculate if missing, websiteHealthScore is 0 with signals, or localVisibilityScore is 0 with serp data
-        if (!aiScore || (signals && aiScore.websiteHealthScore === 0) || (b.serp_data && aiScore && aiScore.localVisibilityScore === 0)) {
+        if (
+          !aiScore ||
+          (signals && aiScore.websiteHealthScore === 0) ||
+          (b.serp_data && aiScore && aiScore.localVisibilityScore === 0)
+        ) {
           aiScore = calculateScores({
             googleData: b.google_data as GoogleData | null,
             serpData: b.serp_data as SerpData | null,
@@ -356,7 +420,7 @@ export async function syncProject(projectId: string): Promise<{
         .order('detected_at', { ascending: false })
         .limit(50);
 
-      const changeEvents: ChangeEvent[] = (events ?? []).map(e => ({
+      const changeEvents: ChangeEvent[] = (events ?? []).map((e) => ({
         id: e.id as string,
         detectedAt: new Date(e.detected_at as string).getTime(),
         severity: e.severity as ChangeEvent['severity'],
@@ -364,11 +428,22 @@ export async function syncProject(projectId: string): Promise<{
         changes: e.changes as ChangeEvent['changes'],
       }));
 
-      return { id: b.id as string, crawlStatus: b.crawl_status as Business['crawlStatus'], signals, aiScore, enrichmentErrors: (b.enrichment_errors as Business['enrichmentErrors']) ?? null, googleData: (b.google_data as Business['googleData']) ?? null, serpData: (b.serp_data as Business['serpData']) ?? null, changeEvents };
-    })
+      return {
+        id: b.id as string,
+        crawlStatus: b.crawl_status as Business['crawlStatus'],
+        signals,
+        aiScore,
+        enrichmentErrors: (b.enrichment_errors as Business['enrichmentErrors']) ?? null,
+        googleData: (b.google_data as Business['googleData']) ?? null,
+        serpData: (b.serp_data as Business['serpData']) ?? null,
+        changeEvents,
+      };
+    }),
   );
 
-  const allDone = businesses.every(b => b.crawlStatus === 'complete' || b.crawlStatus === 'failed');
+  const allDone = businesses.every(
+    (b) => b.crawlStatus === 'complete' || b.crawlStatus === 'failed',
+  );
   let priorityActions: PriorityAction[] = [];
 
   if (allDone) {
@@ -390,10 +465,7 @@ export async function syncProject(projectId: string): Promise<{
 }
 
 export async function triggerSingleScan(businessId: string): Promise<void> {
-  await supabaseAdmin
-    .from('businesses')
-    .update({ crawl_status: 'pending' })
-    .eq('id', businessId);
+  await supabaseAdmin.from('businesses').update({ crawl_status: 'pending' }).eq('id', businessId);
 
   await inngest.send({
     name: 'crawl/business.scan',
@@ -412,20 +484,23 @@ export async function rescanAll(projectId: string): Promise<void> {
   await supabaseAdmin
     .from('businesses')
     .update({ crawl_status: 'pending' })
-    .in('id', businesses.map(b => b.id));
+    .in(
+      'id',
+      businesses.map((b) => b.id),
+    );
 
   await inngest.send(
     businesses.map((b, i) => ({
       name: 'crawl/business.scan' as const,
       data: { businessId: b.id as string, mode: 'incremental' as const },
       ts: Date.now() + i * 15000,
-    }))
+    })),
   );
 }
 
 export async function addCompetitor(
   projectId: string,
-  competitor: Pick<Business, 'name' | 'url' | 'domain'>
+  competitor: Pick<Business, 'name' | 'url' | 'domain'>,
 ): Promise<Business> {
   await getSessionUserId();
 
@@ -436,7 +511,8 @@ export async function addCompetitor(
     .eq('is_own_business', false);
 
   if ((existing?.length ?? 0) >= 5) throw new Error('Maximum of 5 competitors allowed');
-  if (!isValidUrl(competitor.url)) throw new Error('Please enter a valid website URL (e.g. example.com)');
+  if (!isValidUrl(competitor.url))
+    throw new Error('Please enter a valid website URL (e.g. example.com)');
 
   const normalized = {
     ...competitor,
@@ -525,7 +601,10 @@ async function promoteQueuedActions(projectId: string): Promise<void> {
   await supabaseAdmin
     .from('priority_actions')
     .update({ status: 'active' })
-    .in('id', queued.map(q => q.id));
+    .in(
+      'id',
+      queued.map((q) => q.id),
+    );
 }
 
 export async function updateActionStatus(
@@ -561,5 +640,5 @@ export async function listProjects(userId: string): Promise<Project[]> {
 
   if (error) throw new Error(error.message);
 
-  return (projects ?? []).map(p => rowsToProject(p, p.businesses ?? []));
+  return (projects ?? []).map((p) => rowsToProject(p, p.businesses ?? []));
 }

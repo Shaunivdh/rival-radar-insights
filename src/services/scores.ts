@@ -1,4 +1,11 @@
-import type { GoogleData, SerpData, AIVisibility, AIHealthScore, ExtractedSignals, PageSpeedData } from '@/types';
+import type {
+  GoogleData,
+  SerpData,
+  AIVisibility,
+  AIHealthScore,
+  ExtractedSignals,
+  PageSpeedData,
+} from '@/types';
 
 /**
  * Website health score derived from crawl signals.
@@ -6,15 +13,16 @@ import type { GoogleData, SerpData, AIVisibility, AIHealthScore, ExtractedSignal
  */
 export function computeWebsiteHealthScore(
   signals: ExtractedSignals | null,
-  pagespeedData?: PageSpeedData | null
+  pagespeedData?: PageSpeedData | null,
 ): number | null {
   if (signals == null) {
     // No crawl signals — but if we have PageSpeed data, we know a website exists
     if (pagespeedData) {
-      const avg = (pagespeedData.mobile.performanceScore + pagespeedData.desktop.performanceScore) / 2;
-      return Math.round((avg / 100) * 10);   // 0–10 from PSI alone
+      const avg =
+        (pagespeedData.mobile.performanceScore + pagespeedData.desktop.performanceScore) / 2;
+      return Math.round((avg / 100) * 10); // 0–10 from PSI alone
     }
-    return null;  // null = crawl blocked AND no PSI, NOT a zero score
+    return null; // null = crawl blocked AND no PSI, NOT a zero score
   }
   const { seo, engagement } = signals;
 
@@ -34,7 +42,8 @@ export function computeWebsiteHealthScore(
   if (seo.schemaMarkupTypes.length > 0) score += 5;
   // +0–10: PSI performance bonus (avg of mobile + desktop, scaled)
   if (pagespeedData) {
-    const avg = (pagespeedData.mobile.performanceScore + pagespeedData.desktop.performanceScore) / 2;
+    const avg =
+      (pagespeedData.mobile.performanceScore + pagespeedData.desktop.performanceScore) / 2;
     score += Math.round((avg / 100) * 10);
   }
 
@@ -49,7 +58,7 @@ export function computeWebsiteHealthScore(
  */
 export function computeReputationScore(
   googleData: GoogleData | null,
-  prevReviewCount?: number
+  prevReviewCount?: number,
 ): number {
   if (googleData == null) return 0;
   const { googleRating, reviewCount, recentReviews } = googleData;
@@ -95,7 +104,7 @@ export function computeReviewVelocityScore(
   currentReviewCount: number,
   previousReviewCount?: number,
   daysBetween?: number,
-  recentReviews?: Array<{ time: number; ownerReply?: string }>
+  recentReviews?: Array<{ time: number; ownerReply?: string }>,
 ): number | null {
   let base: number | null = null;
 
@@ -128,11 +137,11 @@ export function computeReviewVelocityScore(
 export function recomputeOverallScore(score: AIHealthScore): number {
   return Math.round(
     score.reputationScore * 0.25 +
-    score.localVisibilityScore * 0.25 +
-    score.websiteHealthScore * 0.20 +
-    score.gbpCompletenessScore * 0.15 +
-    score.aiPresenceScore * 0.10 +
-    score.reviewVelocityScore * 0.05
+      score.localVisibilityScore * 0.25 +
+      score.websiteHealthScore * 0.2 +
+      score.gbpCompletenessScore * 0.15 +
+      score.aiPresenceScore * 0.1 +
+      score.reviewVelocityScore * 0.05,
   );
 }
 
@@ -152,7 +161,15 @@ interface ScoreInput {
 }
 
 export function calculateScores(input: ScoreInput): AIHealthScore {
-  const { googleData, serpData, aiVisibility, signals, previousReviewCount, daysBetween, pagespeedData } = input;
+  const {
+    googleData,
+    serpData,
+    aiVisibility,
+    signals,
+    previousReviewCount,
+    daysBetween,
+    pagespeedData,
+  } = input;
 
   const reputationScore = computeReputationScore(googleData);
 
@@ -173,26 +190,25 @@ export function calculateScores(input: ScoreInput): AIHealthScore {
     googleData?.reviewCount ?? 0,
     previousReviewCount,
     daysBetween,
-    googleData?.recentReviews
+    googleData?.recentReviews,
   );
 
   // Weighted average that EXCLUDES null components (unknown ≠ zero)
   const components: Array<{ score: number | null; weight: number }> = [
-    { score: reputationScore,      weight: 0.25 },
+    { score: reputationScore, weight: 0.25 },
     { score: localVisibilityScore, weight: 0.25 },
-    { score: websiteHealthScore,   weight: 0.20 },
+    { score: websiteHealthScore, weight: 0.2 },
     { score: gbpCompletenessScore, weight: 0.15 },
-    { score: aiPresenceScore,      weight: 0.10 },
-    { score: reviewVelocityScore,  weight: 0.05 },
+    { score: aiPresenceScore, weight: 0.1 },
+    { score: reviewVelocityScore, weight: 0.05 },
   ];
 
   const available = components.filter((c) => c.score !== null);
   const totalWeight = available.reduce((sum, c) => sum + c.weight, 0);
-  const overallScore = totalWeight === 0
-    ? 0
-    : Math.round(
-        available.reduce((sum, c) => sum + c.score! * c.weight, 0) / totalWeight
-      );
+  const overallScore =
+    totalWeight === 0
+      ? 0
+      : Math.round(available.reduce((sum, c) => sum + c.score! * c.weight, 0) / totalWeight);
 
   return {
     overallScore,

@@ -1,7 +1,7 @@
-import { ReactNode } from "react";
-import { SidebarProvider } from "@/components/ui/sidebar";
-import DashboardSidebar from "@/components/dashboard/DashboardSidebar";
-import DashboardTopbar from "@/components/dashboard/DashboardTopbar";
+import { ReactNode } from 'react';
+import { SidebarProvider } from '@/components/ui/sidebar';
+import DashboardSidebar from '@/components/dashboard/DashboardSidebar';
+import DashboardTopbar from '@/components/dashboard/DashboardTopbar';
 
 interface DashboardLayoutProps {
   children: ReactNode;
@@ -22,7 +22,7 @@ const DashboardLayout = ({ children, inset = true }: DashboardLayoutProps) => {
             {inset ? (
               <div
                 className="relative rounded-[2rem] bg-card/70 backdrop-blur-sm p-5 lg:p-7 overflow-hidden"
-                style={{ boxShadow: "var(--neu-shadow)" }}
+                style={{ boxShadow: 'var(--neu-shadow)' }}
               >
                 {/* Decorative blurs */}
                 <div className="absolute -top-32 -right-32 w-96 h-96 rounded-full bg-primary/10 blur-3xl pointer-events-none" />

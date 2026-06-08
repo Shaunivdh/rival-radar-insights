@@ -4,7 +4,7 @@ import type { AIHealthScore } from '@/types';
 export async function saveScoreSnapshot(
   supabase: SupabaseClient,
   businessId: string,
-  scores: AIHealthScore
+  scores: AIHealthScore,
 ): Promise<void> {
   await supabase.from('score_snapshots').insert({
     business_id: businessId,
@@ -25,7 +25,7 @@ export async function saveScoreSnapshot(
  */
 export async function getWeeklyDelta(
   supabase: SupabaseClient,
-  businessId: string
+  businessId: string,
 ): Promise<number | null> {
   const { data: latest } = await supabase
     .from('score_snapshots')
@@ -38,7 +38,7 @@ export async function getWeeklyDelta(
   if (!latest) return null;
 
   const sixDaysBefore = new Date(
-    new Date(latest.snapshot_at as string).getTime() - 6 * 86400000
+    new Date(latest.snapshot_at as string).getTime() - 6 * 86400000,
   ).toISOString();
 
   const { data: previous } = await supabase

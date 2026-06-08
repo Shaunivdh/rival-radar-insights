@@ -1,6 +1,11 @@
 'use server';
 
-import { getPlaceData, getPlaceDataById, postcodeToLatLng, postcodeToLocation } from '@/services/google';
+import {
+  getPlaceData,
+  getPlaceDataById,
+  postcodeToLatLng,
+  postcodeToLocation,
+} from '@/services/google';
 import { getRankingData } from '@/services/serp';
 import { updateBusiness } from '@/actions/projects';
 import { supabaseAdmin } from '@/lib/supabase/server';
@@ -10,14 +15,12 @@ export async function fetchGoogleData(
   name: string,
   url: string,
   postcode?: string,
-  googlePlaceId?: string | null
+  googlePlaceId?: string | null,
 ): Promise<void> {
   const apiKey = process.env.GOOGLE_PLACES_API_KEY;
   if (!apiKey) throw new Error('GOOGLE_PLACES_API_KEY is not set');
 
-  let googleData = googlePlaceId
-    ? await getPlaceDataById(googlePlaceId, apiKey)
-    : null;
+  let googleData = googlePlaceId ? await getPlaceDataById(googlePlaceId, apiKey) : null;
 
   const usedFallback = !googlePlaceId || !googleData;
   if (!googleData) {
@@ -25,10 +28,9 @@ export async function fetchGoogleData(
   }
 
   if (!googleData) {
-    throw Object.assign(
-      new Error(`Google Places: no match found for "${name}"`),
-      { code: 'PLACE_NOT_FOUND' }
-    );
+    throw Object.assign(new Error(`Google Places: no match found for "${name}"`), {
+      code: 'PLACE_NOT_FOUND',
+    });
   }
 
   // Merge new reviews with existing ones (accumulate over time, dedup by authorName+time)
@@ -39,7 +41,8 @@ export async function fetchGoogleData(
     .single();
 
   const existingReviews: typeof googleData.recentReviews =
-    (existing?.google_data as { recentReviews?: typeof googleData.recentReviews } | null)?.recentReviews ?? [];
+    (existing?.google_data as { recentReviews?: typeof googleData.recentReviews } | null)
+      ?.recentReviews ?? [];
 
   const newKeys = new Set(googleData.recentReviews.map((r) => `${r.authorName}|${r.time}`));
   const merged = [
@@ -52,7 +55,7 @@ export async function fetchGoogleData(
   await updateBusiness(
     businessId,
     { googleData },
-    usedFallback && googleData.placeId ? { googlePlaceId: googleData.placeId } : undefined
+    usedFallback && googleData.placeId ? { googlePlaceId: googleData.placeId } : undefined,
   );
 
   await supabaseAdmin.from('google_data').insert({
@@ -73,10 +76,12 @@ export async function fetchSerpData(
   domain: string,
   primaryService: string,
   location: string,
-  postcode?: string
+  postcode?: string,
 ): Promise<void> {
-  console.log(`[fetchSerpData] businessId=${businessId} name="${businessName}" ` +
-    `primaryService="${primaryService}" location="${location}" postcode="${postcode}"`);
+  console.log(
+    `[fetchSerpData] businessId=${businessId} name="${businessName}" ` +
+      `primaryService="${primaryService}" location="${location}" postcode="${postcode}"`,
+  );
 
   if (!primaryService?.trim() || !location?.trim()) {
     console.error(`[fetchSerpData] Skipping — primaryService or location is empty`);
@@ -96,12 +101,21 @@ export async function fetchSerpData(
     }
     const canonicalLocation = await postcodeToLocation(postcode);
     if (canonicalLocation) {
-      console.log(`[fetchSerpData] Overriding location "${location}" → "${canonicalLocation}" from postcode`);
+      console.log(
+        `[fetchSerpData] Overriding location "${location}" → "${canonicalLocation}" from postcode`,
+      );
       resolvedLocation = canonicalLocation;
     }
   }
 
-  const serpData = await getRankingData(businessName, primaryService, resolvedLocation, apiKey, domain, ll);
+  const serpData = await getRankingData(
+    businessName,
+    primaryService,
+    resolvedLocation,
+    apiKey,
+    domain,
+    ll,
+  );
   if (!serpData) {
     console.log(`[enrich-serp] No SERP data returned for business ${businessId}`);
     return;
@@ -109,4 +123,3 @@ export async function fetchSerpData(
   await updateBusiness(businessId, { serpData });
   console.log(`[enrich-serp] serp_data saved for business ${businessId}`);
 }
-

@@ -25,7 +25,9 @@ function CircleScore({ score }: { score: number }) {
   const filled = (score / 100) * circ;
   return (
     <div className="flex flex-col items-center gap-1">
-      <p className="text-[10px] font-semibold tracking-widest text-muted-foreground uppercase">Overall</p>
+      <p className="text-[10px] font-semibold tracking-widest text-muted-foreground uppercase">
+        Overall
+      </p>
       <div className="relative w-20 h-20">
         <svg className="w-20 h-20 -rotate-90" viewBox="0 0 88 88">
           <circle cx="44" cy="44" r={r} fill="none" stroke="#e5e7eb" strokeWidth="7" />
@@ -50,15 +52,21 @@ function CircleScore({ score }: { score: number }) {
 
 const METRICS: {
   label: string;
-  key: 'reputationScore' | 'localVisibilityScore' | 'websiteHealthScore' | 'gbpCompletenessScore' | 'aiPresenceScore' | 'reviewVelocityScore';
+  key:
+    | 'reputationScore'
+    | 'localVisibilityScore'
+    | 'websiteHealthScore'
+    | 'gbpCompletenessScore'
+    | 'aiPresenceScore'
+    | 'reviewVelocityScore';
   color: string;
 }[] = [
-  { label: 'Online Reputation',       key: 'reputationScore',       color: '#7C3AED' },
-  { label: 'Local Search Visibility', key: 'localVisibilityScore',   color: '#EAB308' },
-  { label: 'Website Performance',     key: 'websiteHealthScore',     color: '#22C55E' },
-  { label: 'Google Business Profile', key: 'gbpCompletenessScore',   color: '#F59E0B' },
-  { label: 'AI Visibility',           key: 'aiPresenceScore',        color: '#EF4444' },
-  { label: 'Review Momentum',         key: 'reviewVelocityScore',    color: '#8B5CF6' },
+  { label: 'Online Reputation', key: 'reputationScore', color: '#7C3AED' },
+  { label: 'Local Search Visibility', key: 'localVisibilityScore', color: '#EAB308' },
+  { label: 'Website Performance', key: 'websiteHealthScore', color: '#22C55E' },
+  { label: 'Google Business Profile', key: 'gbpCompletenessScore', color: '#F59E0B' },
+  { label: 'AI Visibility', key: 'aiPresenceScore', color: '#EF4444' },
+  { label: 'Review Momentum', key: 'reviewVelocityScore', color: '#8B5CF6' },
 ];
 
 function MetricRow({
@@ -110,12 +118,12 @@ export function BusinessScoreCard({ own, competitors }: Props) {
       {/* Header row */}
       <div className="flex items-start justify-between gap-4">
         <div>
-          <p className="text-[10px] font-semibold tracking-widest text-muted-foreground uppercase mb-1">How you're doing</p>
+          <p className="text-[10px] font-semibold tracking-widest text-muted-foreground uppercase mb-1">
+            How you're doing
+          </p>
           <h1 className="text-xl font-bold text-gray-900">{own.name}</h1>
           <p className="text-sm text-gray-500 mt-0.5">
-            {own.googleData?.address
-              ? <>{own.googleData.address}</>
-              : <>{own.domain}</>}
+            {own.googleData?.address ? <>{own.googleData.address}</> : <>{own.domain}</>}
             {own.lastCrawledAt && (
               <> &middot; Last checked {timeAgo(own.lastCrawledAt).replace('Updated ', '')}</>
             )}
@@ -127,12 +135,24 @@ export function BusinessScoreCard({ own, competitors }: Props) {
       {/* Score summary blurb */}
       {score && (
         <p className="text-sm text-gray-600 leading-relaxed">
-          {score.overallScore >= 70
-            ? <>You're <span className="font-semibold text-gray-800">performing well</span> in your area. Keep up the momentum and focus on your top priority actions.</>
-            : score.overallScore >= 45
-            ? <>You're <span className="font-semibold text-gray-800">solidly mid-pack</span> in your area — with the biggest room to grow on your lower-scoring signals. Let's tackle that together.</>
-            : <>There's <span className="font-semibold text-gray-800">real room to grow</span> your local visibility. Start with the priority actions on the right to move the needle quickly.</>
-          }
+          {score.overallScore >= 70 ? (
+            <>
+              You're <span className="font-semibold text-gray-800">performing well</span> in your
+              area. Keep up the momentum and focus on your top priority actions.
+            </>
+          ) : score.overallScore >= 45 ? (
+            <>
+              You're <span className="font-semibold text-gray-800">solidly mid-pack</span> in your
+              area — with the biggest room to grow on your lower-scoring signals. Let's tackle that
+              together.
+            </>
+          ) : (
+            <>
+              There's <span className="font-semibold text-gray-800">real room to grow</span> your
+              local visibility. Start with the priority actions on the right to move the needle
+              quickly.
+            </>
+          )}
         </p>
       )}
 
@@ -141,9 +161,10 @@ export function BusinessScoreCard({ own, competitors }: Props) {
         <div className="space-y-4">
           {METRICS.map(({ label, key, color }) => {
             const ownScore = score[key];
-            const topCompetitorScore = competitors.length > 0
-              ? Math.max(...competitors.map(c => c.aiScore?.[key] ?? 0))
-              : null;
+            const topCompetitorScore =
+              competitors.length > 0
+                ? Math.max(...competitors.map((c) => c.aiScore?.[key] ?? 0))
+                : null;
 
             let tooltip = '';
             const g = own.googleData;
@@ -154,19 +175,28 @@ export function BusinessScoreCard({ own, competitors }: Props) {
                 ? `${g.googleRating}★ Google rating · ${g.reviewCount} reviews`
                 : 'Based on Google rating and review count';
             } else if (key === 'localVisibilityScore') {
-              tooltip = s?.localVisibilityPosition != null
-                ? `#${s.localVisibilityPosition} in Google local pack`
-                : s != null ? 'Not found in top 10 local results' : 'No search ranking data yet';
+              tooltip =
+                s?.localVisibilityPosition != null
+                  ? `#${s.localVisibilityPosition} in Google local pack`
+                  : s != null
+                    ? 'Not found in top 10 local results'
+                    : 'No search ranking data yet';
             } else if (key === 'websiteHealthScore') {
               const parts: string[] = [];
               if (own.signals?.engagement.hasContactForm) parts.push('contact form ✓');
               if (own.signals?.engagement.hasCallToAction) parts.push('CTA ✓');
               if (own.signals?.seo.hasSitemap) parts.push('sitemap ✓');
               if (own.pagespeedData) {
-                const avg = Math.round((own.pagespeedData.mobile.performanceScore + own.pagespeedData.desktop.performanceScore) / 2);
+                const avg = Math.round(
+                  (own.pagespeedData.mobile.performanceScore +
+                    own.pagespeedData.desktop.performanceScore) /
+                    2,
+                );
                 parts.push(`PageSpeed ${avg}/100`);
               }
-              tooltip = parts.length ? parts.join(' · ') : 'Crawl-based: contact info, CTA, SEO tags, page speed';
+              tooltip = parts.length
+                ? parts.join(' · ')
+                : 'Crawl-based: contact info, CTA, SEO tags, page speed';
             } else if (key === 'gbpCompletenessScore') {
               if (g) {
                 const filled: string[] = [];
@@ -180,7 +210,8 @@ export function BusinessScoreCard({ own, competitors }: Props) {
                   ? `GBP fields present: ${filled.join(', ')}`
                   : 'No Google Business Profile fields found';
               } else {
-                tooltip = 'Google Business Profile completeness (address, phone, hours, photos, etc.)';
+                tooltip =
+                  'Google Business Profile completeness (address, phone, hours, photos, etc.)';
               }
             } else if (key === 'aiPresenceScore') {
               tooltip = v
@@ -189,8 +220,8 @@ export function BusinessScoreCard({ own, competitors }: Props) {
             } else if (key === 'reviewVelocityScore') {
               if (g) {
                 const cutoff = Date.now() - 30 * 86400000;
-                const recent = g.recentReviews.filter(r => r.time >= cutoff).length;
-                const replied = g.recentReviews.filter(r => r.ownerReply).length;
+                const recent = g.recentReviews.filter((r) => r.time >= cutoff).length;
+                const replied = g.recentReviews.filter((r) => r.ownerReply).length;
                 tooltip = `~${recent} new reviews in last 30 days · ${replied}/${g.recentReviews.length} replies`;
               } else {
                 tooltip = 'New Google reviews per month + owner reply rate bonus';

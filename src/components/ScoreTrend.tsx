@@ -45,7 +45,9 @@ export function ScoreTrend() {
         >
           <div className="flex items-center gap-2 mb-2">
             <span className="w-2 h-2 rounded-full bg-primary" />
-            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Your Score</p>
+            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+              Your Score
+            </p>
           </div>
           <p className="font-display text-4xl font-bold text-foreground">{ownScore}</p>
           <p className="text-xs text-muted-foreground mt-1.5">Starting baseline this week</p>
@@ -59,7 +61,9 @@ export function ScoreTrend() {
         >
           <div className="flex items-center gap-2 mb-2">
             <span className="w-2 h-2 rounded-full bg-accent" />
-            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Top Competitor</p>
+            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+              Top Competitor
+            </p>
           </div>
           <p className="font-display text-4xl font-bold text-foreground">{topCompScore}</p>
           <p className="text-xs text-muted-foreground mt-1.5">Their baseline this week</p>

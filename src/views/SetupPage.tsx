@@ -6,8 +6,18 @@ import { Logo } from '@/components/Logo';
 import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  ArrowLeft, ArrowRight, Check, Plus, X,
-  Building2, Globe, MapPin, Tag, Users, Mail, Lock,
+  ArrowLeft,
+  ArrowRight,
+  Check,
+  Plus,
+  X,
+  Building2,
+  Globe,
+  MapPin,
+  Tag,
+  Users,
+  Mail,
+  Lock,
 } from 'lucide-react';
 import { resetPasswordForEmail } from '@/lib/supabase/auth';
 import { SERVICE_CATEGORY_OPTIONS, type ServiceCategory } from '@/lib/serviceCategories';
@@ -41,7 +51,11 @@ const initialSignupData: SignupData = {
 
 const getDomain = (url: string) => {
   const normalized = /^https?:\/\//i.test(url.trim()) ? url.trim() : `https://${url.trim()}`;
-  try { return new URL(normalized).hostname; } catch { return url.trim(); }
+  try {
+    return new URL(normalized).hostname;
+  } catch {
+    return url.trim();
+  }
 };
 
 const inputCls =
@@ -88,7 +102,9 @@ const SetupPage = () => {
   // Scanning state
   const [scanning, setScanning] = useState(false);
   const [projectId, setProjectId] = useState<string | null>(null);
-  const [bizStatuses, setBizStatuses] = useState<Array<{ id: string; name: string; crawl_status: string }>>([]);
+  const [bizStatuses, setBizStatuses] = useState<
+    Array<{ id: string; name: string; crawl_status: string }>
+  >([]);
   const [savedProjectRef, setSavedProjectRef] = useState<Project | null>(null);
 
   const [error, setError] = useState('');
@@ -107,14 +123,17 @@ const SetupPage = () => {
         const d = await res.json();
         setBizStatuses(d.businesses ?? []);
         const allDone = (d.businesses ?? []).every(
-          (b: { crawl_status: string }) => b.crawl_status === 'complete' || b.crawl_status === 'failed',
+          (b: { crawl_status: string }) =>
+            b.crawl_status === 'complete' || b.crawl_status === 'failed',
         );
         if (allDone) {
           clearInterval(interval);
           if (savedProjectRef) setProject(savedProjectRef);
           router.push('/dashboard');
         }
-      } catch { /* keep polling */ }
+      } catch {
+        /* keep polling */
+      }
     }, 3000);
     return () => clearInterval(interval);
   }, [scanning, projectId, router, savedProjectRef, setProject]);
@@ -158,7 +177,8 @@ const SetupPage = () => {
 
   // --- Signup wizard handlers ---
   const canProceed = () => {
-    if (step === 1) return !!data.name.trim() && data.email.includes('@') && data.password.length >= 8;
+    if (step === 1)
+      return !!data.name.trim() && data.email.includes('@') && data.password.length >= 8;
     if (step === 2) return !!data.businessName.trim() && !!data.website.trim();
     if (step === 3) return !!data.category && !!data.postcode.trim() && !!data.city.trim();
     return true;
@@ -216,7 +236,11 @@ const SetupPage = () => {
         competitorsFinal,
       );
 
-      setSettings({ primaryService: data.category as ServiceCategory, location: data.city, postcode: data.postcode });
+      setSettings({
+        primaryService: data.category as ServiceCategory,
+        location: data.city,
+        postcode: data.postcode,
+      });
 
       const allBiz = [savedProject.ownBusiness, ...savedProject.competitors];
       setBizStatuses(allBiz.map((b) => ({ id: b.id, name: b.name, crawl_status: 'pending' })));
@@ -290,9 +314,21 @@ const SetupPage = () => {
                     </Field>
                     {error && <p className="text-xs text-destructive">{error}</p>}
                     <PrimaryButton onClick={handleForgot} disabled={!loginEmail || loading}>
-                      {loading ? 'Sending…' : <><span>Send Reset Link</span><ArrowRight className="w-4 h-4" /></>}
+                      {loading ? (
+                        'Sending…'
+                      ) : (
+                        <>
+                          <span>Send Reset Link</span>
+                          <ArrowRight className="w-4 h-4" />
+                        </>
+                      )}
                     </PrimaryButton>
-                    <GhostButton onClick={() => { setForgotMode(false); setError(''); }}>
+                    <GhostButton
+                      onClick={() => {
+                        setForgotMode(false);
+                        setError('');
+                      }}
+                    >
                       Back to login
                     </GhostButton>
                   </>
@@ -321,10 +357,25 @@ const SetupPage = () => {
                     />
                   </Field>
                   {error && <p className="text-xs text-destructive">{error}</p>}
-                  <PrimaryButton onClick={handleLogin} disabled={!loginEmail || !loginPassword || loading}>
-                    {loading ? 'Please wait…' : <><span>Log In</span><ArrowRight className="w-4 h-4" /></>}
+                  <PrimaryButton
+                    onClick={handleLogin}
+                    disabled={!loginEmail || !loginPassword || loading}
+                  >
+                    {loading ? (
+                      'Please wait…'
+                    ) : (
+                      <>
+                        <span>Log In</span>
+                        <ArrowRight className="w-4 h-4" />
+                      </>
+                    )}
                   </PrimaryButton>
-                  <GhostButton onClick={() => { setForgotMode(true); setError(''); }}>
+                  <GhostButton
+                    onClick={() => {
+                      setForgotMode(true);
+                      setError('');
+                    }}
+                  >
                     Forgot password?
                   </GhostButton>
                 </>
@@ -377,7 +428,9 @@ const SetupPage = () => {
                     {bizStatuses.map((b) => (
                       <div key={b.id} className="flex items-center justify-between py-1.5">
                         <span className="text-sm text-foreground truncate">{b.name}</span>
-                        <span className={`text-xs font-medium ${STATUS_STYLES[b.crawl_status] ?? 'text-muted-foreground'}`}>
+                        <span
+                          className={`text-xs font-medium ${STATUS_STYLES[b.crawl_status] ?? 'text-muted-foreground'}`}
+                        >
                           {STATUS_LABELS[b.crawl_status] ?? b.crawl_status}
                         </span>
                       </div>
@@ -386,244 +439,267 @@ const SetupPage = () => {
                 </div>
               ) : (
                 <>
-                <AnimatePresence mode="wait">
-                  {/* Step 1 – Account */}
-                  {step === 1 && (
-                    <motion.div
-                      key="step-1"
-                      initial={{ opacity: 0, x: 20 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      exit={{ opacity: 0, x: -20 }}
-                      transition={{ duration: 0.2 }}
-                    >
-                      <StepHeader
-                        icon={<Mail className="w-5 h-5" />}
-                        title="Create your account"
-                        subtitle="We'll email your weekly competitor reports here."
-                      />
-                      <div className="space-y-5">
-                        <Field label="Your name">
-                          <input
-                            type="text"
-                            placeholder="e.g. Sarah"
-                            value={data.name}
-                            onChange={(e) => update('name', e.target.value)}
-                            className={inputCls}
-                            autoFocus
-                            autoComplete="given-name"
-                          />
-                        </Field>
-                        <Field label="Work email">
-                          <input
-                            type="email"
-                            placeholder="you@yourbusiness.co.uk"
-                            value={data.email}
-                            onChange={(e) => update('email', e.target.value)}
-                            className={inputCls}
-                          />
-                        </Field>
-                        <Field label="Password" hint="Minimum 8 characters">
-                          <div className="relative">
-                            <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                  <AnimatePresence mode="wait">
+                    {/* Step 1 – Account */}
+                    {step === 1 && (
+                      <motion.div
+                        key="step-1"
+                        initial={{ opacity: 0, x: 20 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        exit={{ opacity: 0, x: -20 }}
+                        transition={{ duration: 0.2 }}
+                      >
+                        <StepHeader
+                          icon={<Mail className="w-5 h-5" />}
+                          title="Create your account"
+                          subtitle="We'll email your weekly competitor reports here."
+                        />
+                        <div className="space-y-5">
+                          <Field label="Your name">
                             <input
-                              type="password"
-                              placeholder="••••••••"
-                              value={data.password}
-                              onChange={(e) => update('password', e.target.value)}
-                              className={`${inputCls} pl-10`}
+                              type="text"
+                              placeholder="e.g. Sarah"
+                              value={data.name}
+                              onChange={(e) => update('name', e.target.value)}
+                              className={inputCls}
+                              autoFocus
+                              autoComplete="given-name"
                             />
-                          </div>
-                        </Field>
-                      </div>
-                    </motion.div>
-                  )}
-
-                  {/* Step 2 – Business */}
-                  {step === 2 && (
-                    <motion.div
-                      key="step-2"
-                      initial={{ opacity: 0, x: 20 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      exit={{ opacity: 0, x: -20 }}
-                      transition={{ duration: 0.2 }}
-                    >
-                      <StepHeader
-                        icon={<Building2 className="w-5 h-5" />}
-                        title="Tell us about your business"
-                        subtitle="This is the business we'll score and benchmark."
-                      />
-                      <div className="space-y-5">
-                        <Field label="Business name">
-                          <input
-                            placeholder="e.g. Smith & Sons Plumbing"
-                            value={data.businessName}
-                            onChange={(e) => update('businessName', e.target.value)}
-                            className={inputCls}
-                            autoFocus
-                          />
-                        </Field>
-                        <Field label="Website URL" hint="We'll crawl this to score your online presence">
-                          <div className="relative">
-                            <Globe className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                          </Field>
+                          <Field label="Work email">
                             <input
-                              placeholder="https://yourbusiness.co.uk"
-                              value={data.website}
-                              onChange={(e) => update('website', e.target.value)}
-                              className={`${inputCls} pl-10`}
-                            />
-                          </div>
-                        </Field>
-                      </div>
-                    </motion.div>
-                  )}
-
-                  {/* Step 3 – Location & category */}
-                  {step === 3 && (
-                    <motion.div
-                      key="step-3"
-                      initial={{ opacity: 0, x: 20 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      exit={{ opacity: 0, x: -20 }}
-                      transition={{ duration: 0.2 }}
-                    >
-                      <StepHeader
-                        icon={<MapPin className="w-5 h-5" />}
-                        title="What & where"
-                        subtitle="Helps us find the right local search results to compare you against."
-                      />
-                      <div className="space-y-5">
-                        <Field label="Business category">
-                          <div className="relative">
-                            <Tag className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground z-10 pointer-events-none" />
-                            <select
-                              value={data.category}
-                              onChange={(e) => update('category', e.target.value as ServiceCategory)}
-                              className={`${inputCls} pl-10 text-foreground`}
-                            >
-                              <option value="" disabled>Pick the closest match</option>
-                              {SERVICE_CATEGORY_OPTIONS.map((opt) => (
-                                <option key={opt.value} value={opt.value}>{opt.label}</option>
-                              ))}
-                            </select>
-                          </div>
-                        </Field>
-                        <div className="grid grid-cols-2 gap-4">
-                          <Field label="Town / City">
-                            <input
-                              placeholder="Manchester"
-                              value={data.city}
-                              onChange={(e) => update('city', e.target.value)}
+                              type="email"
+                              placeholder="you@yourbusiness.co.uk"
+                              value={data.email}
+                              onChange={(e) => update('email', e.target.value)}
                               className={inputCls}
                             />
                           </Field>
-                          <Field label="Postcode">
-                            <input
-                              placeholder="M1 4PQ"
-                              value={data.postcode}
-                              onChange={(e) => {
-                                update('postcode', e.target.value.toUpperCase());
-                                setPostcodeError('');
-                              }}
-                              className={`${inputCls} ${postcodeError ? 'border-destructive' : ''}`}
-                            />
-                            {postcodeError && (
-                              <p className="text-xs text-destructive mt-1">{postcodeError}</p>
-                            )}
+                          <Field label="Password" hint="Minimum 8 characters">
+                            <div className="relative">
+                              <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                              <input
+                                type="password"
+                                placeholder="••••••••"
+                                value={data.password}
+                                onChange={(e) => update('password', e.target.value)}
+                                className={`${inputCls} pl-10`}
+                              />
+                            </div>
                           </Field>
                         </div>
-                      </div>
-                    </motion.div>
-                  )}
+                      </motion.div>
+                    )}
 
-                  {/* Step 4 – Competitors */}
-                  {step === 4 && (
-                    <motion.div
-                      key="step-4"
-                      initial={{ opacity: 0, x: 20 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      exit={{ opacity: 0, x: -20 }}
-                      transition={{ duration: 0.2 }}
-                    >
-                      <StepHeader
-                        icon={<Users className="w-5 h-5" />}
-                        title="Add your competitors"
-                        subtitle={`Up to 5 local rivals. Leave blank — we'll auto-detect top ${data.category || 'local'} businesses near ${data.city || 'you'}.`}
-                      />
-                      <div className="space-y-3">
-                        {data.competitors.map((c, i) => (
-                          <div key={i} className="flex gap-2 items-start">
-                            <div className="flex-1 space-y-2">
+                    {/* Step 2 – Business */}
+                    {step === 2 && (
+                      <motion.div
+                        key="step-2"
+                        initial={{ opacity: 0, x: 20 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        exit={{ opacity: 0, x: -20 }}
+                        transition={{ duration: 0.2 }}
+                      >
+                        <StepHeader
+                          icon={<Building2 className="w-5 h-5" />}
+                          title="Tell us about your business"
+                          subtitle="This is the business we'll score and benchmark."
+                        />
+                        <div className="space-y-5">
+                          <Field label="Business name">
+                            <input
+                              placeholder="e.g. Smith & Sons Plumbing"
+                              value={data.businessName}
+                              onChange={(e) => update('businessName', e.target.value)}
+                              className={inputCls}
+                              autoFocus
+                            />
+                          </Field>
+                          <Field
+                            label="Website URL"
+                            hint="We'll crawl this to score your online presence"
+                          >
+                            <div className="relative">
+                              <Globe className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                               <input
-                                placeholder={`Competitor ${i + 1} business name`}
-                                value={c.name}
-                                onChange={(e) => {
-                                  const updated = [...data.competitors];
-                                  updated[i] = { ...updated[i], name: e.target.value };
-                                  update('competitors', updated);
-                                }}
+                                placeholder="https://yourbusiness.co.uk"
+                                value={data.website}
+                                onChange={(e) => update('website', e.target.value)}
+                                className={`${inputCls} pl-10`}
+                              />
+                            </div>
+                          </Field>
+                        </div>
+                      </motion.div>
+                    )}
+
+                    {/* Step 3 – Location & category */}
+                    {step === 3 && (
+                      <motion.div
+                        key="step-3"
+                        initial={{ opacity: 0, x: 20 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        exit={{ opacity: 0, x: -20 }}
+                        transition={{ duration: 0.2 }}
+                      >
+                        <StepHeader
+                          icon={<MapPin className="w-5 h-5" />}
+                          title="What & where"
+                          subtitle="Helps us find the right local search results to compare you against."
+                        />
+                        <div className="space-y-5">
+                          <Field label="Business category">
+                            <div className="relative">
+                              <Tag className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground z-10 pointer-events-none" />
+                              <select
+                                value={data.category}
+                                onChange={(e) =>
+                                  update('category', e.target.value as ServiceCategory)
+                                }
+                                className={`${inputCls} pl-10 text-foreground`}
+                              >
+                                <option value="" disabled>
+                                  Pick the closest match
+                                </option>
+                                {SERVICE_CATEGORY_OPTIONS.map((opt) => (
+                                  <option key={opt.value} value={opt.value}>
+                                    {opt.label}
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+                          </Field>
+                          <div className="grid grid-cols-2 gap-4">
+                            <Field label="Town / City">
+                              <input
+                                placeholder="Manchester"
+                                value={data.city}
+                                onChange={(e) => update('city', e.target.value)}
                                 className={inputCls}
                               />
-                              <div className="relative">
-                                <Globe className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                            </Field>
+                            <Field label="Postcode">
+                              <input
+                                placeholder="M1 4PQ"
+                                value={data.postcode}
+                                onChange={(e) => {
+                                  update('postcode', e.target.value.toUpperCase());
+                                  setPostcodeError('');
+                                }}
+                                className={`${inputCls} ${postcodeError ? 'border-destructive' : ''}`}
+                              />
+                              {postcodeError && (
+                                <p className="text-xs text-destructive mt-1">{postcodeError}</p>
+                              )}
+                            </Field>
+                          </div>
+                        </div>
+                      </motion.div>
+                    )}
+
+                    {/* Step 4 – Competitors */}
+                    {step === 4 && (
+                      <motion.div
+                        key="step-4"
+                        initial={{ opacity: 0, x: 20 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        exit={{ opacity: 0, x: -20 }}
+                        transition={{ duration: 0.2 }}
+                      >
+                        <StepHeader
+                          icon={<Users className="w-5 h-5" />}
+                          title="Add your competitors"
+                          subtitle={`Up to 5 local rivals. Leave blank — we'll auto-detect top ${data.category || 'local'} businesses near ${data.city || 'you'}.`}
+                        />
+                        <div className="space-y-3">
+                          {data.competitors.map((c, i) => (
+                            <div key={i} className="flex gap-2 items-start">
+                              <div className="flex-1 space-y-2">
                                 <input
-                                  placeholder={`Competitor ${i + 1} website`}
-                                  value={c.url}
+                                  placeholder={`Competitor ${i + 1} business name`}
+                                  value={c.name}
                                   onChange={(e) => {
                                     const updated = [...data.competitors];
-                                    updated[i] = { ...updated[i], url: e.target.value };
+                                    updated[i] = { ...updated[i], name: e.target.value };
                                     update('competitors', updated);
                                   }}
-                                  className={`${inputCls} pl-10`}
+                                  className={inputCls}
                                 />
+                                <div className="relative">
+                                  <Globe className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                                  <input
+                                    placeholder={`Competitor ${i + 1} website`}
+                                    value={c.url}
+                                    onChange={(e) => {
+                                      const updated = [...data.competitors];
+                                      updated[i] = { ...updated[i], url: e.target.value };
+                                      update('competitors', updated);
+                                    }}
+                                    className={`${inputCls} pl-10`}
+                                  />
+                                </div>
                               </div>
+                              {data.competitors.length > 1 && (
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    update(
+                                      'competitors',
+                                      data.competitors.filter((_, idx) => idx !== i),
+                                    )
+                                  }
+                                  className="h-10 w-10 flex items-center justify-center rounded-lg text-muted-foreground hover:text-destructive transition-colors mt-1"
+                                >
+                                  <X className="w-4 h-4" />
+                                </button>
+                              )}
                             </div>
-                            {data.competitors.length > 1 && (
-                              <button
-                                type="button"
-                                onClick={() => update('competitors', data.competitors.filter((_, idx) => idx !== i))}
-                                className="h-10 w-10 flex items-center justify-center rounded-lg text-muted-foreground hover:text-destructive transition-colors mt-1"
-                              >
-                                <X className="w-4 h-4" />
-                              </button>
-                            )}
-                          </div>
-                        ))}
-                        {data.competitors.length < 5 && (
-                          <button
-                            type="button"
-                            onClick={() => update('competitors', [...data.competitors, { name: '', url: '' }])}
-                            className="w-full h-10 flex items-center justify-center gap-1.5 rounded-lg border border-dashed border-border text-sm text-muted-foreground hover:text-foreground hover:border-foreground/30 transition-colors"
-                          >
-                            <Plus className="w-4 h-4" /> Add another competitor
-                          </button>
-                        )}
-                      </div>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
+                          ))}
+                          {data.competitors.length < 5 && (
+                            <button
+                              type="button"
+                              onClick={() =>
+                                update('competitors', [...data.competitors, { name: '', url: '' }])
+                              }
+                              className="w-full h-10 flex items-center justify-center gap-1.5 rounded-lg border border-dashed border-border text-sm text-muted-foreground hover:text-foreground hover:border-foreground/30 transition-colors"
+                            >
+                              <Plus className="w-4 h-4" /> Add another competitor
+                            </button>
+                          )}
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
 
-                {error && <p className="text-xs text-destructive mt-4">{error}</p>}
+                  {error && <p className="text-xs text-destructive mt-4">{error}</p>}
 
-                {/* Navigation */}
-                <div className="flex items-center justify-between mt-8 pt-6 border-t border-border/60">
-                  <button
-                    onClick={() => (step > 1 ? setStep(step - 1) : switchToLogin())}
-                    className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
-                  >
-                    <ArrowLeft className="w-4 h-4" /> Back
-                  </button>
-                  <button
-                    onClick={handleNext}
-                    disabled={!canProceed() || loading}
-                    className="flex items-center gap-2 px-6 py-2.5 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 disabled:opacity-50 transition-opacity"
-                  >
-                    {loading
-                      ? 'Please wait…'
-                      : step === TOTAL_STEPS
-                        ? <><Check className="w-4 h-4" /> Start my free scan</>
-                        : <><span>Continue</span><ArrowRight className="w-4 h-4" /></>}
-                  </button>
-                </div>
+                  {/* Navigation */}
+                  <div className="flex items-center justify-between mt-8 pt-6 border-t border-border/60">
+                    <button
+                      onClick={() => (step > 1 ? setStep(step - 1) : switchToLogin())}
+                      className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
+                    >
+                      <ArrowLeft className="w-4 h-4" /> Back
+                    </button>
+                    <button
+                      onClick={handleNext}
+                      disabled={!canProceed() || loading}
+                      className="flex items-center gap-2 px-6 py-2.5 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 disabled:opacity-50 transition-opacity"
+                    >
+                      {loading ? (
+                        'Please wait…'
+                      ) : step === TOTAL_STEPS ? (
+                        <>
+                          <Check className="w-4 h-4" /> Start my free scan
+                        </>
+                      ) : (
+                        <>
+                          <span>Continue</span>
+                          <ArrowRight className="w-4 h-4" />
+                        </>
+                      )}
+                    </button>
+                  </div>
                 </>
               )}
             </div>
@@ -631,7 +707,10 @@ const SetupPage = () => {
             {!scanning && (
               <p className="text-center text-sm text-muted-foreground mt-8">
                 Already have an account?{' '}
-                <button onClick={switchToLogin} className="text-primary font-medium hover:underline">
+                <button
+                  onClick={switchToLogin}
+                  className="text-primary font-medium hover:underline"
+                >
                   Sign in
                 </button>
               </p>
@@ -652,7 +731,9 @@ const SetupPage = () => {
 // ---------------------------------------------------------------------------
 
 const StepHeader = ({
-  icon, title, subtitle,
+  icon,
+  title,
+  subtitle,
 }: {
   icon: React.ReactNode;
   title: string;
@@ -670,7 +751,9 @@ const StepHeader = ({
 );
 
 const Field = ({
-  label, hint, children,
+  label,
+  hint,
+  children,
 }: {
   label: string;
   hint?: string;
@@ -684,7 +767,9 @@ const Field = ({
 );
 
 const PrimaryButton = ({
-  onClick, disabled, children,
+  onClick,
+  disabled,
+  children,
 }: {
   onClick: () => void;
   disabled?: boolean;
@@ -699,12 +784,7 @@ const PrimaryButton = ({
   </button>
 );
 
-const GhostButton = ({
-  onClick, children,
-}: {
-  onClick: () => void;
-  children: React.ReactNode;
-}) => (
+const GhostButton = ({ onClick, children }: { onClick: () => void; children: React.ReactNode }) => (
   <button
     onClick={onClick}
     className="w-full text-xs text-muted-foreground hover:text-foreground text-center transition-colors"

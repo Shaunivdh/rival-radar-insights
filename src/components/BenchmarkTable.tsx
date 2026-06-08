@@ -8,15 +8,19 @@ import type { Business } from '@/types';
 import { ExternalLink } from 'lucide-react';
 
 const METRICS: { key: keyof NonNullable<Business['aiScore']>; emoji: string; label: string }[] = [
-  { key: 'reputationScore',           emoji: '🌟', label: 'Reputation' },
-  { key: 'localVisibilityScore',      emoji: '📍', label: 'Local Visibility' },
-  { key: 'websiteHealthScore',        emoji: '🌐', label: 'Website Health' },
-  { key: 'gbpCompletenessScore',      emoji: '📋', label: 'GBP Completeness' },
-  { key: 'aiPresenceScore',           emoji: '🤖', label: 'AI Presence' },
-  { key: 'reviewVelocityScore',       emoji: '⚡', label: 'Review Velocity (G)' },
+  { key: 'reputationScore', emoji: '🌟', label: 'Reputation' },
+  { key: 'localVisibilityScore', emoji: '📍', label: 'Local Visibility' },
+  { key: 'websiteHealthScore', emoji: '🌐', label: 'Website Health' },
+  { key: 'gbpCompletenessScore', emoji: '📋', label: 'GBP Completeness' },
+  { key: 'aiPresenceScore', emoji: '🤖', label: 'AI Presence' },
+  { key: 'reviewVelocityScore', emoji: '⚡', label: 'Review Velocity (G)' },
 ];
 
-const GOOGLE_METRICS = new Set<typeof METRICS[number]['key']>(['reputationScore', 'gbpCompletenessScore', 'reviewVelocityScore']);
+const GOOGLE_METRICS = new Set<(typeof METRICS)[number]['key']>([
+  'reputationScore',
+  'gbpCompletenessScore',
+  'reviewVelocityScore',
+]);
 
 function isDataMissing(key: keyof NonNullable<Business['aiScore']>, biz: Business): boolean {
   if (GOOGLE_METRICS.has(key)) return biz.googleData === null;
@@ -36,7 +40,11 @@ const Row = ({ biz, isOwn }: { biz: Business; isOwn?: boolean }) => {
       <td className="px-4 py-3 min-w-[160px]">
         <div className="flex items-center gap-2">
           <span className="text-sm font-medium text-foreground">{biz.name}</span>
-          {isOwn && <span className="text-[10px] font-medium bg-primary/10 text-primary px-1.5 py-0.5 rounded">YOU</span>}
+          {isOwn && (
+            <span className="text-[10px] font-medium bg-primary/10 text-primary px-1.5 py-0.5 rounded">
+              YOU
+            </span>
+          )}
         </div>
         <p className="text-xs text-muted-foreground mt-0.5 flex items-center gap-1">
           {biz.domain} <ExternalLink className="w-3 h-3" />
@@ -44,9 +52,15 @@ const Row = ({ biz, isOwn }: { biz: Business; isOwn?: boolean }) => {
       </td>
 
       <td className="px-4 py-3 text-center">
-        {biz.aiScore
-          ? <ScoreChip label="" score={biz.aiScore.overallScore} weeklyDelta={biz.aiScore.weeklyDelta} />
-          : <span className="text-xs text-muted-foreground">—</span>}
+        {biz.aiScore ? (
+          <ScoreChip
+            label=""
+            score={biz.aiScore.overallScore}
+            weeklyDelta={biz.aiScore.weeklyDelta}
+          />
+        ) : (
+          <span className="text-xs text-muted-foreground">—</span>
+        )}
       </td>
 
       {METRICS.map(({ key }) => {
@@ -105,10 +119,17 @@ export const BenchmarkTable = () => {
       <table className="w-full text-left">
         <thead>
           <tr className="border-b border-border bg-muted/30">
-            <th className="px-4 py-3 text-xs font-medium text-muted-foreground uppercase tracking-wider">Business</th>
-            <th className="px-4 py-3 text-xs font-medium text-muted-foreground uppercase tracking-wider text-center">Overall</th>
+            <th className="px-4 py-3 text-xs font-medium text-muted-foreground uppercase tracking-wider">
+              Business
+            </th>
+            <th className="px-4 py-3 text-xs font-medium text-muted-foreground uppercase tracking-wider text-center">
+              Overall
+            </th>
             {METRICS.map(({ emoji, label }) => (
-              <th key={label} className="px-4 py-3 text-xs font-medium text-muted-foreground uppercase tracking-wider text-center whitespace-nowrap">
+              <th
+                key={label}
+                className="px-4 py-3 text-xs font-medium text-muted-foreground uppercase tracking-wider text-center whitespace-nowrap"
+              >
                 {emoji} {label}
               </th>
             ))}

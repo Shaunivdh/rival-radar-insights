@@ -14,7 +14,9 @@ export function normalizeUrl(url: string): string {
 export function isValidUrl(url: string): boolean {
   try {
     const parsed = new URL(normalizeUrl(url));
-    return (parsed.protocol === 'https:' || parsed.protocol === 'http:') && parsed.hostname.includes('.');
+    return (
+      (parsed.protocol === 'https:' || parsed.protocol === 'http:') && parsed.hostname.includes('.')
+    );
   } catch {
     return false;
   }

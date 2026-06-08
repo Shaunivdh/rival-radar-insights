@@ -8,13 +8,24 @@ export async function POST(request: NextRequest) {
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    { cookies: { getAll() { return cookieStore.getAll(); } } }
+    {
+      cookies: {
+        getAll() {
+          return cookieStore.getAll();
+        },
+      },
+    },
   );
 
-  const { data: { user } } = await supabase.auth.getUser();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-  const { locationName, accountName } = await request.json() as { locationName: string | null; accountName: string | null };
+  const { locationName, accountName } = (await request.json()) as {
+    locationName: string | null;
+    accountName: string | null;
+  };
 
   await supabaseAdmin
     .from('app_settings')

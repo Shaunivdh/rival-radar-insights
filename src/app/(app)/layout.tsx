@@ -52,7 +52,9 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         Skip to main content
       </a>
       <AppSidebar />
-      <main id="main-content" className="flex-1 p-6 overflow-auto">{children}</main>
+      <main id="main-content" className="flex-1 p-6 overflow-auto">
+        {children}
+      </main>
     </div>
   );
 }

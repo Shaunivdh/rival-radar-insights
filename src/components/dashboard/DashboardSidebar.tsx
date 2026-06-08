@@ -2,7 +2,16 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { LayoutDashboard, Users, Settings, Lightbulb, Building2, Eye, HelpCircle, Zap } from 'lucide-react';
+import {
+  LayoutDashboard,
+  Users,
+  Settings,
+  Lightbulb,
+  Building2,
+  Eye,
+  HelpCircle,
+  Zap,
+} from 'lucide-react';
 import { Logo } from '@/components/Logo';
 import { cn } from '@/lib/utils';
 import { useRivalRadarStore } from '@/store/rivalradar';
@@ -55,12 +64,14 @@ const DashboardSidebar = () => {
                         <item.icon className="w-4 h-4" />
                         <span>{item.label}</span>
                         {item.badge && priorityActions.length > 0 && (
-                          <span className={cn(
-                            'ml-auto text-xs font-semibold rounded-full px-2 py-0.5',
-                            active
-                              ? 'bg-primary-foreground/20 text-primary-foreground'
-                              : 'bg-primary/10 text-primary'
-                          )}>
+                          <span
+                            className={cn(
+                              'ml-auto text-xs font-semibold rounded-full px-2 py-0.5',
+                              active
+                                ? 'bg-primary-foreground/20 text-primary-foreground'
+                                : 'bg-primary/10 text-primary',
+                            )}
+                          >
                             +{priorityActions.length}
                           </span>
                         )}

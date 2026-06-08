@@ -14,9 +14,9 @@ export class CrawlDisallowedError extends Error {
 }
 
 const USE_MOCK = process.env.USE_MOCK_CRAWL === 'true';
-// eslint-disable-next-line @typescript-eslint/no-require-imports
 const mock = USE_MOCK
-  ? (require('@/services/crawl.mock') as typeof import('@/services/crawl.mock'))
+  ? // eslint-disable-next-line @typescript-eslint/no-require-imports
+    (require('@/services/crawl.mock') as typeof import('@/services/crawl.mock'))
   : null;
 
 const PRIORITY_KEYWORDS = [

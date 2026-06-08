@@ -663,8 +663,13 @@ export async function extractAndPersistSignals(
     .single();
   const existingErrs = (existingErrRow?.enrichment_errors ?? {}) as Record<string, string>;
   const nextErrs: Record<string, string> = { ...existingErrs };
-  if (extractFailures > 0 && extractFailures === extractAttempts && extractAttempts > 0) {
-    nextErrs.extract = 'Page-signal extraction failed — some on-site recommendations may be unavailable.';
+  // Flag on ANY extract failure — partial failures still corrupt downstream signals.
+  if (extractFailures > 0 && extractAttempts > 0) {
+    const ratio = `${extractFailures}/${extractAttempts}`;
+    nextErrs.extract =
+      extractFailures === extractAttempts
+        ? 'Page-signal extraction failed — some on-site recommendations may be unavailable.'
+        : `Page-signal extraction partially failed (${ratio} pages) — some on-site recommendations may be unavailable.`;
   } else {
     delete nextErrs.extract;
   }

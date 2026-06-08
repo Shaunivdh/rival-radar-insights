@@ -253,21 +253,46 @@ function coveredSlotsNote(templateActions: PriorityAction[], remainingSlots: num
 
 /**
  * Compute the recommended effort mix for the slots the LLM still needs to fill.
- * Target overall mix across 5 actions = 2 low, 2 medium, 1 high.
- * We subtract what templates already provided to get what the LLM should aim for,
- * then enforce a hard cap of at most 2 high across the full list.
+ *
+ * Target overall mix across 5 actions = 2 low, 2 medium, 1 high. We subtract
+ * what templates already provided. If the resulting gap doesn't sum to
+ * `remainingSlots` we rebalance: overflow is trimmed from high → medium → low
+ * (LLM additions should lean low-effort), shortfall is padded with low. Then
+ * the hard cap of "at most 2 high across the full list" is enforced and any
+ * trimmed high slots roll back into low.
  */
 function effortGapNote(templateActions: PriorityAction[], remainingSlots: number): string {
-  const target = { low: 2, medium: 2, high: 1 };
-  const used = { low: 0, medium: 0, high: 0 };
+  type Effort = 'low' | 'medium' | 'high';
+  const target: Record<Effort, number> = { low: 2, medium: 2, high: 1 };
+  const used: Record<Effort, number> = { low: 0, medium: 0, high: 0 };
   for (const a of templateActions) used[a.effort]++;
-  const want = {
+  const want: Record<Effort, number> = {
     low: Math.max(0, target.low - used.low),
     medium: Math.max(0, target.medium - used.medium),
     high: Math.max(0, target.high - used.high),
   };
+
+  let total = want.low + want.medium + want.high;
+  if (total > remainingSlots) {
+    for (const k of ['high', 'medium', 'low'] as const) {
+      while (want[k] > 0 && total > remainingSlots) {
+        want[k]--;
+        total--;
+      }
+    }
+  } else if (total < remainingSlots) {
+    want.low += remainingSlots - total;
+  }
+
+  // Hard cap: across the full list of 5, no more than 2 'high'. Push overflow into low.
   const remainingHighCap = Math.max(0, 2 - used.high);
-  return `Effort guidance: aim for roughly ${want.low} 'low', ${want.medium} 'medium', and up to ${Math.min(want.high, remainingHighCap)} 'high' effort action${remainingSlots === 1 ? '' : 's'} across these ${remainingSlots} slot${remainingSlots === 1 ? '' : 's'}. Hard cap: no more than ${remainingHighCap} 'high' effort action${remainingHighCap === 1 ? '' : 's'} in your response.`;
+  if (want.high > remainingHighCap) {
+    want.low += want.high - remainingHighCap;
+    want.high = remainingHighCap;
+  }
+
+  const slotWord = remainingSlots === 1 ? 'slot' : 'slots';
+  return `Effort guidance: aim for ${want.low} 'low', ${want.medium} 'medium', and ${want.high} 'high' effort across these ${remainingSlots} ${slotWord}. Hard cap: no more than ${remainingHighCap} 'high' effort ${remainingHighCap === 1 ? 'action' : 'actions'} in your response.`;
 }
 
 export async function generateReviewSentiment(
@@ -759,20 +784,32 @@ async function validateActionsHybrid(
   const flaggedIndices = Array.from(new Set(flags.map((f) => f.actionIndex)));
   const flaggedActions = flaggedIndices.map((i) => ({ index: i, action: actions[i] }));
 
-  // Scope competitor signals to only the buckets relevant to flagged action categories.
-  // This keeps the validator prompt tight rather than dumping every competitor's full signals.
+  // Build a per-competitor snapshot tailored to the flagged categories.
+  // This keeps the prompt tight while still giving the validator the data it
+  // needs to fact-check — e.g. googleRating/reviewCount for Reviews flags,
+  // aiPresenceScore for AI Visibility flags.
   const flaggedCategories = new Set(flaggedIndices.map((i) => actions[i].category));
   const relevantBuckets = new Set<keyof ExtractedSignals>();
   for (const cat of flaggedCategories) {
     for (const b of CATEGORY_SIGNAL_BUCKETS[cat] ?? []) relevantBuckets.add(b);
   }
-  const scopedCompetitorSignals = competitors.map((c) => {
-    if (!c.signals) return { name: c.name, signals: null };
-    const scoped: Partial<ExtractedSignals> = {};
-    for (const b of relevantBuckets) {
-      if (c.signals[b] != null) (scoped as Record<string, unknown>)[b] = c.signals[b];
+  const competitorContext = competitors.map((c) => {
+    const ctx: Record<string, unknown> = { name: c.name };
+    if (c.signals && relevantBuckets.size > 0) {
+      const scoped: Partial<ExtractedSignals> = {};
+      for (const b of relevantBuckets) {
+        if (c.signals[b] != null) (scoped as Record<string, unknown>)[b] = c.signals[b];
+      }
+      ctx.signals = scoped;
     }
-    return { name: c.name, signals: scoped };
+    if (flaggedCategories.has('Reviews')) {
+      ctx.googleRating = c.googleData?.googleRating ?? null;
+      ctx.reviewCount = c.googleData?.reviewCount ?? null;
+    }
+    if (flaggedCategories.has('AI Visibility')) {
+      ctx.aiPresenceScore = c.aiVisibility?.aiPresenceScore ?? null;
+    }
+    return ctx;
   });
 
   const prompt = `The following actions have been flagged by automated checks. Fix ONLY the flagged issues with minimal text changes. Keep the original meaning where possible. Do not invent new facts.
@@ -784,7 +821,7 @@ Flagged actions:
 ${JSON.stringify(flaggedActions, null, 2)}
 
 Own business signals: ${JSON.stringify(own.signals)}
-Competitor signals (scoped to flagged categories): ${JSON.stringify(scopedCompetitorSignals)}
+Competitor context (scoped to flagged categories): ${JSON.stringify(competitorContext)}
 
 Return JSON only. Each patch fixes one field on one action.
 Allowed fields: action, reason, whyItMatters, competitorReference, timeframe, outcome.

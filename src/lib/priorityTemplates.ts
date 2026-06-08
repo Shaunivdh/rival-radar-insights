@@ -12,6 +12,13 @@ export type PriorityTemplate = {
   whyItMattersTemplate: string;
   steps: string[];
   outcome: string;
+  /**
+   * True (default) if the trigger reads from `b.signals.*` — i.e. depends on
+   * a successful on-site extraction. Set to false for templates that only
+   * read from googleData / serpData / aiVisibility / pagespeedData, so they
+   * still fire when `enrichmentErrors.extract` is set.
+   */
+  requiresSiteSignals?: boolean;
 };
 
 export const PRIORITY_TEMPLATES: PriorityTemplate[] = [
@@ -58,6 +65,7 @@ export const PRIORITY_TEMPLATES: PriorityTemplate[] = [
       'Set a reminder to ask one customer per week so reviews keep coming in steadily.',
     ],
     outcome: 'Steady stream of recent reviews',
+    requiresSiteSignals: false,
   },
   {
     id: 'missing_h1',
@@ -101,6 +109,7 @@ export const PRIORITY_TEMPLATES: PriorityTemplate[] = [
       'If your hours vary seasonally, set a reminder to update them each season.',
     ],
     outcome: 'Complete Google listing that builds trust',
+    requiresSiteSignals: false,
   },
   {
     id: 'no_gbp_description',
@@ -123,6 +132,7 @@ export const PRIORITY_TEMPLATES: PriorityTemplate[] = [
       'Keep it under 750 characters (the Google limit).',
     ],
     outcome: 'Better visibility in local search results',
+    requiresSiteSignals: false,
   },
   {
     id: 'no_website_meta_description',
@@ -189,6 +199,7 @@ export const PRIORITY_TEMPLATES: PriorityTemplate[] = [
       'Add a new photo every month or two to keep your listing looking active.',
     ],
     outcome: 'More clicks and calls from your Google listing',
+    requiresSiteSignals: false,
   },
   {
     id: 'missing_alt_tags',
@@ -351,6 +362,7 @@ export const PRIORITY_TEMPLATES: PriorityTemplate[] = [
       'If you have not already, submit your site to Google Search Console so Google can crawl it properly.',
     ],
     outcome: 'Appear in the map results for local searches',
+    requiresSiteSignals: false,
   },
   {
     id: 'low_review_count',
@@ -373,6 +385,7 @@ export const PRIORITY_TEMPLATES: PriorityTemplate[] = [
       'Set a goal of getting 2–3 new reviews per month and track it.',
     ],
     outcome: 'A review profile that builds instant trust',
+    requiresSiteSignals: false,
   },
   {
     id: 'slow_mobile_site',
@@ -395,6 +408,7 @@ export const PRIORITY_TEMPLATES: PriorityTemplate[] = [
       'Consider upgrading your hosting plan if your current plan is a basic shared package.',
     ],
     outcome: 'Faster site that keeps visitors and ranks better',
+    requiresSiteSignals: false,
   },
   {
     id: 'low_ai_visibility',
@@ -417,6 +431,7 @@ export const PRIORITY_TEMPLATES: PriorityTemplate[] = [
       'If you have been featured in any local news, directories, or industry sites, ask them to include a link to your website.',
     ],
     outcome: 'Get recommended by AI tools searching for local services',
+    requiresSiteSignals: false,
   },
   {
     id: 'no_cta',
@@ -450,8 +465,12 @@ export type ApplyResult = { actions: PriorityAction[]; firedIds: string[] };
 export function applyTemplates(b: Business): ApplyResult {
   const actions: PriorityAction[] = [];
   const firedIds: string[] = [];
+  // When on-site extraction failed, signal-dependent triggers are unreliable
+  // (empty arrays look the same as "missing" vs "truly absent"), so skip them.
+  const extractFailed = Boolean(b.enrichmentErrors?.extract);
 
   for (const tpl of PRIORITY_TEMPLATES) {
+    if (extractFailed && tpl.requiresSiteSignals !== false) continue;
     if (!tpl.trigger(b)) continue;
 
     firedIds.push(tpl.id);
@@ -499,8 +518,10 @@ export function applyTemplatesWithHistory(
 ): ApplyWithHistoryResult {
   const actions: PriorityAction[] = [];
   const firedIds: string[] = [];
+  const extractFailed = Boolean(b.enrichmentErrors?.extract);
 
   for (const tpl of PRIORITY_TEMPLATES) {
+    if (extractFailed && tpl.requiresSiteSignals !== false) continue;
     if (!tpl.trigger(b)) continue;
 
     firedIds.push(tpl.id);

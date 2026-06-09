@@ -13,12 +13,6 @@ export class CrawlDisallowedError extends Error {
   }
 }
 
-const USE_MOCK = process.env.USE_MOCK_CRAWL === 'true';
-const mock = USE_MOCK
-  ? // eslint-disable-next-line @typescript-eslint/no-require-imports
-    (require('@/services/crawl.mock') as typeof import('@/services/crawl.mock'))
-  : null;
-
 const PRIORITY_KEYWORDS = [
   'services',
   'service',
@@ -141,8 +135,6 @@ export async function startCrawl(
   options: CrawlOptions,
   credentials: CrawlCredentials,
 ): Promise<string> {
-  if (USE_MOCK) return mock!.startCrawl(url, options, credentials);
-
   const body = {
     url,
     render: options.render ?? false,
@@ -181,8 +173,6 @@ export async function pollCrawlStatus(
   jobId: string,
   credentials: CrawlCredentials,
 ): Promise<{ status: string }> {
-  if (USE_MOCK) return mock!.pollCrawlStatus(jobId, credentials);
-
   const res = await fetch(`${cfBase(credentials.accountId)}/crawl/${jobId}?limit=1`, {
     headers: cfHeaders(credentials.apiToken),
   });
@@ -198,8 +188,6 @@ export async function getCrawlResults(
   jobId: string,
   credentials: CrawlCredentials,
 ): Promise<RawCrawlResult> {
-  if (USE_MOCK) return mock!.getCrawlResults(jobId, credentials);
-
   const res = await fetch(`${cfBase(credentials.accountId)}/crawl/${jobId}`, {
     headers: cfHeaders(credentials.apiToken),
   });

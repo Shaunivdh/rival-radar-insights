@@ -132,16 +132,26 @@ export function computeReviewVelocityScore(
 }
 
 /**
- * Recompute overallScore from component scores using fixed weights.
+ * Recompute overallScore from component scores.
+ * Mirrors calculateScores: null components are excluded and the weighted
+ * average is renormalized over the available weights — never coerce
+ * "unknown" to zero.
  */
 export function recomputeOverallScore(score: AIHealthScore): number {
+  const components: Array<{ score: number | null; weight: number }> = [
+    { score: score.reputationScore, weight: 0.25 },
+    { score: score.localVisibilityScore, weight: 0.25 },
+    { score: score.websiteHealthScore, weight: 0.2 },
+    { score: score.gbpCompletenessScore, weight: 0.15 },
+    { score: score.aiPresenceScore, weight: 0.1 },
+    { score: score.reviewVelocityScore, weight: 0.05 },
+  ];
+
+  const available = components.filter((c) => c.score !== null);
+  const totalWeight = available.reduce((sum, c) => sum + c.weight, 0);
+  if (totalWeight === 0) return 0;
   return Math.round(
-    score.reputationScore * 0.25 +
-      score.localVisibilityScore * 0.25 +
-      score.websiteHealthScore * 0.2 +
-      score.gbpCompletenessScore * 0.15 +
-      score.aiPresenceScore * 0.1 +
-      score.reviewVelocityScore * 0.05,
+    available.reduce((sum, c) => sum + c.score! * c.weight, 0) / totalWeight,
   );
 }
 
@@ -182,7 +192,7 @@ export function calculateScores(input: ScoreInput): AIHealthScore {
     }
   }
 
-  const aiPresenceScore = aiVisibility?.aiPresenceScore ?? 0;
+  const aiPresenceScore = aiVisibility?.aiPresenceScore ?? null;
   const gbpCompletenessScore = computeGBPCompletenessScore(googleData);
 
   const websiteHealthScore = computeWebsiteHealthScore(signals ?? null, pagespeedData);
@@ -215,10 +225,10 @@ export function calculateScores(input: ScoreInput): AIHealthScore {
     weeklyDelta: null,
     reputationScore,
     localVisibilityScore,
-    websiteHealthScore: websiteHealthScore ?? 0,
+    websiteHealthScore,
     gbpCompletenessScore,
     aiPresenceScore,
-    reviewVelocityScore: reviewVelocityScore ?? 0,
+    reviewVelocityScore,
     generatedAt: new Date().toISOString(),
   };
 }

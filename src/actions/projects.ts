@@ -216,7 +216,7 @@ export async function getProject(userId: string): Promise<Project | null> {
       }));
 
       let aiScore = (b.ai_score as AIHealthScore) ?? null;
-      if (signals && (!aiScore || aiScore.websiteHealthScore === 0)) {
+      if (signals && (!aiScore || !aiScore.websiteHealthScore)) {
         aiScore = calculateScores({
           googleData: b.google_data as GoogleData | null,
           serpData: b.serp_data as SerpData | null,
@@ -409,10 +409,10 @@ export async function syncProject(projectId: string): Promise<{
 
         signals = rowToSignals(sig);
 
-        // Recalculate if missing, websiteHealthScore is 0 with signals, or localVisibilityScore is 0 with serp data
+        // Recalculate if missing, websiteHealthScore is missing/0 with signals, or localVisibilityScore is 0 with serp data
         if (
           !aiScore ||
-          (signals && aiScore.websiteHealthScore === 0) ||
+          (signals && !aiScore.websiteHealthScore) ||
           (b.serp_data && aiScore && aiScore.localVisibilityScore === 0)
         ) {
           aiScore = calculateScores({

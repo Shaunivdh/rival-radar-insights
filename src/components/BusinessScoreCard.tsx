@@ -77,7 +77,7 @@ function MetricRow({
   tooltip,
 }: {
   label: string;
-  score: number;
+  score: number | null;
   competitorScore: number | null;
   color: string;
   tooltip: string;
@@ -92,13 +92,17 @@ function MetricRow({
             {tooltip}
           </div>
         </div>
-        <span className="text-sm font-semibold text-gray-900 tabular-nums">{score}</span>
+        <span className="text-sm font-semibold text-gray-900 tabular-nums">
+          {score === null ? '—' : score}
+        </span>
       </div>
       <div className="relative h-2.5 rounded-full bg-gray-100 overflow-visible">
-        <div
-          className="h-full rounded-full"
-          style={{ width: `${score}%`, backgroundColor: color }}
-        />
+        {score !== null && (
+          <div
+            className="h-full rounded-full"
+            style={{ width: `${score}%`, backgroundColor: color }}
+          />
+        )}
         {competitorScore !== null && (
           <div
             className="absolute top-1/2 -translate-y-1/2 w-0.5 h-4 bg-gray-400 rounded-full"
@@ -161,10 +165,10 @@ export function BusinessScoreCard({ own, competitors }: Props) {
         <div className="space-y-4">
           {METRICS.map(({ label, key, color }) => {
             const ownScore = score[key];
-            const topCompetitorScore =
-              competitors.length > 0
-                ? Math.max(...competitors.map((c) => c.aiScore?.[key] ?? 0))
-                : null;
+            const competitorScores = competitors
+              .map((c) => c.aiScore?.[key])
+              .filter((s): s is number => typeof s === 'number');
+            const topCompetitorScore = competitorScores.length ? Math.max(...competitorScores) : null;
 
             let tooltip = '';
             const g = own.googleData;

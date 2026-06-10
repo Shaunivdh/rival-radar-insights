@@ -4,7 +4,7 @@ import type { Business, PageSpeedMetrics } from '@/types';
 interface MetricCardProps {
   emoji: string;
   title: string;
-  score: number;
+  score: number | null;
   subtitle: string;
   detail: string;
   source: string;
@@ -21,6 +21,8 @@ function scoreColor(s: number) {
   return { bar: 'bg-red-500', text: 'text-red-600', bg: 'bg-red-50 dark:bg-red-950/30' };
 }
 
+const NEUTRAL_COLORS = { bar: '', text: 'text-muted-foreground', bg: '' };
+
 function MetricCard({
   emoji,
   title,
@@ -36,8 +38,10 @@ function MetricCard({
   const colors = overrideMsg
     ? error
       ? { bar: '', text: 'text-amber-600', bg: 'bg-amber-50 dark:bg-amber-950/30' }
-      : { bar: '', text: 'text-muted-foreground', bg: '' }
-    : scoreColor(score);
+      : NEUTRAL_COLORS
+    : score === null
+      ? NEUTRAL_COLORS
+      : scoreColor(score);
 
   return (
     <div className={cn('card-surface flex flex-col gap-3', colors.bg)}>
@@ -52,10 +56,12 @@ function MetricCard({
             {overrideMsg}
           </span>
         ) : (
-          <span className={cn('text-2xl font-bold tabular-nums', colors.text)}>{score}</span>
+          <span className={cn('text-2xl font-bold tabular-nums', colors.text)}>
+            {score === null ? '—' : score}
+          </span>
         )}
       </div>
-      {!overrideMsg && (
+      {!overrideMsg && score !== null && (
         <div className="w-full h-1.5 rounded-full bg-muted overflow-hidden">
           <div
             className={cn('h-full rounded-full transition-all', colors.bar)}
@@ -102,8 +108,8 @@ export function MetricsGrid({ business }: MetricsGridProps) {
   const { aiScore, googleData, serpData, aiVisibility, pagespeedData, enrichmentErrors } = business;
   if (!aiScore) return null;
 
-  const getErr = (score: number, key: keyof NonNullable<typeof enrichmentErrors>) =>
-    score === 0 ? enrichmentErrors?.[key] : undefined;
+  const getErr = (score: number | null, key: keyof NonNullable<typeof enrichmentErrors>) =>
+    score === 0 || score === null ? enrichmentErrors?.[key] : undefined;
 
   const localPackPos = serpData?.localVisibilityPosition ?? null;
   const localPackLabel =

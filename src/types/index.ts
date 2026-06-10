@@ -125,10 +125,10 @@ export interface AIHealthScore {
 
   reputationScore: number; // weighted rating × reviews × recency
   localVisibilityScore: number; // local pack position (0–100)
-  websiteHealthScore: number; // crawl-derived: speed, CTA, contact, errors
+  websiteHealthScore: number | null; // null = crawl blocked / no PSI, not zero
   gbpCompletenessScore: number; // Google Business Profile completeness
-  aiPresenceScore: number; // multi-prompt AI mention check (0–100)
-  reviewVelocityScore: number; // Google: new reviews in last 30d
+  aiPresenceScore: number | null; // null = AI visibility never checked
+  reviewVelocityScore: number | null; // null = no review history yet
 
   summary?: string;
   generatedAt: string;

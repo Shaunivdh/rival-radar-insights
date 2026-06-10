@@ -921,7 +921,13 @@ export const crawlBusinessFunction = inngest.createFunction(
 
       const aiScore = bizRow.ai_score as AIHealthScore;
       const weeksOver30 = Math.floor((daysSinceLastReview - 30) / 7);
-      aiScore.reviewVelocityScore = Math.max(0, aiScore.reviewVelocityScore - weeksOver30 * 10);
+      // Only decay scores we actually have — unknown stays unknown.
+      if (aiScore.reviewVelocityScore !== null) {
+        aiScore.reviewVelocityScore = Math.max(
+          0,
+          aiScore.reviewVelocityScore - weeksOver30 * 10,
+        );
+      }
       aiScore.overallScore = recomputeOverallScore(aiScore);
       await updateBusiness(businessId, { aiScore });
     });
@@ -1050,7 +1056,11 @@ export const crawlBusinessFunction = inngest.createFunction(
       if (!ownBizRow?.ai_score) return;
 
       const aiScore = ownBizRow.ai_score as AIHealthScore;
-      aiScore.localVisibilityScore = Math.max(0, aiScore.localVisibilityScore - 10);
+      // localVisibilityScore is non-nullable but stay defensive in case
+      // legacy rows contain nulls.
+      if (aiScore.localVisibilityScore !== null) {
+        aiScore.localVisibilityScore = Math.max(0, aiScore.localVisibilityScore - 10);
+      }
       aiScore.overallScore = recomputeOverallScore(aiScore);
       await updateBusiness(ownBiz.id as string, { aiScore });
     });

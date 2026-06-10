@@ -78,7 +78,8 @@ const getStrengths = (biz: Business): string[] => {
   const s: string[] = [];
   if (biz.aiScore.reputationScore >= 70) s.push('Reviews');
   if (biz.aiScore.localVisibilityScore >= 70) s.push('Local SEO');
-  if (biz.aiScore.websiteHealthScore >= 70) s.push('Website');
+  if (biz.aiScore.websiteHealthScore !== null && biz.aiScore.websiteHealthScore >= 70)
+    s.push('Website');
   if (biz.aiScore.gbpCompletenessScore >= 70) s.push('GBP');
   return s;
 };
@@ -88,7 +89,8 @@ const getWeaknesses = (biz: Business): string[] => {
   const w: string[] = [];
   if (biz.aiScore.reputationScore < 40) w.push('Reviews');
   if (biz.aiScore.localVisibilityScore < 40) w.push('Local SEO');
-  if (biz.aiScore.websiteHealthScore < 40) w.push('Website');
+  if (biz.aiScore.websiteHealthScore !== null && biz.aiScore.websiteHealthScore < 40)
+    w.push('Website');
   if (biz.aiScore.gbpCompletenessScore < 40) w.push('GBP');
   return w;
 };

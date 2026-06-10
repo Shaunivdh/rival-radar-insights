@@ -2,13 +2,14 @@ import { cn } from '@/lib/utils';
 
 interface ScoreChipProps {
   label: string;
-  score: number;
+  score: number | null;
   size?: 'sm' | 'md';
   weeklyDelta?: number | null;
 }
 
 export const ScoreChip = ({ label, score, size = 'sm', weeklyDelta }: ScoreChipProps) => {
-  const getColor = (s: number) => {
+  const getColor = (s: number | null) => {
+    if (s === null) return 'bg-muted text-muted-foreground';
     if (s >= 70) return 'bg-success/10 text-[hsl(142,71%,35%)]';
     if (s >= 40) return 'bg-warning/10 text-[hsl(38,92%,40%)]';
     return 'bg-destructive/10 text-destructive';
@@ -27,7 +28,7 @@ export const ScoreChip = ({ label, score, size = 'sm', weeklyDelta }: ScoreChipP
 
   return (
     <span className={cn('score-chip', getColor(score), size === 'md' && 'px-4 py-1.5 text-sm')}>
-      {label} <span className="font-bold">{score}</span>
+      {label} <span className="font-bold">{score === null ? '—' : score}</span>
       {delta}
     </span>
   );

@@ -151,7 +151,7 @@ export default function WeeklyDigest({
             <Row>
               {SCORE_LABELS.map(({ label, key }) => (
                 <Column key={key} style={styles.scoreColumn}>
-                  <Text style={styles.scoreValue}>{scores[key]}</Text>
+                  <Text style={styles.scoreValue}>{scores[key] ?? '—'}</Text>
                   <Text style={styles.scoreLabel}>{label}</Text>
                 </Column>
               ))}

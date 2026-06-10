@@ -82,6 +82,9 @@ function rowsToProject(p: Record<string, unknown>, businesses: Record<string, un
     createdAt: new Date(p.created_at as string).getTime(),
     ownBusiness: mapBusiness(own!),
     competitors: competitors.map((b) => mapBusiness(b)),
+    primaryService: (p.primary_service as string | null) ?? null,
+    location: (p.location as string | null) ?? null,
+    postcode: (p.postcode as string | null) ?? null,
   };
 }
 
@@ -107,6 +110,7 @@ export async function createProject(
   name: string,
   ownBusiness: Pick<Business, 'name' | 'url' | 'domain'>,
   competitors: Pick<Business, 'name' | 'url' | 'domain'>[],
+  businessDetails?: { primaryService?: string; location?: string; postcode?: string },
 ): Promise<Project> {
   const userId = await getSessionUserId();
 
@@ -120,7 +124,13 @@ export async function createProject(
 
   const { data: project, error: projectError } = await supabaseAdmin
     .from('projects')
-    .insert({ user_id: userId, name })
+    .insert({
+      user_id: userId,
+      name,
+      primary_service: businessDetails?.primaryService ?? null,
+      location: businessDetails?.location ?? null,
+      postcode: businessDetails?.postcode ?? null,
+    })
     .select()
     .single();
 
@@ -230,6 +240,9 @@ export async function getProject(userId: string): Promise<Project | null> {
     createdAt: new Date(project.created_at as string).getTime(),
     ownBusiness: enriched.find((e) => e.isOwn)!.business,
     competitors: enriched.filter((e) => !e.isOwn).map((e) => e.business),
+    primaryService: (project.primary_service as string | null) ?? null,
+    location: (project.location as string | null) ?? null,
+    postcode: (project.postcode as string | null) ?? null,
   };
 }
 
@@ -629,6 +642,27 @@ export async function updateActionStatus(
   }
 
   return fetchPriorityActions(projectId);
+}
+
+export async function updateProjectBusinessDetails(
+  projectId: string,
+  details: { primaryService: string; location: string; postcode: string | null },
+): Promise<void> {
+  const userId = await getSessionUserId();
+  const { error, count } = await supabaseAdmin
+    .from('projects')
+    .update(
+      {
+        primary_service: details.primaryService,
+        location: details.location,
+        postcode: details.postcode,
+      },
+      { count: 'exact' },
+    )
+    .eq('id', projectId)
+    .eq('user_id', userId);
+  if (error) throw new Error(error.message);
+  if (count === 0) throw new Error('Project not found');
 }
 
 export async function listProjects(userId: string): Promise<Project[]> {

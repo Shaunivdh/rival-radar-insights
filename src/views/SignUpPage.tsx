@@ -156,6 +156,11 @@ const SignUpPage = () => {
         `${ownBusiness.name} vs Competitors`,
         ownBusiness,
         validCompetitors,
+        {
+          primaryService: data.category as ServiceCategory,
+          location: data.city,
+          postcode: data.postcode,
+        },
       );
 
       // 4. Save settings + hydrate store

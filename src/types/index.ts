@@ -4,6 +4,9 @@ export interface Project {
   createdAt: number;
   ownBusiness: Business;
   competitors: Business[];
+  primaryService: string | null;
+  location: string | null;
+  postcode: string | null;
 }
 
 export interface AIVisibility {

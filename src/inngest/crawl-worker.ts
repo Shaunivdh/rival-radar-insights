@@ -225,10 +225,10 @@ export const crawlBusinessFunction = inngest.createFunction(
           const ownRaw = withSignals.find((b) => b.isOwn);
           if (!ownRaw) return;
 
-          // Fetch project's primary service
+          // Fetch project's business details
           const { data: projRow } = await supabaseAdmin
             .from('projects')
-            .select('primary_service')
+            .select('primary_service, location, postcode')
             .eq('id', projectId)
             .single();
 
@@ -531,16 +531,10 @@ export const crawlBusinessFunction = inngest.createFunction(
 
       const { data: proj } = await supabaseAdmin
         .from('projects')
-        .select('user_id')
+        .select('primary_service, location, postcode')
         .eq('id', biz.project_id)
         .single();
       if (!proj) throw new Error('Project not found');
-
-      const { data: settings } = await supabaseAdmin
-        .from('app_settings')
-        .select('primary_service, location, postcode')
-        .eq('user_id', proj.user_id)
-        .maybeSingle();
 
       const result = {
         name: biz.name as string,
@@ -549,14 +543,14 @@ export const crawlBusinessFunction = inngest.createFunction(
         projectId: biz.project_id as string,
         isOwnBusiness: (biz.is_own_business as boolean | null) ?? false,
         googlePlaceId: biz.google_place_id as string | null,
-        primaryService: (settings?.primary_service as string) ?? '',
-        location: (settings?.location as string) ?? '',
-        postcode: (settings?.postcode as string) ?? '',
+        primaryService: (proj.primary_service as string) ?? '',
+        location: (proj.location as string) ?? '',
+        postcode: (proj.postcode as string) ?? '',
       };
 
       if (!result.primaryService || !result.location) {
         console.warn(
-          `[fetch-meta] business ${businessId}: app_settings missing ` +
+          `[fetch-meta] business ${businessId}: project missing ` +
             `primary_service="${result.primaryService}" location="${result.location}". ` +
             `SERP and AI checks will be skipped.`,
         );

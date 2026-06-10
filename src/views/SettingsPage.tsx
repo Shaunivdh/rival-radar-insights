@@ -29,18 +29,31 @@ import { useRivalRadarStore } from '@/store/rivalradar';
 import { isValidUKPostcode } from '@/lib/utils';
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { rescanAll } from '@/actions/projects';
+import { rescanAll, updateProjectBusinessDetails } from '@/actions/projects';
 import { SERVICE_CATEGORY_OPTIONS, type ServiceCategory } from '@/lib/serviceCategories';
+import type { AppSettings } from '@/types';
 
 type FieldErrors = Partial<Record<'primaryService' | 'location' | 'postcode', string>>;
 
 const SettingsPage = () => {
   const { settings, setSettings, deleteProject, project, user } = useRivalRadarStore();
   const router = useRouter();
-  const [form, setForm] = useState(settings);
+  // Prefer the project row — it's what the crawl worker reads. Fall back to
+  // app_settings only when no project exists yet (first-time setup defaults).
+  const [form, setForm] = useState<AppSettings>(() =>
+    project
+      ? {
+          primaryService: (project.primaryService ?? '') as AppSettings['primaryService'],
+          location: project.location ?? '',
+          postcode: project.postcode ?? '',
+        }
+      : settings,
+  );
   const [rescanning, setRescanning] = useState(false);
   const [errors, setErrors] = useState<FieldErrors>({});
   const [saved, setSaved] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState('');
   const [gbpConnected, setGbpConnected] = useState<boolean | null>(null);
 
   const biz = project?.ownBusiness;
@@ -53,7 +66,8 @@ const SettingsPage = () => {
       .catch(() => {});
   }, []);
 
-  const handleSave = () => {
+  const handleSave = async () => {
+    if (saving) return;
     const newErrors: FieldErrors = {};
     if (!form.primaryService?.trim()) newErrors.primaryService = 'Primary Service is required';
     if (!form.location?.trim()) newErrors.location = 'Location is required';
@@ -64,9 +78,41 @@ const SettingsPage = () => {
       return;
     }
     setErrors({});
-    setSettings(form);
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2000);
+    setSaveError('');
+    setSaving(true);
+
+    try {
+      if (project) {
+        // Per-project business details — the crawl worker reads from here.
+        const postcode = form.postcode?.trim() ? form.postcode : null;
+        await updateProjectBusinessDetails(project.id, {
+          primaryService: form.primaryService ?? '',
+          location: form.location ?? '',
+          postcode,
+        });
+        useRivalRadarStore.setState((state) => ({
+          settings: { ...state.settings, ...form },
+          project: state.project
+            ? {
+                ...state.project,
+                primaryService: form.primaryService ?? null,
+                location: form.location ?? null,
+                postcode,
+              }
+            : state.project,
+        }));
+      } else {
+        // No project yet — keep using app_settings as create-time defaults.
+        setSettings(form);
+      }
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
+    } catch (e) {
+      console.error('[SettingsPage] save failed:', e);
+      setSaveError(e instanceof Error ? e.message : 'Could not save. Please try again.');
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleDelete = () => {
@@ -288,6 +334,7 @@ const SettingsPage = () => {
                   Weekly
                 </Badge>
               </div>
+              {saveError && <p className="text-xs text-destructive">{saveError}</p>}
               <div className="flex justify-between">
                 <Button
                   variant="outline"
@@ -305,8 +352,8 @@ const SettingsPage = () => {
                   <RefreshCw className={`w-4 h-4 ${rescanning ? 'animate-spin' : ''}`} />
                   {rescanning ? 'Starting...' : 'Re-scan now'}
                 </Button>
-                <Button variant="hero" onClick={handleSave}>
-                  {saved ? 'Saved!' : 'Save business'}
+                <Button variant="hero" onClick={handleSave} disabled={saving}>
+                  {saving ? 'Saving…' : saved ? 'Saved!' : 'Save business'}
                 </Button>
               </div>
             </CardContent>

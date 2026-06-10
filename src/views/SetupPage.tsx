@@ -234,6 +234,11 @@ const SetupPage = () => {
         `${ownFinal.name} vs Competitors`,
         ownFinal,
         competitorsFinal,
+        {
+          primaryService: data.category as ServiceCategory,
+          location: data.city,
+          postcode: data.postcode,
+        },
       );
 
       setSettings({

@@ -157,6 +157,7 @@ const BusinessSetupPage = () => {
         `${ownFinal.name} vs Competitors`,
         ownFinal,
         competitorsFinal,
+        { primaryService: primaryService as ServiceCategory, location, postcode },
       );
 
       // Don't call setProject yet — it would trigger the redirect guard and unmount this component.

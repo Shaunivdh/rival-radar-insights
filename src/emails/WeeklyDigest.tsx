@@ -17,7 +17,7 @@ import type { AIHealthScore, PriorityAction } from '@/types';
 interface Props {
   businessName: string;
   scores: Pick<AIHealthScore, 'reputationScore' | 'localVisibilityScore' | 'websiteHealthScore'>;
-  topAction: Pick<PriorityAction, 'action' | 'reason'>;
+  topAction: Pick<PriorityAction, 'action' | 'reason' | 'continuityNote'>;
   changes: { competitor: string; change: string }[];
   dashboardUrl: string;
 }
@@ -183,6 +183,11 @@ export default function WeeklyDigest({
               Top Priority This Week
             </Heading>
             <Text style={styles.priorityText}>{topAction.action}</Text>
+            {topAction.continuityNote && (
+              <Text style={{ ...styles.changeText, fontStyle: 'italic' }}>
+                {topAction.continuityNote}
+              </Text>
+            )}
             <Text style={styles.changeText}>{topAction.reason}</Text>
           </Section>
 

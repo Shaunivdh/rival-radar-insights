@@ -553,7 +553,7 @@ export async function addCompetitor(
 
 // ── Shared row mapper ─────────────────────────────────────────────────────────
 
-function mapPriorityActionRow(r: Record<string, unknown>): PriorityAction {
+export function mapPriorityActionRow(r: Record<string, unknown>): PriorityAction {
   return {
     id: r.id as string,
     priority: r.priority as PriorityAction['priority'],
@@ -570,6 +570,7 @@ function mapPriorityActionRow(r: Record<string, unknown>): PriorityAction {
     timeframe: r.timeframe as string,
     note: (r.note as string | null) ?? null,
     actionedAt: (r.actioned_at as string | null) ?? null,
+    continuityNote: (r.continuity_note as string | null) ?? null,
   };
 }
 

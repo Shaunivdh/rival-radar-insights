@@ -13,6 +13,7 @@ import { supabaseAdmin } from '@/lib/supabase/server';
 import { fetchGoogleData, fetchSerpData } from '@/actions/enrichment';
 import {
   generatePriorityActions,
+  generatePriorityActionsWithHistory,
   generateChangeSummary,
   generateReviewSentiment,
   checkAIVisibility,
@@ -21,7 +22,7 @@ import {
 import { calculateScores, recomputeOverallScore } from '@/services/scores';
 import { fetchPageSpeedData } from '@/services/pagespeed';
 import { diffSignals } from '@/services/diff';
-import { updateBusiness, saveChangeEvent } from '@/actions/projects';
+import { updateBusiness, saveChangeEvent, mapPriorityActionRow } from '@/actions/projects';
 import { normalizeUrl } from '@/lib/url';
 import { saveScoreSnapshot, getWeeklyDelta } from '@/lib/supabase/scores';
 import { logCrawlStep } from '@/lib/crawl/crawl-logger';
@@ -91,6 +92,52 @@ function enforceEffortDistribution(actions: PriorityAction[]): PriorityAction[] 
   const effortMap: PriorityAction['effort'][] = ['high', 'medium', 'medium', 'low', 'low'];
   const adjusted = byImpact.map((a, i) => ({ ...a, effort: effortMap[i] }));
   return adjusted.sort((a, b) => a.priority - b.priority);
+}
+
+/**
+ * Fetch the most recent batch of priority actions for a project. A "batch" is
+ * all rows sharing the exact latest `generated_at` (a single Supabase INSERT
+ * uses one transaction timestamp, so batched rows share the value). Includes
+ * all statuses — completed/snoozed/queued — so the with-history prompt can
+ * acknowledge closed items.
+ */
+async function fetchPreviousActionBatch(projectId: string): Promise<PriorityAction[]> {
+  const { data: latest } = await supabaseAdmin
+    .from('priority_actions')
+    .select('generated_at')
+    .eq('project_id', projectId)
+    .order('generated_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (!latest?.generated_at) return [];
+
+  const { data: rows } = await supabaseAdmin
+    .from('priority_actions')
+    .select('*')
+    .eq('project_id', projectId)
+    .eq('generated_at', latest.generated_at as string)
+    .order('priority', { ascending: true });
+
+  return (rows ?? []).map((r) => mapPriorityActionRow(r as Record<string, unknown>));
+}
+
+/** Fetch the previous (not most-recent) extracted_signals row for a business. */
+async function fetchPreviousSignals(businessId: string): Promise<ExtractedSignals | null> {
+  const { data } = await supabaseAdmin
+    .from('extracted_signals')
+    .select('seo, pricing, trust, content, engagement')
+    .eq('business_id', businessId)
+    .order('scanned_at', { ascending: false })
+    .limit(2);
+  const prev = data?.[1];
+  if (!prev?.seo) return null;
+  return {
+    seo: prev.seo,
+    pricing: prev.pricing,
+    trust: prev.trust,
+    content: prev.content,
+    engagement: prev.engagement,
+  } as ExtractedSignals;
 }
 
 const MAX_POLL_ATTEMPTS = 120;
@@ -232,12 +279,29 @@ export const crawlBusinessFunction = inngest.createFunction(
             .eq('id', projectId)
             .single();
 
+          const ownBusiness = toPartialBiz(ownRaw);
+          const competitorBusinesses = withSignals
+            .filter((b) => !b.isOwn)
+            .map((b) => toPartialBiz(b));
+          const previousActions = await fetchPreviousActionBatch(projectId);
+          const useHistory = previousActions.length > 0 && !!ownRaw.signals;
+          const previousSignals = useHistory ? await fetchPreviousSignals(ownRaw.id) : null;
+
           try {
-            const rawActions = await generatePriorityActions(
-              toPartialBiz(ownRaw),
-              withSignals.filter((b) => !b.isOwn).map((b) => toPartialBiz(b)),
-              projRow?.primary_service as ServiceCategory,
-            );
+            const rawActions = useHistory
+              ? await generatePriorityActionsWithHistory(
+                  ownBusiness,
+                  competitorBusinesses,
+                  previousActions,
+                  previousSignals,
+                  ownRaw.signals!,
+                  projRow?.primary_service as ServiceCategory,
+                )
+              : await generatePriorityActions(
+                  ownBusiness,
+                  competitorBusinesses,
+                  projRow?.primary_service as ServiceCategory,
+                );
 
             await clearEnrichmentError(ownRaw.id, 'ai_actions');
             if (!rawActions.length) return;
@@ -258,6 +322,7 @@ export const crawlBusinessFunction = inngest.createFunction(
                 competitor_reference: a.competitorReference ?? null,
                 estimated_impact: a.estimatedImpact,
                 timeframe: a.timeframe,
+                continuity_note: useHistory ? (a.continuityNote ?? null) : null,
               })),
             );
             console.log(
@@ -1132,12 +1197,30 @@ export const crawlBusinessFunction = inngest.createFunction(
       const ownRaw = withSignals.find((b) => b.isOwn);
       if (!ownRaw) return;
 
+      const ownBusiness = toPartialBiz(ownRaw);
+      const competitorBusinesses = withSignals
+        .filter((b) => !b.isOwn)
+        .map((b) => toPartialBiz(b));
+
+      const previousActions = await fetchPreviousActionBatch(meta.projectId);
+      const useHistory = previousActions.length > 0 && !!ownRaw.signals;
+      const previousSignals = useHistory ? await fetchPreviousSignals(ownRaw.id) : null;
+
       try {
-        const rawActions = await generatePriorityActions(
-          toPartialBiz(ownRaw),
-          withSignals.filter((b) => !b.isOwn).map((b) => toPartialBiz(b)),
-          meta.primaryService as ServiceCategory,
-        );
+        const rawActions = useHistory
+          ? await generatePriorityActionsWithHistory(
+              ownBusiness,
+              competitorBusinesses,
+              previousActions,
+              previousSignals,
+              ownRaw.signals!,
+              meta.primaryService as ServiceCategory,
+            )
+          : await generatePriorityActions(
+              ownBusiness,
+              competitorBusinesses,
+              meta.primaryService as ServiceCategory,
+            );
 
         await clearEnrichmentError(ownRaw.id, 'ai_actions');
 
@@ -1193,6 +1276,7 @@ export const crawlBusinessFunction = inngest.createFunction(
             competitor_reference: a.competitorReference ?? null,
             estimated_impact: a.estimatedImpact,
             timeframe: a.timeframe,
+            continuity_note: useHistory ? (a.continuityNote ?? null) : null,
           })),
         );
       } catch (e) {

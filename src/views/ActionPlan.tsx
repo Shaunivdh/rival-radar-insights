@@ -55,6 +55,7 @@ type Recommendation = {
   impact: string;
   effort: 'Low' | 'Medium' | 'High';
   timeframe: string;
+  continuityNote: string | null;
 };
 
 type ActionStatus = {
@@ -105,6 +106,7 @@ function mapAction(action: PriorityAction): Recommendation {
     impact: action.outcome,
     effort: action.effort === 'low' ? 'Low' : action.effort === 'medium' ? 'Medium' : 'High',
     timeframe: action.timeframe,
+    continuityNote: action.continuityNote ?? null,
   };
 }
 
@@ -290,10 +292,15 @@ const RecommendationCard = ({
               </button>
               <div className="flex-1 min-w-0">
                 <h3
-                  className={`font-display text-base font-semibold mb-2 ${isDone || isDismissed ? 'text-muted-foreground' : ''} ${isDone ? 'line-through' : ''}`}
+                  className={`font-display text-base font-semibold ${rec.continuityNote ? 'mb-1' : 'mb-2'} ${isDone || isDismissed ? 'text-muted-foreground' : ''} ${isDone ? 'line-through' : ''}`}
                 >
                   {rec.title}
                 </h3>
+                {rec.continuityNote && (
+                  <p className="text-xs text-muted-foreground/80 italic mb-2">
+                    {rec.continuityNote}
+                  </p>
+                )}
                 {!isDone && !isDismissed && (
                   <div className="flex items-start gap-2 p-3 rounded-lg bg-muted/50 text-sm">
                     <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />

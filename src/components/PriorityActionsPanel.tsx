@@ -35,6 +35,11 @@ export const PriorityActionsPanel = () => {
               </span>
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium text-foreground leading-snug">{action.action}</p>
+                {action.continuityNote && (
+                  <p className="text-xs text-muted-foreground/80 italic mt-0.5">
+                    {action.continuityNote}
+                  </p>
+                )}
                 <p className="text-xs text-green-600 font-medium mt-0.5">Est. +{cfg.pts} pts</p>
               </div>
               <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0 mt-0.5 group-hover:text-foreground transition-colors" />

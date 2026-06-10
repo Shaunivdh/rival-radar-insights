@@ -22,7 +22,8 @@ import {
 import { calculateScores, recomputeOverallScore } from '@/services/scores';
 import { fetchPageSpeedData } from '@/services/pagespeed';
 import { diffSignals } from '@/services/diff';
-import { updateBusiness, saveChangeEvent, mapPriorityActionRow } from '@/actions/projects';
+import { updateBusiness, saveChangeEvent } from '@/actions/projects';
+import { mapPriorityActionRow } from '@/lib/priorityActionRow';
 import { normalizeUrl } from '@/lib/url';
 import { saveScoreSnapshot, getWeeklyDelta } from '@/lib/supabase/scores';
 import { logCrawlStep } from '@/lib/crawl/crawl-logger';
@@ -125,7 +126,7 @@ async function fetchPreviousActionBatch(projectId: string): Promise<PriorityActi
 async function fetchPreviousSignals(businessId: string): Promise<ExtractedSignals | null> {
   const { data } = await supabaseAdmin
     .from('extracted_signals')
-    .select('seo, pricing, trust, content, engagement')
+    .select('seo, trust, content, engagement')
     .eq('business_id', businessId)
     .order('scanned_at', { ascending: false })
     .limit(2);
@@ -133,7 +134,6 @@ async function fetchPreviousSignals(businessId: string): Promise<ExtractedSignal
   if (!prev?.seo) return null;
   return {
     seo: prev.seo,
-    pricing: prev.pricing,
     trust: prev.trust,
     content: prev.content,
     engagement: prev.engagement,
@@ -237,7 +237,7 @@ export const crawlBusinessFunction = inngest.createFunction(
               const [{ data: sig }, { data: bizRow }] = await Promise.all([
                 supabaseAdmin
                   .from('extracted_signals')
-                  .select('seo, pricing, trust, content, engagement')
+                  .select('seo, trust, content, engagement')
                   .eq('business_id', b.id)
                   .order('scanned_at', { ascending: false })
                   .limit(1)
@@ -251,7 +251,6 @@ export const crawlBusinessFunction = inngest.createFunction(
               const signals = sig?.seo
                 ? ({
                     seo: sig.seo,
-                    pricing: sig.pricing,
                     trust: sig.trust,
                     content: sig.content,
                     engagement: sig.engagement,
@@ -809,7 +808,7 @@ export const crawlBusinessFunction = inngest.createFunction(
     await step.run('diff-and-summarize', async () => {
       const { data: rows } = await supabaseAdmin
         .from('extracted_signals')
-        .select('seo, pricing, trust, content, engagement')
+        .select('seo, trust, content, engagement')
         .eq('business_id', businessId)
         .order('scanned_at', { ascending: false })
         .limit(2);
@@ -819,7 +818,6 @@ export const crawlBusinessFunction = inngest.createFunction(
       const toSignals = (r: Record<string, unknown>): ExtractedSignals =>
         ({
           seo: r.seo,
-          pricing: r.pricing,
           trust: r.trust,
           content: r.content,
           engagement: r.engagement,
@@ -876,7 +874,7 @@ export const crawlBusinessFunction = inngest.createFunction(
           .single(),
         supabaseAdmin
           .from('extracted_signals')
-          .select('seo, pricing, trust, content, engagement')
+          .select('seo, trust, content, engagement')
           .eq('business_id', businessId)
           .order('scanned_at', { ascending: false })
           .limit(1)
@@ -894,7 +892,6 @@ export const crawlBusinessFunction = inngest.createFunction(
       const signals = sig?.seo
         ? ({
             seo: sig.seo,
-            pricing: sig.pricing,
             trust: sig.trust,
             content: sig.content,
             engagement: sig.engagement,
@@ -1162,7 +1159,7 @@ export const crawlBusinessFunction = inngest.createFunction(
           const [{ data: sig }, { data: bizRow }] = await Promise.all([
             supabaseAdmin
               .from('extracted_signals')
-              .select('seo, pricing, trust, content, engagement')
+              .select('seo, trust, content, engagement')
               .eq('business_id', b.id)
               .order('scanned_at', { ascending: false })
               .limit(1)
@@ -1176,7 +1173,6 @@ export const crawlBusinessFunction = inngest.createFunction(
           const signals = sig?.seo
             ? ({
                 seo: sig.seo,
-                pricing: sig.pricing,
                 trust: sig.trust,
                 content: sig.content,
                 engagement: sig.engagement,

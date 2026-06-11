@@ -108,7 +108,7 @@ export function MetricsGrid({ business }: MetricsGridProps) {
   const { aiScore, googleData, serpData, aiVisibility, pagespeedData, enrichmentErrors } = business;
   if (!aiScore) return null;
 
-  const getErr = (score: number | null, key: keyof NonNullable<typeof enrichmentErrors>) =>
+  const getErr = (score: number | null, key: 'google' | 'serp' | 'crawl') =>
     score === 0 || score === null ? enrichmentErrors?.[key] : undefined;
 
   const localPackPos = serpData?.localVisibilityPosition ?? null;

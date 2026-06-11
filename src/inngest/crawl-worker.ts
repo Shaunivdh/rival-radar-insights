@@ -71,31 +71,6 @@ function toPartialBiz(b: {
 }
 
 /**
- * Enforce effort distribution across a batch of 5 actions: 2 low, 2 medium, 1 high.
- * Sorts by estimatedImpact desc then assigns efforts: high → medium → medium → low → low.
- * Preserves original priority ordering in the output.
- */
-function enforceEffortDistribution(actions: PriorityAction[]): PriorityAction[] {
-  if (actions.length !== 5) return actions;
-  const tally = actions.reduce(
-    (acc, a) => {
-      acc[a.effort] = (acc[a.effort] ?? 0) + 1;
-      return acc;
-    },
-    {} as Record<string, number>,
-  );
-  if (tally.low === 2 && tally.medium === 2 && tally.high === 1) return actions;
-
-  const impactOrder = { high: 0, medium: 1, low: 2 } as Record<string, number>;
-  const byImpact = [...actions].sort(
-    (a, b) => impactOrder[a.estimatedImpact] - impactOrder[b.estimatedImpact],
-  );
-  const effortMap: PriorityAction['effort'][] = ['high', 'medium', 'medium', 'low', 'low'];
-  const adjusted = byImpact.map((a, i) => ({ ...a, effort: effortMap[i] }));
-  return adjusted.sort((a, b) => a.priority - b.priority);
-}
-
-/**
  * Fetch the most recent batch of priority actions for a project. A "batch" is
  * all rows sharing the exact latest `generated_at` (a single Supabase INSERT
  * uses one transaction timestamp, so batched rows share the value). Includes
@@ -305,9 +280,8 @@ export const crawlBusinessFunction = inngest.createFunction(
             await clearEnrichmentError(ownRaw.id, 'ai_actions');
             if (!rawActions.length) return;
 
-            const actions = enforceEffortDistribution(rawActions);
             await supabaseAdmin.from('priority_actions').insert(
-              actions.map((a, i) => ({
+              rawActions.map((a, i) => ({
                 project_id: projectId,
                 priority: a.priority,
                 status: i < 5 ? 'active' : 'queued',
@@ -325,7 +299,7 @@ export const crawlBusinessFunction = inngest.createFunction(
               })),
             );
             console.log(
-              `[onFailure] Generated ${actions.length} priority actions for project ${projectId}`,
+              `[onFailure] Generated ${rawActions.length} priority actions for project ${projectId}`,
             );
           } catch (e) {
             if (e instanceof AIUnavailableError) {
@@ -785,23 +759,6 @@ export const crawlBusinessFunction = inngest.createFunction(
         // non-fatal — PSI may be rate-limited or URL unreachable; still mark complete
         await updateBusiness(businessId, { crawlStatus: 'complete' });
       }
-
-      // Direct-fetch warning is no longer relevant — enrichment APIs (Google, SERP, PageSpeed) are unaffected
-      if (jobId === DIRECT_FETCH_DONE) {
-        const { data } = await supabaseAdmin
-          .from('businesses')
-          .select('enrichment_errors')
-          .eq('id', businessId)
-          .single();
-        const errors = { ...((data?.enrichment_errors as Record<string, unknown>) ?? {}) };
-        delete errors.crawl;
-        await supabaseAdmin
-          .from('businesses')
-          .update({
-            enrichment_errors: Object.keys(errors).length ? errors : null,
-          })
-          .eq('id', businessId);
-      }
     });
 
     // Step 8: Diff signals and generate change summary (runs on any rescan if previous snapshot exists)
@@ -1222,8 +1179,6 @@ export const crawlBusinessFunction = inngest.createFunction(
 
         if (!rawActions.length) return;
 
-        const actions = enforceEffortDistribution(rawActions);
-
         // Fetch existing actions to deduplicate
         const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
 
@@ -1245,7 +1200,7 @@ export const crawlBusinessFunction = inngest.createFunction(
             .map((e) => e.action),
         );
 
-        const newActions = actions.filter((a) => !existingSet.has(a.action));
+        const newActions = rawActions.filter((a) => !existingSet.has(a.action));
         if (!newActions.length) return;
 
         // Count current active + snoozed to determine how many slots are open

@@ -118,6 +118,7 @@ export async function createProject(
   const allUrls = [ownBusiness.url, ...competitors.map((c) => c.url)];
   const invalidUrl = allUrls.find((u) => !isValidUrl(u));
   if (invalidUrl) throw new Error(`Invalid website URL: ${invalidUrl}`);
+  if (competitors.length > 5) throw new Error('Maximum of 5 competitors allowed');
 
   console.log(
     `[createProject] userId=${userId} name="${name}" own="${ownBusiness.name}" competitors=${competitors.length}`,

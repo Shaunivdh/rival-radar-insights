@@ -34,7 +34,18 @@ export interface Business {
   aiVisibility: AIVisibility | null;
   pagespeedData: PageSpeedData | null;
   reviewSentiment: ReviewSentiment | null;
-  enrichmentErrors: { google?: string; serp?: string; crawl?: string; extract?: string; ai_actions?: string } | null;
+  enrichmentErrors: {
+    google?: string;
+    serp?: string;
+    crawl?: string;
+    extract?: string;
+    ai_actions?: string;
+    change_summary?: string;
+    crawl_block_type?: string;
+    crawl_blocked_reason?: string;
+    crawl_popup_detected?: boolean;
+    crawl_popup_selectors?: string[] | null;
+  } | null;
   previousSignals: ExtractedSignals | null;
   changeEvents: ChangeEvent[];
 }

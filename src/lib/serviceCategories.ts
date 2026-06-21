@@ -9,15 +9,27 @@ export type ServiceCategory =
   | 'hospitality'
   | 'retail'
   | 'beauty'
+  | 'tattoo'
   | 'fitness'
   | 'education'
   | 'it_services'
   | 'marketing'
   | 'cleaning'
+  | 'automotive'
+  | 'trades'
+  | 'petcare'
+  | 'photography'
+  | 'childcare'
+  | 'events'
   | 'other';
 
 export interface ServiceCategoryConfig {
   label: string;
+  /**
+   * Natural-language phrase used to build the Google Maps SERP query (e.g. "tattoo studio Brighton"),
+   * keeping queries human instead of the raw category key (which gave "it_services Brighton").
+   */
+  searchTerm: string;
   /** Dashboard sections to surface prominently for this industry */
   dashboardPriority: string[];
   /** Signal keys to highlight in the competitor comparison */
@@ -38,6 +50,7 @@ export const GENERIC_AI_QUERY_TEMPLATES = [
 export const SERVICE_CATEGORIES: Record<ServiceCategory, ServiceCategoryConfig> = {
   accounting: {
     label: 'Accounting & Finance',
+    searchTerm: 'accountant',
     dashboardPriority: ['reviews', 'local_visibility', 'website_health'],
     keyMetrics: ['reviews', 'gbp_completeness', 'local_visibility'],
     aiQueryTemplates: GENERIC_AI_QUERY_TEMPLATES,
@@ -45,6 +58,7 @@ export const SERVICE_CATEGORIES: Record<ServiceCategory, ServiceCategoryConfig> 
   },
   veterinary: {
     label: 'Veterinary & Animal Care',
+    searchTerm: 'vet',
     dashboardPriority: ['reviews', 'gbp_completeness', 'local_visibility'],
     keyMetrics: ['reviews', 'gbp_completeness', 'local_visibility'],
     aiQueryTemplates: [
@@ -57,6 +71,7 @@ export const SERVICE_CATEGORIES: Record<ServiceCategory, ServiceCategoryConfig> 
   },
   legal: {
     label: 'Legal Services',
+    searchTerm: 'solicitor',
     dashboardPriority: ['reviews', 'website_health', 'local_visibility'],
     keyMetrics: ['reviews', 'website_health', 'local_visibility'],
     aiQueryTemplates: GENERIC_AI_QUERY_TEMPLATES,
@@ -64,6 +79,7 @@ export const SERVICE_CATEGORIES: Record<ServiceCategory, ServiceCategoryConfig> 
   },
   healthcare: {
     label: 'Healthcare & Medical',
+    searchTerm: 'doctor',
     dashboardPriority: ['reviews', 'gbp_completeness', 'local_visibility'],
     keyMetrics: ['reviews', 'gbp_completeness', 'local_visibility'],
     aiQueryTemplates: [
@@ -76,6 +92,7 @@ export const SERVICE_CATEGORIES: Record<ServiceCategory, ServiceCategoryConfig> 
   },
   dental: {
     label: 'Dental',
+    searchTerm: 'dentist',
     dashboardPriority: ['reviews', 'gbp_completeness', 'local_visibility'],
     keyMetrics: ['reviews', 'gbp_completeness', 'local_visibility'],
     aiQueryTemplates: [
@@ -88,6 +105,7 @@ export const SERVICE_CATEGORIES: Record<ServiceCategory, ServiceCategoryConfig> 
   },
   real_estate: {
     label: 'Real Estate & Property',
+    searchTerm: 'estate agent',
     dashboardPriority: ['website_health', 'reviews', 'local_visibility'],
     keyMetrics: ['website_health', 'reviews', 'local_visibility'],
     aiQueryTemplates: GENERIC_AI_QUERY_TEMPLATES,
@@ -95,6 +113,7 @@ export const SERVICE_CATEGORIES: Record<ServiceCategory, ServiceCategoryConfig> 
   },
   construction: {
     label: 'Construction & Building',
+    searchTerm: 'builder',
     dashboardPriority: ['reviews', 'local_visibility', 'website_health'],
     keyMetrics: ['reviews', 'local_visibility', 'gbp_completeness'],
     aiQueryTemplates: [
@@ -107,6 +126,7 @@ export const SERVICE_CATEGORIES: Record<ServiceCategory, ServiceCategoryConfig> 
   },
   hospitality: {
     label: 'Hospitality & Restaurants',
+    searchTerm: 'restaurant',
     dashboardPriority: ['reviews', 'gbp_completeness', 'local_visibility'],
     keyMetrics: ['reviews', 'gbp_completeness', 'local_visibility'],
     aiQueryTemplates: [
@@ -119,6 +139,7 @@ export const SERVICE_CATEGORIES: Record<ServiceCategory, ServiceCategoryConfig> 
   },
   retail: {
     label: 'Retail',
+    searchTerm: 'shop',
     dashboardPriority: ['website_health', 'reviews', 'local_visibility'],
     keyMetrics: ['website_health', 'reviews', 'local_visibility'],
     aiQueryTemplates: GENERIC_AI_QUERY_TEMPLATES,
@@ -126,6 +147,7 @@ export const SERVICE_CATEGORIES: Record<ServiceCategory, ServiceCategoryConfig> 
   },
   beauty: {
     label: 'Beauty, Hair & Salons',
+    searchTerm: 'beauty salon',
     dashboardPriority: ['reviews', 'gbp_completeness', 'local_visibility'],
     keyMetrics: ['reviews', 'gbp_completeness', 'local_visibility'],
     aiQueryTemplates: [
@@ -135,8 +157,22 @@ export const SERVICE_CATEGORIES: Record<ServiceCategory, ServiceCategoryConfig> 
     ],
     countryModifier: 'UK',
   },
+  tattoo: {
+    label: 'Tattoo & Body Art',
+    searchTerm: 'tattoo studio',
+    dashboardPriority: ['reviews', 'gbp_completeness', 'local_visibility'],
+    keyMetrics: ['reviews', 'gbp_completeness', 'local_visibility'],
+    aiQueryTemplates: [
+      'Best tattoo studio in {location}',
+      'Top rated tattoo artist near {location}',
+      'Where should I get a tattoo in {location}',
+      'Who would you recommend for a tattoo in {location}',
+    ],
+    countryModifier: 'UK',
+  },
   fitness: {
     label: 'Fitness & Gyms',
+    searchTerm: 'gym',
     dashboardPriority: ['reviews', 'website_health', 'local_visibility'],
     keyMetrics: ['reviews', 'website_health', 'local_visibility'],
     aiQueryTemplates: GENERIC_AI_QUERY_TEMPLATES,
@@ -144,6 +180,7 @@ export const SERVICE_CATEGORIES: Record<ServiceCategory, ServiceCategoryConfig> 
   },
   education: {
     label: 'Education & Tutoring',
+    searchTerm: 'tutor',
     dashboardPriority: ['website_health', 'reviews', 'local_visibility'],
     keyMetrics: ['website_health', 'reviews', 'local_visibility'],
     aiQueryTemplates: GENERIC_AI_QUERY_TEMPLATES,
@@ -151,6 +188,7 @@ export const SERVICE_CATEGORIES: Record<ServiceCategory, ServiceCategoryConfig> 
   },
   it_services: {
     label: 'IT Services & Tech',
+    searchTerm: 'IT support',
     dashboardPriority: ['website_health', 'reviews', 'local_visibility'],
     keyMetrics: ['website_health', 'reviews', 'local_visibility'],
     aiQueryTemplates: [
@@ -163,6 +201,7 @@ export const SERVICE_CATEGORIES: Record<ServiceCategory, ServiceCategoryConfig> 
   },
   marketing: {
     label: 'Marketing & Agencies',
+    searchTerm: 'marketing agency',
     dashboardPriority: ['website_health', 'reviews', 'local_visibility'],
     keyMetrics: ['website_health', 'reviews', 'local_visibility'],
     aiQueryTemplates: GENERIC_AI_QUERY_TEMPLATES,
@@ -170,6 +209,7 @@ export const SERVICE_CATEGORIES: Record<ServiceCategory, ServiceCategoryConfig> 
   },
   cleaning: {
     label: 'Cleaning Services',
+    searchTerm: 'cleaner',
     dashboardPriority: ['reviews', 'gbp_completeness', 'local_visibility'],
     keyMetrics: ['reviews', 'gbp_completeness', 'local_visibility'],
     aiQueryTemplates: [
@@ -180,8 +220,84 @@ export const SERVICE_CATEGORIES: Record<ServiceCategory, ServiceCategoryConfig> 
     ],
     countryModifier: 'UK',
   },
+  automotive: {
+    label: 'Automotive & Car Services',
+    searchTerm: 'car garage',
+    dashboardPriority: ['reviews', 'local_visibility', 'gbp_completeness'],
+    keyMetrics: ['reviews', 'local_visibility', 'gbp_completeness'],
+    aiQueryTemplates: [
+      'Best garage in {location}',
+      'Top rated mechanic near {location}',
+      'Where can I get my car serviced in {location}',
+      'Who would you recommend for car repairs in {location}',
+    ],
+    countryModifier: 'UK',
+  },
+  trades: {
+    label: 'Home Services & Trades',
+    searchTerm: 'tradesperson',
+    dashboardPriority: ['reviews', 'local_visibility', 'gbp_completeness'],
+    keyMetrics: ['reviews', 'local_visibility', 'gbp_completeness'],
+    aiQueryTemplates: [
+      'Best plumber in {location}',
+      'Reliable electrician near {location}',
+      'Who would you recommend for home repairs in {location}',
+      'Emergency tradesperson available in {location}',
+    ],
+    countryModifier: 'UK',
+  },
+  petcare: {
+    label: 'Pet Services & Grooming',
+    searchTerm: 'dog groomer',
+    dashboardPriority: ['reviews', 'gbp_completeness', 'local_visibility'],
+    keyMetrics: ['reviews', 'gbp_completeness', 'local_visibility'],
+    aiQueryTemplates: [
+      'Best dog groomer in {location}',
+      'Top rated pet services near {location}',
+      'Where can I get my dog groomed in {location}',
+      'Who would you recommend for pet care in {location}',
+    ],
+    countryModifier: 'UK',
+  },
+  photography: {
+    label: 'Photography',
+    searchTerm: 'photographer',
+    dashboardPriority: ['website_health', 'reviews', 'local_visibility'],
+    keyMetrics: ['website_health', 'reviews', 'local_visibility'],
+    aiQueryTemplates: [
+      'Best photographer in {location}',
+      'Top rated wedding photographer near {location}',
+      'Who would you recommend for a photoshoot in {location}',
+    ],
+    countryModifier: 'UK',
+  },
+  childcare: {
+    label: 'Childcare & Nurseries',
+    searchTerm: 'nursery',
+    dashboardPriority: ['reviews', 'gbp_completeness', 'local_visibility'],
+    keyMetrics: ['reviews', 'gbp_completeness', 'local_visibility'],
+    aiQueryTemplates: [
+      'Best nursery in {location}',
+      'Top rated childcare near {location}',
+      'Who would you recommend for childcare in {location}',
+    ],
+    countryModifier: 'UK',
+  },
+  events: {
+    label: 'Events & Entertainment',
+    searchTerm: 'event venue',
+    dashboardPriority: ['website_health', 'reviews', 'local_visibility'],
+    keyMetrics: ['website_health', 'reviews', 'local_visibility'],
+    aiQueryTemplates: [
+      'Best event venue in {location}',
+      'Top rated caterer near {location}',
+      'Who would you recommend for events in {location}',
+    ],
+    countryModifier: 'UK',
+  },
   other: {
     label: 'Other',
+    searchTerm: 'local business',
     dashboardPriority: ['reviews', 'website_health', 'local_visibility'],
     keyMetrics: ['reviews', 'website_health', 'local_visibility'],
     aiQueryTemplates: GENERIC_AI_QUERY_TEMPLATES,

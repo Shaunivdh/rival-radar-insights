@@ -59,8 +59,8 @@ export function computeWebsiteHealthScore(
 export function computeReputationScore(
   googleData: GoogleData | null,
   prevReviewCount?: number,
-): number {
-  if (googleData == null) return 0;
+): number | null {
+  if (googleData == null) return null; // no GBP = unknown, excluded from overall (not a zero)
   const { googleRating, reviewCount, recentReviews } = googleData;
   const ratingFactor = (googleRating / 5) ** 2;
   const base = ratingFactor * (Math.log10(reviewCount + 1) / Math.log10(201));
@@ -79,8 +79,8 @@ export function computeReputationScore(
 /**
  * GBP completeness score: 100 points max across 9 fields.
  */
-export function computeGBPCompletenessScore(googleData: GoogleData | null): number {
-  if (googleData == null) return 0;
+export function computeGBPCompletenessScore(googleData: GoogleData | null): number | null {
+  if (googleData == null) return null; // no GBP = unknown, excluded from overall (not a zero)
   let score = 0;
   if (googleData.googleRating) score += 10;
   if (googleData.reviewCount > 0) score += 10;

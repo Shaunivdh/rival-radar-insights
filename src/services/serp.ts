@@ -1,4 +1,5 @@
 import type { SerpData } from '@/types';
+import { SERVICE_CATEGORIES, type ServiceCategory } from '@/lib/serviceCategories';
 
 interface SerpApiLocalResult {
   position: number;
@@ -49,7 +50,9 @@ export async function getRankingData(
   const base = 'https://serpapi.com/search.json';
   const common = `&engine=google_maps&api_key=${apiKey}&gl=gb&hl=en`;
   const llParam = ll ? `&ll=@${ll.lat},${ll.lng},12z` : '';
-  const searchTerm = `${primaryService} ${location}`;
+  // Map the stored category key to a natural search phrase; fall back to the raw value for legacy data.
+  const service = SERVICE_CATEGORIES[primaryService as ServiceCategory]?.searchTerm ?? primaryService;
+  const searchTerm = `${service} ${location}`.replace(/\s+/g, ' ').trim();
 
   let localJson: SerpApiResponse;
   try {

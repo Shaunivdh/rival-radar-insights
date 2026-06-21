@@ -134,10 +134,10 @@ export interface AIHealthScore {
   overallScore: number;
   weeklyDelta: number | null; // +/- vs 7 days ago
 
-  reputationScore: number; // weighted rating × reviews × recency
+  reputationScore: number | null; // null = no GBP found, not zero
   localVisibilityScore: number; // local pack position (0–100)
   websiteHealthScore: number | null; // null = crawl blocked / no PSI, not zero
-  gbpCompletenessScore: number; // Google Business Profile completeness
+  gbpCompletenessScore: number | null; // null = no GBP found, not zero
   aiPresenceScore: number | null; // null = AI visibility never checked
   reviewVelocityScore: number | null; // null = no review history yet
 

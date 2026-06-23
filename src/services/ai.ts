@@ -1160,7 +1160,9 @@ Schema: [{"name":"string","position":1,"context":"recommended"|"mentioned"|"comp
 Rules:
 - position: 1 = first mentioned, 2 = second, etc.
 - context: "recommended" if the text endorses it, "mentioned" if neutral, "compared" if listed alongside others, "dismissed" if the text warns against it.
-- Include only real business names, not generic descriptions.
+- Include only real LOCAL service businesses (salons, clinics, shops, providers).
+- EXCLUDE product, cosmetic, and retail brands, manufacturers, and national chains (e.g. Elemis, OPI, Essie, Lycon, Clarins, Medik8) — these are products a business uses, not local competitors.
+- Exclude generic descriptions.
 
 Text:\n${capped}`;
 
@@ -1385,9 +1387,14 @@ export async function checkAIVisibility(
         positions.push(match.position);
         if (match.context === 'recommended') recommendedCount++;
 
-        // Track businesses mentioned before the target
+        // Track businesses ranked ahead of the target — only those the AI actually
+        // presented as alternatives (recommended/compared), so incidental product
+        // or brand mentions don't show up as "competitors ahead".
         for (const m of businesses) {
-          if (m.position < match.position) {
+          if (
+            m.position < match.position &&
+            (m.context === 'recommended' || m.context === 'compared')
+          ) {
             competitorsAheadSet.add(m.name);
           }
         }

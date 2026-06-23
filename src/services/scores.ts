@@ -42,9 +42,13 @@ export function computeWebsiteHealthScore(
   if (seo.schemaMarkupTypes.length > 0) score += 5;
   // +0–10: PSI performance bonus (avg of mobile + desktop, scaled)
   if (pagespeedData) {
-    const avg =
-      (pagespeedData.mobile.performanceScore + pagespeedData.desktop.performanceScore) / 2;
+    const mobile = pagespeedData.mobile.performanceScore;
+    const avg = (mobile + pagespeedData.desktop.performanceScore) / 2;
     score += Math.round((avg / 100) * 10);
+    // A site that's slow on phones can't be "excellent" no matter how complete its signals —
+    // most local searches happen on mobile. Cap the score so the rating stays credible.
+    if (mobile < 30) score = Math.min(score, 60);
+    else if (mobile < 50) score = Math.min(score, 75);
   }
 
   return Math.min(100, Math.max(0, score));

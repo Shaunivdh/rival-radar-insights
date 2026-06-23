@@ -133,6 +133,20 @@ async function writeEnrichmentError(
   await supabaseAdmin.from('businesses').update({ enrichment_errors: errors }).eq('id', businessId);
 }
 
+/**
+ * Close the open crawl_jobs row for a business once its crawl has succeeded.
+ * crawl_jobs is otherwise insert-only (orchestrator inserts 'running'; stale
+ * recovery flips to 'failed'), so without this a successful crawl leaves its
+ * job 'running' forever — polluting observability and stale-job detection.
+ */
+async function markCrawlJobComplete(businessId: string): Promise<void> {
+  await supabaseAdmin
+    .from('crawl_jobs')
+    .update({ status: 'completed', completed_at: new Date().toISOString() })
+    .eq('business_id', businessId)
+    .eq('status', 'running');
+}
+
 async function clearEnrichmentError(
   businessId: string,
   key: 'google' | 'serp' | 'ai_actions' | 'crawl' | 'change_summary',
@@ -278,7 +292,17 @@ export const crawlBusinessFunction = inngest.createFunction(
                 );
 
             await clearEnrichmentError(ownRaw.id, 'ai_actions');
-            if (!rawActions.length) return;
+            if (!rawActions.length) {
+              console.warn(
+                `[onFailure] priority-actions generation returned 0 actions for project ${projectId} (own=${ownRaw.id})`,
+              );
+              await writeEnrichmentError(
+                ownRaw.id,
+                'ai_actions',
+                'No recommendations were generated on the last scan — re-scan to try again.',
+              );
+              return;
+            }
 
             await supabaseAdmin.from('priority_actions').insert(
               rawActions.map((a, i) => ({
@@ -734,6 +758,7 @@ export const crawlBusinessFunction = inngest.createFunction(
       try {
         const pagespeedData = await fetchPageSpeedData(normalizeUrl(meta.url));
         await updateBusiness(businessId, { pagespeedData, crawlStatus: 'complete' });
+        await markCrawlJobComplete(businessId);
         console.log(
           `[enrich-pagespeed] mobile=${pagespeedData.mobile.performanceScore} desktop=${pagespeedData.desktop.performanceScore} for ${businessId}`,
         );
@@ -758,6 +783,7 @@ export const crawlBusinessFunction = inngest.createFunction(
         );
         // non-fatal — PSI may be rate-limited or URL unreachable; still mark complete
         await updateBusiness(businessId, { crawlStatus: 'complete' });
+        await markCrawlJobComplete(businessId);
       }
     });
 
@@ -1177,7 +1203,19 @@ export const crawlBusinessFunction = inngest.createFunction(
 
         await clearEnrichmentError(ownRaw.id, 'ai_actions');
 
-        if (!rawActions.length) return;
+        if (!rawActions.length) {
+          // Should not happen — templates alone usually fire. Surface it instead of
+          // leaving the action plan silently empty (the 06-21 symptom).
+          console.warn(
+            `[priority-actions] generation returned 0 actions for project ${meta.projectId} (own=${ownRaw.id})`,
+          );
+          await writeEnrichmentError(
+            ownRaw.id,
+            'ai_actions',
+            'No recommendations were generated on the last scan — re-scan to try again.',
+          );
+          return;
+        }
 
         // Fetch existing actions to deduplicate
         const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();

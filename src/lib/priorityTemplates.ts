@@ -48,7 +48,8 @@ export const PRIORITY_TEMPLATES: PriorityTemplate[] = [
       if (totalCount <= 5) return false;
       if (!reviews || reviews.length === 0) return true;
       const ninetyDaysAgo = Date.now() - 90 * 24 * 60 * 60 * 1000;
-      return !reviews.some((r) => r.time * 1000 > ninetyDaysAgo);
+      // r.time is stored in milliseconds (see scores.ts) — do NOT multiply by 1000.
+      return !reviews.some((r) => r.time > ninetyDaysAgo);
     },
     category: 'Reviews',
     effort: 'medium',

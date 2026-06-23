@@ -49,10 +49,14 @@ export async function getRankingData(
 ): Promise<SerpData> {
   const base = 'https://serpapi.com/search.json';
   const common = `&engine=google_maps&api_key=${apiKey}&gl=gb&hl=en`;
-  const llParam = ll ? `&ll=@${ll.lat},${ll.lng},12z` : '';
+  // Tighter zoom biases the local pack to the business's immediate area rather than a city-wide region.
+  const llParam = ll ? `&ll=@${ll.lat},${ll.lng},14z` : '';
   // Map the stored category key to a natural search phrase; fall back to the raw value for legacy data.
   const service = SERVICE_CATEGORIES[primaryService as ServiceCategory]?.searchTerm ?? primaryService;
-  const searchTerm = `${service} ${location}`.replace(/\s+/g, ' ').trim();
+  // When coordinates are available let `ll` define the geography and search by service alone —
+  // appending a broad place name (e.g. a London borough like "Southwark") pushes hyperlocal
+  // businesses out of the local pack so nobody ranks. Without coords, fall back to the place name.
+  const searchTerm = ll ? service.trim() : `${service} ${location}`.replace(/\s+/g, ' ').trim();
 
   let localJson: SerpApiResponse;
   try {

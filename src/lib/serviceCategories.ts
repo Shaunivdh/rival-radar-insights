@@ -151,7 +151,7 @@ export const SERVICE_CATEGORIES: Record<ServiceCategory, ServiceCategoryConfig> 
     dashboardPriority: ['reviews', 'gbp_completeness', 'local_visibility'],
     keyMetrics: ['reviews', 'gbp_completeness', 'local_visibility'],
     aiQueryTemplates: [
-      'Best hair salon in {location}',
+      'Best {service} in {location}',
       'Top rated {service} near {location}',
       'Where should I get my nails done in {location}',
     ],

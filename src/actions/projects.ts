@@ -456,24 +456,21 @@ export async function syncProject(projectId: string): Promise<{
     }),
   );
 
-  const allDone = businesses.every(
-    (b) => b.crawlStatus === 'complete' || b.crawlStatus === 'failed',
-  );
+  // Always load existing recommendations — don't hide them just because a scan
+  // is mid-flight. Gating this on "all crawls done" meant a stuck/in-progress
+  // scan made previously-generated actions disappear from the UI.
   let priorityActions: PriorityAction[] = [];
+  const { data: actions } = await supabaseAdmin
+    .from('priority_actions')
+    .select('*')
+    .eq('project_id', projectId)
+    .in('status', ['active', 'snoozed'])
+    .order('generated_at', { ascending: false })
+    .order('priority', { ascending: true })
+    .limit(15);
 
-  if (allDone) {
-    const { data: actions } = await supabaseAdmin
-      .from('priority_actions')
-      .select('*')
-      .eq('project_id', projectId)
-      .in('status', ['active', 'snoozed'])
-      .order('generated_at', { ascending: false })
-      .order('priority', { ascending: true })
-      .limit(15);
-
-    if (actions?.length) {
-      priorityActions = actions.map(mapPriorityActionRow);
-    }
+  if (actions?.length) {
+    priorityActions = actions.map(mapPriorityActionRow);
   }
 
   return { businesses, priorityActions };

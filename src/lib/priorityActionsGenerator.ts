@@ -158,7 +158,7 @@ export async function generateAndPersistProjectActions(
 
   const openSlots = Math.max(0, 15 - (activeCount ?? 0));
 
-  await supabaseAdmin.from('priority_actions').insert(
+  const { error: insertError } = await supabaseAdmin.from('priority_actions').insert(
     newActions.map((a, i) => ({
       project_id: projectId,
       priority: a.priority,
@@ -176,6 +176,11 @@ export async function generateAndPersistProjectActions(
       continuity_note: useHistory ? (a.continuityNote ?? null) : null,
     })),
   );
+
+  if (insertError) {
+    console.error('[priorityActions] insert failed:', insertError);
+    return { inserted: 0, reason: `insert failed: ${insertError.message}` };
+  }
 
   return { inserted: newActions.length };
 }

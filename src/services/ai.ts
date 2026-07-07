@@ -1313,9 +1313,13 @@ export async function checkAIVisibility(
   const catConfig = serviceCategory ? SERVICE_CATEGORIES[serviceCategory] : null;
   const templates = catConfig?.aiQueryTemplates ?? GENERIC_AI_QUERY_TEMPLATES;
   const countryModifier = catConfig?.countryModifier ?? 'UK';
+  // Use the category's natural search term ("beauty salon") rather than the raw
+  // primary_service slug ("beauty") so queries read naturally and surface the
+  // business. Falls back to the raw service when no category config exists.
+  const serviceTerm = catConfig?.searchTerm ?? primaryService;
 
   const queries = templates.map((t) => {
-    let q = t.replace(/\{service\}/g, primaryService).replace(/\{location\}/g, location);
+    let q = t.replace(/\{service\}/g, serviceTerm).replace(/\{location\}/g, location);
     if (countryModifier) q += ` ${countryModifier}`;
     return q;
   });

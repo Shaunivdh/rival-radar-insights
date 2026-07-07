@@ -42,12 +42,23 @@ function pickBusinessCategory(types: string[]): string {
   return prioritised ?? specific[0];
 }
 
+// Google Place types that map cleanly to a natural Google Maps search phrase.
+const SEARCHABLE_TYPES = new Set(TYPE_PRIORITY);
+
+// Turn a business's Google Place types into distinct SERP search phrases (e.g. `nail_salon` → "nail salon").
+// Restricted to the searchable whitelist and capped to keep SERP API cost bounded.
+export function searchTermsForTypes(types: string[], cap = 3): string[] {
+  const terms = types.filter((t) => SEARCHABLE_TYPES.has(t)).map((t) => t.replace(/_/g, ' '));
+  return [...new Set(terms)].slice(0, cap);
+}
+
 function mapPlaceToGoogleData(place: Record<string, unknown>): GoogleData {
   return {
     placeId: (place.id as string) ?? '',
     googleRating: (place.rating as number) ?? 0,
     reviewCount: (place.userRatingCount as number) ?? 0,
     businessCategory: pickBusinessCategory((place.types as string[]) ?? []),
+    businessTypes: ((place.types as string[]) ?? []).filter((t) => !GENERIC_TYPES.has(t)),
     address: (place.formattedAddress as string) ?? '',
     phoneNumber: (place.nationalPhoneNumber as string) ?? '',
     openingHours:

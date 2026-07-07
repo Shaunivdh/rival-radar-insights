@@ -104,6 +104,8 @@ export interface GoogleData {
   reviewCount: number;
   placeId: string;
   businessCategory: string;
+  /** All specific (non-generic) Google Place types, most-canonical first — used to fan out SERP queries per category. */
+  businessTypes: string[];
   address: string;
   phoneNumber: string;
   openingHours: string[];

@@ -5,10 +5,13 @@ import {
   getPlaceDataById,
   postcodeToLatLng,
   postcodeToLocation,
+  searchTermsForTypes,
 } from '@/services/google';
 import { getRankingData } from '@/services/serp';
 import { updateBusiness } from '@/actions/projects';
 import { supabaseAdmin } from '@/lib/supabase/server';
+import { SERVICE_CATEGORIES, type ServiceCategory } from '@/lib/serviceCategories';
+import type { GoogleData, SerpData } from '@/types';
 
 export async function fetchGoogleData(
   businessId: string,
@@ -108,18 +111,34 @@ export async function fetchSerpData(
     }
   }
 
-  const serpData = await getRankingData(
-    businessName,
-    primaryService,
-    resolvedLocation,
-    apiKey,
-    domain,
-    ll,
+  // Fan out over the business's own Google Place categories so a competitor is measured on the
+  // term it actually ranks for (e.g. a nail salon on "nail salon", not the project's "beauty salon").
+  // google_data is persisted by the preceding enrich-google step, so its types are available here.
+  const { data: bizRow } = await supabaseAdmin
+    .from('businesses')
+    .select('google_data')
+    .eq('id', businessId)
+    .single();
+  const businessTypes = (bizRow?.google_data as GoogleData | null)?.businessTypes ?? [];
+
+  const projectTerm = SERVICE_CATEGORIES[primaryService as ServiceCategory]?.searchTerm ?? primaryService;
+  const candidateTerms = [...new Set([projectTerm, ...searchTermsForTypes(businessTypes)])].slice(0, 3);
+  console.log(`[fetchSerpData] candidate terms for "${businessName}":`, candidateTerms);
+
+  // Query each candidate term in parallel (they're independent) and keep the best (lowest, non-null)
+  // position; the winning term is recorded in serpData.searchTerm. candidateTerms always has ≥1 entry.
+  const results = await Promise.all(
+    candidateTerms.map((term) => getRankingData(businessName, term, resolvedLocation, apiKey, domain, ll)),
   );
-  if (!serpData) {
-    console.log(`[enrich-serp] No SERP data returned for business ${businessId}`);
-    return;
+  let serpData: SerpData = results[0];
+  for (const result of results) {
+    const pos = result.localVisibilityPosition;
+    if (pos !== null && (serpData.localVisibilityPosition === null || pos < serpData.localVisibilityPosition)) {
+      serpData = result;
+    }
   }
   await updateBusiness(businessId, { serpData });
-  console.log(`[enrich-serp] serp_data saved for business ${businessId}`);
+  console.log(
+    `[enrich-serp] serp_data saved for business ${businessId} (term="${serpData.searchTerm}", pos=${serpData.localVisibilityPosition})`,
+  );
 }

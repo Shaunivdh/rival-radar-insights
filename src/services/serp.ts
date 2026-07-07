@@ -49,8 +49,9 @@ export async function getRankingData(
 ): Promise<SerpData> {
   const base = 'https://serpapi.com/search.json';
   const common = `&engine=google_maps&api_key=${apiKey}&gl=gb&hl=en`;
-  // Tighter zoom biases the local pack to the business's immediate area rather than a city-wide region.
-  const llParam = ll ? `&ll=@${ll.lat},${ll.lng},14z` : '';
+  // Tighter zoom (16z) biases the local pack to the business's immediate area rather than a city-wide
+  // region — at 14z the pack bled into neighbouring areas and pushed hyperlocal businesses out.
+  const llParam = ll ? `&ll=@${ll.lat},${ll.lng},16z` : '';
   // Map the stored category key to a natural search phrase; fall back to the raw value for legacy data.
   const service = SERVICE_CATEGORIES[primaryService as ServiceCategory]?.searchTerm ?? primaryService;
   // When coordinates are available let `ll` define the geography and search by service alone —

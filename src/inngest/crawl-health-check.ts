@@ -2,13 +2,14 @@ import { inngest } from './client';
 import { supabaseAdmin } from '@/lib/supabase/server';
 import { logCrawlStep } from '@/lib/crawl/crawl-logger';
 import { markCrawlFailed } from '@/lib/crawl/orchestrator';
+import { CRAWL_INTERVAL_MS, CRAWL_INTERVAL_DAYS } from '@/lib/crawl/config';
 
 /**
  * Daily health check cron — runs at 8 AM UTC.
  *
  * 1. Detects and recovers stale crawls (stuck in 'running' > 30 min)
  * 2. Computes 24h success/failure rates from crawl_logs
- * 3. Re-queues overdue businesses (last_crawled_at > 8 days ago)
+ * 3. Re-queues due businesses (last_crawled_at older than CRAWL_INTERVAL_DAYS) — the sole crawl scheduler
  * 4. Writes a summary row to crawl_health_reports
  */
 export const crawlHealthCheckFunction = inngest.createFunction(
@@ -121,28 +122,40 @@ export const crawlHealthCheckFunction = inngest.createFunction(
       };
     });
 
-    // Step 3: Re-queue overdue crawls (last_crawled_at > 8 days ago)
+    // Step 3: Re-queue due crawls (last_crawled_at older than the crawl interval). This is the sole
+    // scheduler for recurring crawls — staleness-based, so it can never fork duplicate chains.
     const overdueRequeued = await step.run('requeue-overdue-crawls', async () => {
-      const eightDaysAgo = new Date(Date.now() - 8 * 24 * 60 * 60 * 1000).toISOString();
+      const dueBefore = new Date(Date.now() - CRAWL_INTERVAL_MS).toISOString();
 
       const { data: overdue } = await supabaseAdmin
         .from('businesses')
         .select('id')
         .in('crawl_status', ['complete', 'failed', 'idle'])
-        .lt('last_crawled_at', eightDaysAgo);
+        .lt('last_crawled_at', dueBefore);
 
       if (!overdue?.length) return 0;
 
-      // Send events in batches to avoid overwhelming the queue
-      const events = overdue.map((b) => ({
+      const ids = overdue.map((b) => b.id as string);
+
+      // Mark pending BEFORE sending so the next daily cron run skips these until the crawl completes.
+      // Without this, a business still queued/backed-up at the next tick would be re-queued again
+      // (duplicate concurrent crawls) — the same mark-pending guard every other trigger site uses.
+      await supabaseAdmin.from('businesses').update({ crawl_status: 'pending' }).in('id', ids);
+
+      // Stagger by 15s to avoid a thundering herd against the worker's concurrency limit, matching
+      // triggerInitialScans/rescanAll. As the sole daily scheduler this batch can be large.
+      const events = ids.map((businessId, i) => ({
         name: 'crawl/business.scan' as const,
-        data: { businessId: b.id, mode: 'incremental' as const },
+        data: { businessId, mode: 'incremental' as const },
+        ts: Date.now() + i * 15000,
       }));
 
       await inngest.send(events);
 
-      console.log(`[crawl-health-check] Re-queued ${overdue.length} overdue crawls`);
-      return overdue.length;
+      console.log(
+        `[crawl-health-check] Re-queued ${ids.length} crawls due (>${CRAWL_INTERVAL_DAYS}d since last)`,
+      );
+      return ids.length;
     });
 
     // Step 4: Write health report

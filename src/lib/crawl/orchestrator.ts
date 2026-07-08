@@ -689,9 +689,13 @@ export async function extractAndPersistSignals(
     .eq('cf_job_id', jobId);
 }
 
-/** Mark a business crawl as failed. */
+/** Mark a business crawl as failed. Stamps last_crawled_at so a failed attempt still advances the
+ * weekly cadence — otherwise the health-check cron would re-queue a hard-failing business every day. */
 export async function markCrawlFailed(businessId: string, jobId?: string): Promise<void> {
-  await supabaseAdmin.from('businesses').update({ crawl_status: 'failed' }).eq('id', businessId);
+  await supabaseAdmin
+    .from('businesses')
+    .update({ crawl_status: 'failed', last_crawled_at: new Date().toISOString() })
+    .eq('id', businessId);
 
   if (jobId) {
     await supabaseAdmin

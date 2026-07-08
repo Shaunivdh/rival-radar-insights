@@ -27,6 +27,7 @@ import { mapPriorityActionRow } from '@/lib/priorityActionRow';
 import { normalizeUrl } from '@/lib/url';
 import { saveScoreSnapshot, getWeeklyDelta } from '@/lib/supabase/scores';
 import { logCrawlStep } from '@/lib/crawl/crawl-logger';
+import { THREAT_DEDUP_MS } from '@/lib/crawl/config';
 import type {
   ExtractedSignals,
   Business,
@@ -1042,9 +1043,9 @@ export const crawlBusinessFunction = inngest.createFunction(
 
       if (!overtakers.length) return;
 
-      const sinceLast = new Date(Date.now() - 8 * 24 * 60 * 60 * 1000).toISOString();
+      const sinceLast = new Date(Date.now() - THREAT_DEDUP_MS).toISOString();
 
-      // Fetch threat events recorded in the last 8 days (covers weekly rescan cycle) to dedup per competitor
+      // Fetch threat events recorded within the last crawl interval (+slack) to dedup per competitor
       const { data: recentThreats } = await supabaseAdmin
         .from('change_events')
         .select('changes')
@@ -1286,13 +1287,9 @@ export const crawlBusinessFunction = inngest.createFunction(
       }
     });
 
-    // Schedule next incremental crawl in 3 days (temporarily reduced from 7 for monitoring)
-    await step.sendEvent('schedule-next-crawl', {
-      name: 'crawl/business.scan',
-      data: { businessId, mode: 'incremental' },
-      ts: Date.now() + 3 * 24 * 60 * 60 * 1000,
-    });
-
+    // NOTE: the next crawl is NOT self-scheduled here. The daily health-check cron is the sole
+    // scheduler — it re-queues any business older than CRAWL_INTERVAL_DAYS. Self-scheduling per
+    // completion forked a new perpetual chain on every extra re-scan, doubling the cadence.
     return { businessId, jobId, status: 'complete' };
   },
 );

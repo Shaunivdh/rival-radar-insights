@@ -6,6 +6,7 @@ import { supabaseAdmin } from '@/lib/supabase/server';
 import { inngest } from '@/inngest/client';
 import { calculateScores } from '@/services/scores';
 import { mapPriorityActionRow } from '@/lib/priorityActionRow';
+import { CRAWL_INTERVAL_MS } from '@/lib/crawl/config';
 import type {
   Project,
   Business,
@@ -297,11 +298,9 @@ export async function saveChangeEvent(businessId: string, event: ChangeEvent): P
   if (error) throw new Error(error.message);
 }
 
-const CRAWL_TTL_MS = 3 * 24 * 60 * 60 * 1000; // 3 days (temporarily reduced from 7 for monitoring)
-
 function isStale(lastCrawledAt: string | null): boolean {
   if (!lastCrawledAt) return true;
-  return Date.now() - new Date(lastCrawledAt).getTime() > CRAWL_TTL_MS;
+  return Date.now() - new Date(lastCrawledAt).getTime() > CRAWL_INTERVAL_MS;
 }
 
 export async function triggerInitialScans(projectId: string): Promise<void> {

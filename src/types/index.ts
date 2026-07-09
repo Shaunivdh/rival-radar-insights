@@ -124,6 +124,9 @@ export interface GoogleData {
 
 export interface SerpData {
   localVisibilityPosition: number | null;
+  /** Position from the previous scan (null = was unranked). Absent on a business's
+   *  first scan — overtake detection stays silent until a real before/after exists. */
+  previousLocalVisibilityPosition?: number | null;
   localPackPresent: boolean;
   featuredSnippet: boolean;
   knowledgePanelPresent: boolean;

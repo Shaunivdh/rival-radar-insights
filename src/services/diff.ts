@@ -13,6 +13,70 @@ const DIFF_SKIP_FIELDS = new Set<string>([
   // example: 'sectorSpecific',
 ]);
 
+export interface FilteredDiff {
+  hasChanges: boolean;
+  /** Genuinely changed leaves, as "category.field" paths (e.g. "content.servicesListed"). */
+  changedPaths: string[];
+  /** Oscillating leaves suppressed from the diff, as "category.field" paths. */
+  suppressedPaths: string[];
+  /** Copy of `current` with oscillating leaf values reverted to the `previous` value,
+   *  so downstream consumers (AI summary, confirmation compare) never see them. */
+  filteredCurrent: ExtractedSignals;
+}
+
+/**
+ * Leaf-level diff with oscillation suppression.
+ *
+ * Extraction is not perfectly deterministic scan-to-scan (partial renders, popup
+ * variance), which produces flip-flopping values that read as "added"/"removed"
+ * alerts. A changed leaf whose NEW value already appeared in any of the `history`
+ * snapshots is oscillation, not a real site change — it is reverted silently.
+ *
+ * `history` should be confirmed snapshots older than `previous` (typically ~4).
+ */
+export function suppressOscillatingChanges(
+  previous: ExtractedSignals,
+  current: ExtractedSignals,
+  history: ExtractedSignals[],
+): FilteredDiff {
+  const changedPaths: string[] = [];
+  const suppressedPaths: string[] = [];
+  const filteredCurrent = JSON.parse(JSON.stringify(current)) as ExtractedSignals;
+
+  for (const category of Object.keys(current) as (keyof ExtractedSignals)[]) {
+    if (DIFF_SKIP_FIELDS.has(category)) continue;
+    // Same rule as diffSignals: categories absent from the previous snapshot are
+    // schema additions, never "changed from nothing"
+    if (previous[category] === undefined || previous[category] === null) continue;
+
+    const prevCat = previous[category] as unknown as Record<string, unknown>;
+    const currCat = current[category] as unknown as Record<string, unknown>;
+    const filteredCat = filteredCurrent[category] as unknown as Record<string, unknown>;
+    const leaves = new Set([...Object.keys(prevCat ?? {}), ...Object.keys(currCat ?? {})]);
+
+    for (const leaf of leaves) {
+      const prevVal = JSON.stringify(prevCat?.[leaf]);
+      const currVal = JSON.stringify(currCat?.[leaf]);
+      if (prevVal === currVal) continue;
+
+      const seenBefore = history.some(
+        (h) =>
+          JSON.stringify((h[category] as unknown as Record<string, unknown> | undefined)?.[leaf]) ===
+          currVal,
+      );
+      if (seenBefore) {
+        suppressedPaths.push(`${category}.${leaf}`);
+        if (prevCat?.[leaf] === undefined) delete filteredCat[leaf];
+        else filteredCat[leaf] = prevCat[leaf];
+      } else {
+        changedPaths.push(`${category}.${leaf}`);
+      }
+    }
+  }
+
+  return { hasChanges: changedPaths.length > 0, changedPaths, suppressedPaths, filteredCurrent };
+}
+
 export function diffSignals(previous: ExtractedSignals, current: ExtractedSignals): SignalDiff {
   const changedFields: string[] = [];
   const before: Partial<ExtractedSignals> = {};

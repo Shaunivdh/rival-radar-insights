@@ -331,11 +331,14 @@ export async function checkCrawlStatus(_businessId: string, jobId: string): Prom
   return result.status;
 }
 
-/** Fetch crawl results, extract signals, persist to DB, and mark the business complete. */
+/** Fetch crawl results, extract signals, persist to DB, and mark the business complete.
+ * `bypassCache` forces fresh results — required for confirmation crawls, which exist
+ * to independently reproduce a change and must never re-read the data being verified. */
 export async function extractAndPersistSignals(
   businessId: string,
   jobId: string,
   prefetchedResult?: RawCrawlResult,
+  opts?: { bypassCache?: boolean },
 ): Promise<void> {
   const credentials = getCredentials();
 
@@ -346,7 +349,7 @@ export async function extractAndPersistSignals(
     .single();
 
   const url = business?.url ? normalizeUrl(business.url as string) : undefined;
-  const cached = url ? loadFromCache(url) : null;
+  const cached = url && !opts?.bypassCache ? loadFromCache(url) : null;
   const rootResult = prefetchedResult ?? cached ?? (await getCrawlResults(jobId, credentials));
 
   // Multi-page: extract priority links from root HTML and crawl them in parallel

@@ -116,10 +116,11 @@ export async function fetchSerpData(
   // google_data is persisted by the preceding enrich-google step, so its types are available here.
   const { data: bizRow } = await supabaseAdmin
     .from('businesses')
-    .select('google_data')
+    .select('google_data, serp_data')
     .eq('id', businessId)
     .single();
   const businessTypes = (bizRow?.google_data as GoogleData | null)?.businessTypes ?? [];
+  const previousSerp = (bizRow?.serp_data as SerpData | null) ?? null;
 
   const projectTerm = SERVICE_CATEGORIES[primaryService as ServiceCategory]?.searchTerm ?? primaryService;
   const candidateTerms = [...new Set([projectTerm, ...searchTermsForTypes(businessTypes)])].slice(0, 3);
@@ -136,6 +137,11 @@ export async function fetchSerpData(
     if (pos !== null && (serpData.localVisibilityPosition === null || pos < serpData.localVisibilityPosition)) {
       serpData = result;
     }
+  }
+  // Carry the prior scan's position so overtake detection can compare real before/after.
+  // Key stays absent on the first scan — that absence is what keeps baseline scans silent.
+  if (previousSerp) {
+    serpData = { ...serpData, previousLocalVisibilityPosition: previousSerp.localVisibilityPosition };
   }
   await updateBusiness(businessId, { serpData });
   console.log(

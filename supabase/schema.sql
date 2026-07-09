@@ -51,6 +51,11 @@ create table if not exists extracted_signals (
   business_id uuid not null references businesses(id) on delete cascade,
   scanned_at  timestamptz not null default now(),
   is_current  boolean not null default true,
+  -- Change-confirmation state: 'pending' while awaiting the confirmation re-crawl,
+  -- 'unconfirmed' when a detected change failed to reproduce (flaky render).
+  -- Diff baselines and oscillation history only use 'confirmed' rows.
+  status      text not null default 'confirmed'
+                check (status in ('confirmed','pending','unconfirmed')),
   seo         jsonb,
   pricing     jsonb,
   trust       jsonb,

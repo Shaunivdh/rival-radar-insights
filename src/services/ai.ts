@@ -1066,7 +1066,7 @@ export async function generateChangeSummary(
 
   const prompt = `${framing}
 
-DATA INTEGRITY: Every claim you make must be directly supported by the Before/After JSON below. Do not invent rankings, traffic numbers, competitor activity, search positions, or anything else not visible in the data. If you cannot describe a change concretely from the data, drop it.
+DATA INTEGRITY: Every claim you make must be directly supported by the Before/After JSON below. Do not invent rankings, traffic numbers, competitor activity, search positions, or anything else not visible in the data. Do not state outcomes as fact ("they're capturing more traffic", "they're winning customers") — the data shows what changed on the site, never its results; phrase impact as possibility ("this could help them rank for..."). If you cannot describe a change concretely from the data, drop it.
 
 Return JSON only.
 Schema: {"hasSignificantChanges":boolean,"severity":"high"|"medium"|"low","summary":"string","changes":[{"category":"string","description":"string","significance":"string","actionItem":"string|null"}]}

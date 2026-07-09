@@ -64,6 +64,38 @@ function mergeStringArrays(pages: PageJson[], key: string): string[] {
   return [...seen];
 }
 
+// Headings that leak into servicesListed from nav/footer/blog sections but are never services
+const NON_SERVICE_RE =
+  /^(recent posts?|latest (posts?|news|articles?)|blog|news|brands?|our brands|categories|archives?|tags?|search|menu|quick links|useful links|follow us|connect with us|find us( on)?|subscribe|newsletter|sign (in|up)|log ?in|register|privacy policy|terms( (&|and) conditions)?|cookie policy|sitemap|faqs?|testimonials?|reviews?|gallery|portfolio|about( us)?|contact( us)?|home|book (now|online)|opening (hours|times)|our (story|team)|meet the team)$/i;
+// Years, "est. 2005", © marks — business-name/footer fragments, not services
+const NON_SERVICE_HINT_RE = /\b(19|20)\d{2}\b|[©®™]/;
+
+function decodeEntities(s: string): string {
+  return s
+    .replace(/&nbsp;|&#160;/gi, ' ')
+    .replace(/&amp;/gi, '&')
+    .replace(/&#0?39;|&apos;/gi, "'")
+    .replace(/&quot;/gi, '"')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+/** Drop nav/blog/footer junk that heading-based extraction misreads as services. */
+function sanitizeServices(items: string[]): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const raw of items) {
+    const s = decodeEntities(raw);
+    if (s.length < 3 || s.length > 60) continue;
+    if (NON_SERVICE_RE.test(s) || NON_SERVICE_HINT_RE.test(s)) continue;
+    const key = s.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(s);
+  }
+  return out;
+}
+
 function mergeObjectArrays(pages: PageJson[], key: string): unknown[] {
   const results: unknown[] = [];
   for (const p of pages) {
@@ -107,7 +139,7 @@ export async function extractSignals(rawResult: RawCrawlResult): Promise<Extract
       guaranteesMentioned: mergeStringArrays(pages, 'guaranteesMentioned'),
     },
     content: {
-      servicesListed: mergeStringArrays(pages, 'servicesListed'),
+      servicesListed: sanitizeServices(mergeStringArrays(pages, 'servicesListed')),
       serviceAreasMentioned: mergeStringArrays(pages, 'serviceAreasMentioned'),
       hasBlog: pickBool(pages, 'hasBlog'),
       hasPortfolio: pickBool(pages, 'hasPortfolio'),

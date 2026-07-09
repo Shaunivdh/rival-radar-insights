@@ -13,3 +13,10 @@ export const CRAWL_INTERVAL_MS = CRAWL_INTERVAL_DAYS * 24 * 60 * 60 * 1000;
 
 /** Window for deduplicating threat/change events — one crawl interval plus a day of slack. */
 export const THREAT_DEDUP_MS = (CRAWL_INTERVAL_DAYS + 1) * 24 * 60 * 60 * 1000;
+
+/**
+ * Delay before the confirmation re-crawl that validates a detected signal change.
+ * Long enough for a transient render problem, mid-deploy state, or CDN cache to
+ * clear; short enough that alerts still land the same day.
+ */
+export const CHANGE_CONFIRMATION_DELAY_MS = 6 * 60 * 60 * 1000;

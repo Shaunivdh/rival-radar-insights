@@ -21,13 +21,13 @@ import {
 } from '@/services/ai';
 import { calculateScores, recomputeOverallScore } from '@/services/scores';
 import { fetchPageSpeedData } from '@/services/pagespeed';
-import { diffSignals } from '@/services/diff';
+import { suppressOscillatingChanges } from '@/services/diff';
 import { updateBusiness, saveChangeEvent } from '@/actions/projects';
 import { mapPriorityActionRow } from '@/lib/priorityActionRow';
 import { normalizeUrl } from '@/lib/url';
 import { saveScoreSnapshot, getWeeklyDelta } from '@/lib/supabase/scores';
 import { logCrawlStep } from '@/lib/crawl/crawl-logger';
-import { THREAT_DEDUP_MS } from '@/lib/crawl/config';
+import { THREAT_DEDUP_MS, CHANGE_CONFIRMATION_DELAY_MS } from '@/lib/crawl/config';
 import type {
   ExtractedSignals,
   Business,
@@ -96,6 +96,15 @@ async function fetchPreviousActionBatch(projectId: string): Promise<PriorityActi
     .order('priority', { ascending: true });
 
   return (rows ?? []).map((r) => mapPriorityActionRow(r as Record<string, unknown>));
+}
+
+function rowToSignals(r: Record<string, unknown>): ExtractedSignals {
+  return {
+    seo: r.seo,
+    trust: r.trust,
+    content: r.content,
+    engagement: r.engagement,
+  } as ExtractedSignals;
 }
 
 /** Fetch the previous (not most-recent) extracted_signals row for a business. */
@@ -788,65 +797,69 @@ export const crawlBusinessFunction = inngest.createFunction(
       }
     });
 
-    // Step 8: Diff signals and generate change summary (runs on any rescan if previous snapshot exists)
-    await step.run('diff-and-summarize', async () => {
+    // Step 8: Detect signal changes (runs on any rescan if a confirmed baseline exists).
+    // Oscillating values (extraction flip-flops) are suppressed outright; genuine changes
+    // are NOT alerted here — they alert only after a confirmation re-crawl reproduces them
+    // (see confirmChangeFunction below).
+    const pendingConfirmation = await step.run('diff-and-summarize', async () => {
       const { data: rows } = await supabaseAdmin
         .from('extracted_signals')
-        .select('seo, trust, content, engagement')
+        .select('id, seo, trust, content, engagement, status')
         .eq('business_id', businessId)
         .order('scanned_at', { ascending: false })
-        .limit(2);
+        .limit(7);
 
-      if (!rows || rows.length < 2) return;
+      if (!rows || rows.length < 2) return null;
 
-      const toSignals = (r: Record<string, unknown>): ExtractedSignals =>
-        ({
-          seo: r.seo,
-          trust: r.trust,
-          content: r.content,
-          engagement: r.engagement,
-        }) as ExtractedSignals;
+      const detection = rows[0];
+      // Only confirmed snapshots may serve as baseline/history — pending/unconfirmed
+      // rows are flaky-render suspects and must never poison a diff
+      const confirmedRows = rows.slice(1).filter((r) => r.status === 'confirmed');
+      const baseline = confirmedRows[0];
+      if (!baseline) return null;
 
-      const current = toSignals(rows[0]);
-      const previous = toSignals(rows[1]);
-      const diff = diffSignals(previous, current);
-
-      if (!diff.hasChanges) return;
-
-      let summary;
-      try {
-        summary = await generateChangeSummary(meta.name, previous, current, !meta.isOwnBusiness);
-      } catch (e) {
-        if (e instanceof AIUnavailableError) {
-          console.warn(`[change-summary] AI unavailable for ${businessId}, skipping change event`);
-          await writeEnrichmentError(
-            businessId,
-            'change_summary',
-            'AI unavailable — change summary skipped',
-          );
-        } else {
-          console.error(`[change-summary] unexpected error for ${businessId}:`, e);
-          await writeEnrichmentError(
-            businessId,
-            'change_summary',
-            'Failed to generate change summary',
-          );
-        }
-        return;
+      const filtered = suppressOscillatingChanges(
+        rowToSignals(baseline),
+        rowToSignals(detection),
+        confirmedRows.slice(1, 5).map(rowToSignals),
+      );
+      if (filtered.suppressedPaths.length > 0) {
+        logCrawlStep(
+          businessId,
+          jobId,
+          'diff-and-summarize',
+          'warning',
+          `Suppressed oscillating signals: ${filtered.suppressedPaths.join(', ')}`,
+        );
       }
-      if (!summary.hasSignificantChanges) return;
+      if (!filtered.hasChanges) return null;
 
-      const event: ChangeEvent = {
-        id: crypto.randomUUID(),
-        detectedAt: Date.now(),
-        severity: summary.severity,
-        summary: summary.summary,
-        changes: summary.changes,
+      await supabaseAdmin
+        .from('extracted_signals')
+        .update({ status: 'pending' })
+        .eq('id', detection.id);
+      logCrawlStep(
+        businessId,
+        jobId,
+        'diff-and-summarize',
+        'success',
+        `Changes detected, confirmation crawl scheduled: ${filtered.changedPaths.join(', ')}`,
+      );
+
+      return {
+        baselineId: baseline.id as string,
+        detectionId: detection.id as string,
+        changedPaths: filtered.changedPaths,
       };
-
-      await saveChangeEvent(businessId, event);
-      await clearEnrichmentError(businessId, 'change_summary');
     });
+
+    if (pendingConfirmation) {
+      await step.sendEvent('schedule-change-confirmation', {
+        name: 'crawl/change.confirm',
+        data: { businessId, ...pendingConfirmation },
+        ts: Date.now() + CHANGE_CONFIRMATION_DELAY_MS,
+      });
+    }
 
     // Step 9: Calculate deterministic health score
     await step.run('calculate-scores', async () => {
@@ -1032,13 +1045,23 @@ export const crawlBusinessFunction = inngest.createFunction(
       const ownBiz = allBiz.find((b) => b.is_own_business);
       if (!ownBiz) return;
 
-      const ownPosition = (ownBiz.serp_data as SerpData | null)?.localVisibilityPosition;
+      const ownSerp = ownBiz.serp_data as SerpData | null;
+      const ownPosition = ownSerp?.localVisibilityPosition;
       if (ownPosition == null) return;
+      // "Overtook" means the relative order actually flipped between scans. Baseline
+      // scans (no stored previous position) stay silent — a competitor that was simply
+      // always ahead is a standing gap, visible in comparison scores, not an event.
+      const ownPrevious = ownSerp?.previousLocalVisibilityPosition;
+      if (ownPrevious == null) return;
 
       const overtakers = allBiz.filter((b) => {
         if (b.is_own_business) return false;
-        const pos = (b.serp_data as SerpData | null)?.localVisibilityPosition;
-        return pos != null && pos < ownPosition;
+        const serp = b.serp_data as SerpData | null;
+        const pos = serp?.localVisibilityPosition;
+        if (pos == null || pos >= ownPosition) return false;
+        const prev = serp?.previousLocalVisibilityPosition;
+        if (prev === undefined) return false; // first scan with position tracking — no before/after yet
+        return prev === null || prev >= ownPrevious; // previously unranked or behind/equal → real flip
       });
 
       if (!overtakers.length) return;
@@ -1093,22 +1116,8 @@ export const crawlBusinessFunction = inngest.createFunction(
         };
         await saveChangeEvent(ownBiz.id as string, event);
       }
-
-      const { data: ownBizRow } = await supabaseAdmin
-        .from('businesses')
-        .select('ai_score')
-        .eq('id', ownBiz.id)
-        .single();
-      if (!ownBizRow?.ai_score) return;
-
-      const aiScore = ownBizRow.ai_score as AIHealthScore;
-      // localVisibilityScore is non-nullable but stay defensive in case
-      // legacy rows contain nulls.
-      if (aiScore.localVisibilityScore !== null) {
-        aiScore.localVisibilityScore = Math.max(0, aiScore.localVisibilityScore - 10);
-      }
-      aiScore.overallScore = recomputeOverallScore(aiScore);
-      await updateBusiness(ownBiz.id as string, { aiScore });
+      // No score penalty here: local pack position already feeds the deterministic
+      // localVisibilityScore, so an event-driven −10 double-counted the same fact.
     });
 
     // Step 14: If all businesses in project are done, generate priority actions
@@ -1291,5 +1300,222 @@ export const crawlBusinessFunction = inngest.createFunction(
     // scheduler — it re-queues any business older than CRAWL_INTERVAL_DAYS. Self-scheduling per
     // completion forked a new perpetual chain on every extra re-scan, doubling the cadence.
     return { businessId, jobId, status: 'complete' };
+  },
+);
+
+/** Quarantine a detection snapshot and restore crawl state after a failed/degraded confirmation. */
+async function discardUnconfirmedChange(businessId: string, detectionId: string): Promise<void> {
+  await supabaseAdmin
+    .from('extracted_signals')
+    .update({ status: 'unconfirmed' })
+    .eq('id', detectionId);
+  await updateBusiness(businessId, { crawlStatus: 'complete' });
+  await markCrawlJobComplete(businessId);
+}
+
+/**
+ * Event: crawl/change.confirm
+ * Payload: { businessId, baselineId, detectionId, changedPaths }
+ *
+ * Sent (delayed by CHANGE_CONFIRMATION_DELAY_MS) when a scan detects genuine signal
+ * changes. Re-crawls the site fresh (cache bypassed) and re-diffs against the SAME
+ * baseline: only reproduced changes become change events. A change that vanishes was
+ * a flaky render — the detection snapshot is quarantined so it can never become a
+ * diff baseline and re-fire the phantom alert in reverse.
+ */
+export const confirmChangeFunction = inngest.createFunction(
+  {
+    id: 'confirm-change',
+    retries: 1,
+    concurrency: { limit: 3 },
+    onFailure: async ({ error, event, step }) => {
+      const { businessId, detectionId } = event.data.event.data as {
+        businessId: string;
+        detectionId: string;
+      };
+      console.error(`[confirm-change] failed for business ${businessId}:`, error.message);
+      logCrawlStep(businessId, null, 'confirm-change', 'failed', error.message?.slice(0, 500));
+      // Conservative: a change we could not verify never alerts
+      await step.run('discard-unconfirmed', () =>
+        discardUnconfirmedChange(businessId, detectionId),
+      );
+    },
+  },
+  { event: 'crawl/change.confirm' },
+  async ({ event, step }) => {
+    const { businessId, baselineId, detectionId, changedPaths } = event.data as {
+      businessId: string;
+      baselineId: string;
+      detectionId: string;
+      changedPaths: string[];
+    };
+
+    const jobId = await step.run('confirm-start-crawl', () =>
+      startBusinessCrawl(businessId, 'incremental'),
+    );
+
+    // Direct-fetch fallback yields single-page signals that cannot be compared against
+    // a multi-page baseline — the change is unverifiable, and the fallback snapshot
+    // itself must be quarantined so it never becomes a baseline.
+    if (jobId === DIRECT_FETCH_DONE || jobId === CRAWL_DISALLOWED) {
+      await step.run('confirm-degraded-fallback', async () => {
+        if (jobId === DIRECT_FETCH_DONE) {
+          const { data: latest } = await supabaseAdmin
+            .from('extracted_signals')
+            .select('id')
+            .eq('business_id', businessId)
+            .order('scanned_at', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+          if (latest && latest.id !== detectionId) {
+            await supabaseAdmin
+              .from('extracted_signals')
+              .update({ status: 'unconfirmed' })
+              .eq('id', latest.id);
+          }
+        }
+        await discardUnconfirmedChange(businessId, detectionId);
+        logCrawlStep(
+          businessId,
+          jobId,
+          'confirm-change',
+          'warning',
+          'Confirmation crawl degraded to direct fetch — change left unconfirmed',
+        );
+      });
+      return { businessId, status: 'unconfirmed-degraded' };
+    }
+
+    let crawlStatus = 'running';
+    let attempts = 0;
+    while (crawlStatus === 'running' && attempts < MAX_POLL_ATTEMPTS) {
+      crawlStatus = await step.run(`confirm-poll-${attempts}`, () =>
+        checkCrawlStatus(businessId, jobId),
+      );
+      attempts++;
+      if (crawlStatus === 'running') {
+        await step.sleep(`confirm-poll-wait-${attempts}`, POLL_INTERVAL);
+      }
+    }
+    if (crawlStatus !== 'completed') {
+      // Throw so retries/onFailure handle quarantine + crawl state restore
+      throw new Error(`Confirmation crawl ended with status: ${crawlStatus}`);
+    }
+
+    await step.run('confirm-persist-signals', async () => {
+      await extractAndPersistSignals(businessId, jobId, undefined, { bypassCache: true });
+      await updateBusiness(businessId, { crawlStatus: 'complete' });
+    });
+
+    await step.run('confirm-or-discard', async () => {
+      const [{ data: baseRow }, { data: confirmRow }, { data: biz }] = await Promise.all([
+        supabaseAdmin
+          .from('extracted_signals')
+          .select('seo, trust, content, engagement, scanned_at')
+          .eq('id', baselineId)
+          .single(),
+        supabaseAdmin
+          .from('extracted_signals')
+          .select('id, seo, trust, content, engagement')
+          .eq('business_id', businessId)
+          .order('scanned_at', { ascending: false })
+          .limit(1)
+          .maybeSingle(),
+        supabaseAdmin
+          .from('businesses')
+          .select('name, is_own_business')
+          .eq('id', businessId)
+          .single(),
+      ]);
+      if (!baseRow || !confirmRow || !biz || confirmRow.id === detectionId) return;
+
+      // Same oscillation history the detection used: confirmed rows older than the baseline
+      const { data: historyRows } = await supabaseAdmin
+        .from('extracted_signals')
+        .select('seo, trust, content, engagement')
+        .eq('business_id', businessId)
+        .eq('status', 'confirmed')
+        .lt('scanned_at', baseRow.scanned_at as string)
+        .order('scanned_at', { ascending: false })
+        .limit(4);
+
+      const baseline = rowToSignals(baseRow);
+      const filtered = suppressOscillatingChanges(
+        baseline,
+        rowToSignals(confirmRow),
+        (historyRows ?? []).map(rowToSignals),
+      );
+
+      if (!filtered.hasChanges) {
+        await supabaseAdmin
+          .from('extracted_signals')
+          .update({ status: 'unconfirmed' })
+          .eq('id', detectionId);
+        logCrawlStep(
+          businessId,
+          jobId,
+          'confirm-change',
+          'warning',
+          `Change not reproduced — detection snapshot quarantined (pending: ${changedPaths.join(', ')})`,
+        );
+        return;
+      }
+
+      // Detection is vindicated only if everything it saw reproduced
+      const reproduced = new Set(filtered.changedPaths);
+      const allHeld = changedPaths.every((p) => reproduced.has(p));
+      await supabaseAdmin
+        .from('extracted_signals')
+        .update({ status: allHeld ? 'confirmed' : 'unconfirmed' })
+        .eq('id', detectionId);
+
+      let summary;
+      try {
+        summary = await generateChangeSummary(
+          biz.name as string,
+          baseline,
+          filtered.filteredCurrent,
+          !(biz.is_own_business as boolean),
+        );
+      } catch (e) {
+        if (e instanceof AIUnavailableError) {
+          console.warn(`[confirm-change] AI unavailable for ${businessId}, skipping change event`);
+          await writeEnrichmentError(
+            businessId,
+            'change_summary',
+            'AI unavailable — change summary skipped',
+          );
+        } else {
+          console.error(`[confirm-change] unexpected error for ${businessId}:`, e);
+          await writeEnrichmentError(
+            businessId,
+            'change_summary',
+            'Failed to generate change summary',
+          );
+        }
+        return;
+      }
+      if (!summary.hasSignificantChanges) return;
+
+      const changeEvent: ChangeEvent = {
+        id: crypto.randomUUID(),
+        detectedAt: Date.now(),
+        severity: summary.severity,
+        summary: summary.summary,
+        changes: summary.changes,
+      };
+
+      await saveChangeEvent(businessId, changeEvent);
+      await clearEnrichmentError(businessId, 'change_summary');
+      logCrawlStep(
+        businessId,
+        jobId,
+        'confirm-change',
+        'success',
+        `Change confirmed: ${filtered.changedPaths.join(', ')}`,
+      );
+    });
+
+    return { businessId, jobId, status: 'confirmed' };
   },
 );

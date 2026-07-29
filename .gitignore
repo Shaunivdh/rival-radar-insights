@@ -35,6 +35,8 @@ yarn.lock
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
+# Claude Code local wiring (symlinks + settings.local.json); skills live in .agents/skills
+.claude/
 .idea
 .DS_Store
 *.suo

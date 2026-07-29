@@ -22,7 +22,7 @@ export function DashboardGreeting() {
       .filter((e) => Date.now() - e.detectedAt < 7 * 86400000).length ?? 0;
 
   return (
-    <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-[#EEF2FF] via-[#F5F3FF] to-[#FFF7ED] p-6 border border-[#E8E4FF]">
+    <div className="relative overflow-hidden rounded-2xl bg-gradient-greeting p-6 border border-primary/10">
       <div className="flex items-start gap-4">
         <div className="w-12 h-12 rounded-xl bg-white/60 flex items-center justify-center shrink-0 shadow-sm">
           <span className="text-2xl">🦉</span>
@@ -36,7 +36,7 @@ export function DashboardGreeting() {
             {recentChanges > 0 ? (
               <>
                 There{recentChanges === 1 ? "'s" : ' are'}{' '}
-                <span className="text-[#5B4EE8] font-semibold">
+                <span className="text-primary font-semibold">
                   {recentChanges} new {recentChanges === 1 ? 'change' : 'changes'}
                 </span>{' '}
                 detected this week. I've spotted a few things we could tidy up together to keep the

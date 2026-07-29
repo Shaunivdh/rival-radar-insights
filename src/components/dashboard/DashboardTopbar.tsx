@@ -1,7 +1,6 @@
 'use client';
 
-import { Search, Bell } from 'lucide-react';
-import { Input } from '@/components/ui/input';
+import { Bell } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useRivalRadarStore } from '@/store/rivalradar';
 
@@ -27,17 +26,6 @@ const DashboardTopbar = () => {
           {settings?.location && (
             <p className="text-xs text-muted-foreground truncate">{settings.location}</p>
           )}
-        </div>
-      </div>
-
-      <div className="flex-1 max-w-md hidden md:block">
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-          <Input
-            placeholder="Start searching here..."
-            className="pl-9 bg-card border-0"
-            style={{ boxShadow: 'var(--neu-shadow)' }}
-          />
         </div>
       </div>
 

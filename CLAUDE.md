@@ -104,8 +104,10 @@ Do NOT optimize crawl performance at the expense of data quality. A 2-3 second i
 ## 7. UI Rules
 
 - Tailwind only
-- Inter font
-- Primary brand color: #5B4EE8
+- Fonts: **Inter** for body, **Space Grotesk** for headings (`h1`–`h6`)
+- Primary brand color: violet `hsl(262 60% 58%)` (~`#8354D4`); accent: orange `hsl(32 95% 55%)` (~`#F9941F`)
+- Theme is **token-driven** — all colors/gradients/shadows live in `src/app/globals.css` `:root`. Change tokens, not per-component hex. Tailwind color utilities resolve from these tokens.
+- Surfaces are **neumorphic**: `.card-surface` / `.neu` use the soft `--neu-shadow`, `rounded-2xl` (`--radius: 1rem`), sitting on the `--gradient-canvas` app background
 - Do not introduce new UI libraries
 
 ### Design Skills (tasteskill.dev)
@@ -130,7 +132,7 @@ Avoid: `industrial-brutalist-ui` (wrong tone for trust-oriented B2B), `gpt-taste
 Constraints when applying these skills — they OVERRIDE any skill output:
 
 - Tailwind only; **no new UI libraries or dependencies**
-- Keep Inter font + `#5B4EE8` as the single accent
+- Keep the `globals.css` theme tokens (Inter body / Space Grotesk headings, violet `hsl(262 60% 58%)` primary, orange accent, neumorphic surfaces) — don't reintroduce ad-hoc fonts or colors
 - Design/layout changes must NOT touch crawl logic (see §6) — flag if a change appears to require it
 - Small, safe diffs; changed sections only
 

@@ -28,21 +28,21 @@ function CircleScore({ score }: { score: number }) {
       <p className="text-[10px] font-semibold tracking-widest text-muted-foreground uppercase">
         Overall
       </p>
-      <div className="relative w-20 h-20">
-        <svg className="w-20 h-20 -rotate-90" viewBox="0 0 88 88">
-          <circle cx="44" cy="44" r={r} fill="none" stroke="#e5e7eb" strokeWidth="7" />
+      <div className="relative w-24 h-24">
+        <svg className="w-24 h-24 -rotate-90" viewBox="0 0 88 88">
+          <circle cx="44" cy="44" r={r} fill="none" stroke="hsl(var(--muted))" strokeWidth="7" />
           <circle
             cx="44"
             cy="44"
             r={r}
             fill="none"
-            stroke="#5B4EE8"
+            stroke="hsl(var(--primary))"
             strokeWidth="7"
             strokeLinecap="round"
             strokeDasharray={`${filled} ${circ}`}
           />
         </svg>
-        <span className="absolute inset-0 flex items-center justify-center text-2xl font-bold text-[#5B4EE8]">
+        <span className="absolute inset-0 flex items-center justify-center text-3xl font-bold text-primary">
           {score}
         </span>
       </div>
@@ -86,17 +86,17 @@ function MetricRow({
     <div className="space-y-1">
       <div className="flex items-center justify-between">
         <div className="relative group flex items-center gap-1">
-          <span className="text-sm text-gray-600">{label}</span>
-          <Info className="w-3 h-3 text-gray-400 cursor-default shrink-0" />
+          <span className="text-sm text-muted-foreground">{label}</span>
+          <Info className="w-3 h-3 text-muted-foreground/50 cursor-default shrink-0" />
           <div className="absolute left-0 top-5 z-20 opacity-0 group-hover:opacity-100 transition-opacity w-60 bg-gray-900 text-white text-xs rounded-lg px-3 py-2 shadow-lg pointer-events-none leading-relaxed">
             {tooltip}
           </div>
         </div>
-        <span className="text-sm font-semibold text-gray-900 tabular-nums">
+        <span className="text-base font-bold text-foreground tabular-nums">
           {score === null ? '—' : score}
         </span>
       </div>
-      <div className="relative h-2.5 rounded-full bg-gray-100 overflow-visible">
+      <div className="relative h-3 rounded-full bg-muted overflow-visible">
         {score !== null && (
           <div
             className="h-full rounded-full"
@@ -105,7 +105,7 @@ function MetricRow({
         )}
         {competitorScore !== null && (
           <div
-            className="absolute top-1/2 -translate-y-1/2 w-0.5 h-4 bg-gray-400 rounded-full"
+            className="absolute top-1/2 -translate-y-1/2 w-0.5 h-4 bg-foreground/40 rounded-full"
             style={{ left: `${competitorScore}%` }}
           />
         )}
@@ -118,15 +118,15 @@ export function BusinessScoreCard({ own, competitors }: Props) {
   const score = own.aiScore;
 
   return (
-    <div className="card-surface space-y-5">
+    <div className="card-surface space-y-6 p-6">
       {/* Header row */}
       <div className="flex items-start justify-between gap-4">
         <div>
           <p className="text-[10px] font-semibold tracking-widest text-muted-foreground uppercase mb-1">
             How you're doing
           </p>
-          <h1 className="text-xl font-bold text-gray-900">{own.name}</h1>
-          <p className="text-sm text-gray-500 mt-0.5">
+          <h1 className="text-2xl font-bold tracking-tight text-foreground">{own.name}</h1>
+          <p className="text-sm text-muted-foreground mt-0.5">
             {own.googleData?.address ? <>{own.googleData.address}</> : <>{own.domain}</>}
             {own.lastCrawledAt && (
               <> &middot; Last checked {timeAgo(own.lastCrawledAt).replace('Updated ', '')}</>
@@ -138,21 +138,21 @@ export function BusinessScoreCard({ own, competitors }: Props) {
 
       {/* Score summary blurb */}
       {score && (
-        <p className="text-sm text-gray-600 leading-relaxed">
+        <p className="text-sm text-muted-foreground leading-relaxed">
           {score.overallScore >= 70 ? (
             <>
-              You're <span className="font-semibold text-gray-800">performing well</span> in your
+              You're <span className="font-semibold text-foreground">performing well</span> in your
               area. Keep up the momentum and focus on your top priority actions.
             </>
           ) : score.overallScore >= 45 ? (
             <>
-              You're <span className="font-semibold text-gray-800">solidly mid-pack</span> in your
+              You're <span className="font-semibold text-foreground">solidly mid-pack</span> in your
               area — with the biggest room to grow on your lower-scoring signals. Let's tackle that
               together.
             </>
           ) : (
             <>
-              There's <span className="font-semibold text-gray-800">real room to grow</span> your
+              There's <span className="font-semibold text-foreground">real room to grow</span> your
               local visibility. Start with the priority actions on the right to move the needle
               quickly.
             </>
@@ -168,7 +168,9 @@ export function BusinessScoreCard({ own, competitors }: Props) {
             const competitorScores = competitors
               .map((c) => c.aiScore?.[key])
               .filter((s): s is number => typeof s === 'number');
-            const topCompetitorScore = competitorScores.length ? Math.max(...competitorScores) : null;
+            const topCompetitorScore = competitorScores.length
+              ? Math.max(...competitorScores)
+              : null;
 
             let tooltip = '';
             const g = own.googleData;
@@ -251,12 +253,12 @@ export function BusinessScoreCard({ own, competitors }: Props) {
         <div className="flex items-center gap-4 pt-1">
           <div className="flex items-center gap-1.5">
             <div className="w-4 h-2 rounded-full bg-[#7C3AED]" />
-            <span className="text-xs text-gray-500">You</span>
+            <span className="text-xs text-muted-foreground">You</span>
           </div>
-          <span className="text-gray-300 text-sm">|</span>
+          <span className="text-border text-sm">|</span>
           <div className="flex items-center gap-1.5">
-            <div className="w-0.5 h-4 bg-gray-400 rounded-full" />
-            <span className="text-xs text-gray-500">Top Competitor</span>
+            <div className="w-0.5 h-4 bg-foreground/40 rounded-full" />
+            <span className="text-xs text-muted-foreground">Top Competitor</span>
           </div>
         </div>
       )}

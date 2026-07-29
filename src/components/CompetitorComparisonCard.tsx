@@ -10,7 +10,7 @@ function scoreColor(s: number) {
 
 function Trend({ delta }: { delta: number | null }) {
   if (delta === null || delta === 0)
-    return <span className="text-xs text-gray-400 tabular-nums">— 0</span>;
+    return <span className="text-xs text-muted-foreground tabular-nums">— 0</span>;
   if (delta > 0)
     return <span className="text-xs text-green-500 tabular-nums font-medium">↗ +{delta}</span>;
   return <span className="text-xs text-red-500 tabular-nums font-medium">↘ {delta}</span>;
@@ -37,9 +37,9 @@ export function CompetitorComparisonCard() {
       </div>
 
       {/* Own business row */}
-      <div className="flex items-center gap-3 px-4 py-3 bg-[#5B4EE8]/8 border-b border-[#5B4EE8]/10">
+      <div className="flex items-center gap-3 px-4 py-3 bg-primary/[0.06] border-b border-primary/10">
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-semibold text-[#5B4EE8] truncate">You — {own.name}</p>
+          <p className="text-sm font-semibold text-primary truncate">You — {own.name}</p>
         </div>
         <div className="flex items-center gap-3 shrink-0">
           {own.aiScore?.weeklyDelta !== undefined && (
@@ -51,7 +51,7 @@ export function CompetitorComparisonCard() {
             {own.aiScore?.overallScore ?? '—'}
           </span>
           {own.googleData && (
-            <span className="text-xs text-gray-500 tabular-nums w-10 text-right">
+            <span className="text-xs text-muted-foreground tabular-nums w-10 text-right">
               {own.googleData.googleRating.toFixed(1)}★
             </span>
           )}
@@ -65,7 +65,7 @@ export function CompetitorComparisonCard() {
         competitors.map((c, i) => (
           <div
             key={c.id}
-            className={`flex items-center gap-3 px-4 py-3 ${i < competitors.length - 1 ? 'border-b border-border' : ''}`}
+            className={`flex items-center gap-3 px-4 py-3 transition-colors hover:bg-muted/40 ${i < competitors.length - 1 ? 'border-b border-border' : ''}`}
           >
             {/* Name + review count */}
             <div className="flex-1 min-w-0">
@@ -85,7 +85,7 @@ export function CompetitorComparisonCard() {
               >
                 {c.aiScore?.overallScore ?? '—'}
               </span>
-              <span className="text-xs text-gray-500 tabular-nums w-10 text-right">
+              <span className="text-xs text-muted-foreground tabular-nums w-10 text-right">
                 {c.googleData ? `${c.googleData.googleRating.toFixed(1)}★` : '—'}
               </span>
             </div>

@@ -88,7 +88,8 @@ function buildBusiness(overrides: Partial<Business> = {}): Business {
         {
           rating: 5,
           text: 'Great job!',
-          time: Math.floor(Date.now() / 1000) - 86400,
+          // r.time is stored in milliseconds (see scores.ts / priorityTemplates.ts) — 1 day ago.
+          time: Date.now() - 86400000,
           authorName: 'Alice',
         },
       ],

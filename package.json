@@ -12,7 +12,10 @@
     "format": "prettier --write \"src/**/*.{ts,tsx,js,jsx,json,css}\"",
     "format:check": "prettier --check \"src/**/*.{ts,tsx,js,jsx,json,css}\"",
     "email:preview": "email dev --dir src/emails --port 3001",
-    "test:integration": "vitest run src/lib/__tests__/ai.pipeline.test.ts"
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:integration": "vitest run src/lib/__tests__/ai.pipeline.test.ts",
+    "prepare": "husky"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.78.0",
@@ -87,7 +90,9 @@
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-react-hooks": "^5.2.0",
     "globals": "^17.4.0",
+    "husky": "^9.1.7",
     "inngest-cli": "^1.17.5",
+    "lint-staged": "^17.2.0",
     "postcss": "^8.5.6",
     "prettier": "^3.8.3",
     "react-email": "^6.0.4",

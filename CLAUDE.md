@@ -55,6 +55,7 @@ Claude is used only for:
 - generateChangeSummary
 
 ### Requirements:
+
 - Output must be valid JSON only
 - Keep responses under 200 tokens
 - Prefer deterministic logic when possible
@@ -67,30 +68,35 @@ Claude is used only for:
 **Architecture:** Queue-based orchestration with multi-stage processing
 
 ### Key Principles
+
 - Initial crawl: Full page + `gotoOptions: { waitUntil: 'networkidle0' }`
 - Incremental crawl: ALSO full page with JS rendering (NOT static HTML)
 - Multi-page enrichment: Happens AFTER root crawl completes
 - Cache: Written AFTER enrichment, not before
 
 ### Critical: Rendering Requirements
+
 - **ALL crawls must use `render: true`** — modern educational/business sites are JavaScript-heavy (React, Vue, Angular SPAs)
 - **ALL crawls must use `gotoOptions: { waitUntil: 'networkidle0', timeout: 30000 }`** — ensures JavaScript has time to render before returning HTML
 - Static HTML (`render: false`) causes empty/incomplete pages (~176 chars) with missing signals
 - The `modifiedSince` parameter causes Cloudflare hangs; it is intentionally removed and should NOT be re-added
 
 ### Crawl Functions
+
 - `startCrawl()` — Initial full crawl with JS rendering
 - `startIncrementalCrawl()` — Re-crawl with JS rendering (NOT static HTML)
 - `crawlSinglePage()` — Priority page crawl with JS rendering
 - `fetchPageDirect()` — Fallback HTTP fetch (no JS, used only when crawl fails)
 
 ### Detection & Recovery
+
 - Empty HTML (<500 chars) or challenge pages trigger automatic retry with `waitUntil: 'networkidle0'` + 30s timeout
 - Challenge/popup overlay patterns are stripped from HTML before parsing
 - Unusable pages are logged with diagnostics (title, h1, link count, popup signals)
 - Direct fetch fallback used only when all render attempts fail
 
 ### Data Quality Signals
+
 Do NOT optimize crawl performance at the expense of data quality. A 2-3 second increase in crawl time is acceptable to get complete, usable HTML with all signals (h1 tags, title, links, schema markup).
 
 ---
@@ -102,6 +108,32 @@ Do NOT optimize crawl performance at the expense of data quality. A 2-3 second i
 - Primary brand color: #5B4EE8
 - Do not introduce new UI libraries
 
+### Design Skills (tasteskill.dev)
+
+External `SKILL.md` design skills from `github.com/Leonxlnx/taste-skill`, used to guide UI/design work.
+
+Install (writes a `SKILL.md` into the project; no plugin/config needed):
+
+```
+npx skills add https://github.com/Leonxlnx/taste-skill --skill "<install-name>"
+```
+
+Approved for this repo (data-heavy B2B analytics dashboard):
+
+- `design-taste-frontend` — v2 base engine; infers design direction + anti-slop checks (install first)
+- `minimalist-ui` — Notion/Linear editorial UI; **primary fit** for scores/tables/actions
+- `redesign-existing-projects` — audits + fixes existing UIs (we are improving, not greenfield)
+- `high-end-visual-design` — calm/premium "soft" aesthetic; secondary, layer on top
+
+Avoid: `industrial-brutalist-ui` (wrong tone for trust-oriented B2B), `gpt-taste` (GPT/Codex-tuned).
+
+Constraints when applying these skills — they OVERRIDE any skill output:
+
+- Tailwind only; **no new UI libraries or dependencies**
+- Keep Inter font + `#5B4EE8` as the single accent
+- Design/layout changes must NOT touch crawl logic (see §6) — flag if a change appears to require it
+- Small, safe diffs; changed sections only
+
 ---
 
 ## 8. RivalRadar Context
@@ -109,10 +141,12 @@ Do NOT optimize crawl performance at the expense of data quality. A 2-3 second i
 RivalRadar is a local competitor intelligence SaaS.
 
 Each project includes:
+
 - 1 primary business
 - up to 5 competitors
 
 It scores businesses across:
+
 - reputation (reviews)
 - local SEO visibility
 - website quality
@@ -121,6 +155,7 @@ It scores businesses across:
 - review velocity
 
 Outputs:
+
 - competitor comparison scores
 - ranked priority actions
 - change alerts
@@ -144,4 +179,3 @@ When responding:
 - Do not hallucinate schema, APIs, or logic
 
 ---
-

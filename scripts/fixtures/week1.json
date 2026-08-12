@@ -13,13 +13,34 @@
     "signals": {
       "seo": {
         "title": "EvolvIT | Strategic IT Partner in Bristol | Managed Service Provider",
-        "h1Tags": ["Strategic IT partner for your business", "EvolvIT Blog", "An SMEs Guide to Cyber Security", "How to Rescue Your Browser From Being Hijacked", "What is VoIP and what could it do for your Bristol business?", "DIY SOS", "The State of Bristol's Tech Industry", "How Bristol is Driving Innovative Tech Growth", "Bristol, The Smarter City", "How to Set Up an IT Infrastructure For Your Small Business"],
+        "h1Tags": [
+          "Strategic IT partner for your business",
+          "EvolvIT Blog",
+          "An SMEs Guide to Cyber Security",
+          "How to Rescue Your Browser From Being Hijacked",
+          "What is VoIP and what could it do for your Bristol business?",
+          "DIY SOS",
+          "The State of Bristol's Tech Industry",
+          "How Bristol is Driving Innovative Tech Growth",
+          "Bristol, The Smarter City",
+          "How to Set Up an IT Infrastructure For Your Small Business"
+        ],
         "hasSitemap": true,
         "hasRobotsTxt": true,
         "altTagCoverage": "partial",
         "metaDescription": "Tailored IT services to meet your business needs, now &amp; in the future. Managed from one place, just like your own IT department but without all the costs.",
         "internalLinkCount": 103,
-        "schemaMarkupTypes": ["LocalBusiness", "WebPage", "BreadcrumbList", "WebSite", "Organization", "CollectionPage", "Article", "ImageObject", "Person"],
+        "schemaMarkupTypes": [
+          "LocalBusiness",
+          "WebPage",
+          "BreadcrumbList",
+          "WebSite",
+          "Organization",
+          "CollectionPage",
+          "Article",
+          "ImageObject",
+          "Person"
+        ],
         "canonicalTagsPresent": true
       },
       "trust": {
@@ -35,7 +56,24 @@
         "hasFAQ": true,
         "hasBlog": true,
         "hasPortfolio": true,
-        "servicesListed": ["Outsourced IT Support", "Database Development", "Business Connectivity", "IT Support for Schools", "Computer Support", "Server Support", "Hosted Desktop", "Network Support", "Cloud Backup", "Data Backup", "Cyber Security Services", "Disaster Recovery", "Office 365", "Outsourced IT Department", "Business WiFi Solutions", "VOIP Installation"],
+        "servicesListed": [
+          "Outsourced IT Support",
+          "Database Development",
+          "Business Connectivity",
+          "IT Support for Schools",
+          "Computer Support",
+          "Server Support",
+          "Hosted Desktop",
+          "Network Support",
+          "Cloud Backup",
+          "Data Backup",
+          "Cyber Security Services",
+          "Disaster Recovery",
+          "Office 365",
+          "Outsourced IT Department",
+          "Business WiFi Solutions",
+          "VOIP Installation"
+        ],
         "portfolioItemCount": 0,
         "serviceAreasMentioned": ["Bristol"]
       },
@@ -59,15 +97,49 @@
       "phoneNumber": "0345 880 4554",
       "reviewCount": 38,
       "googleRating": 4.8,
-      "openingHours": ["Monday: Open 24 hours", "Tuesday: Open 24 hours", "Wednesday: Open 24 hours", "Thursday: Open 24 hours", "Friday: Open 24 hours", "Saturday: Open 24 hours", "Sunday: Open 24 hours"],
-      "recentReviews": [
-        { "text": "We have enjoyed an excellent service from EvolvIT for 13 years now. Our queries are responded to quickly and efficiently, the team are easy to deal with and are always very helpful.", "time": 1716561525517, "rating": 5, "authorName": "Lorraine Logan" },
-        { "text": "We have been customers of EvolvIT for over 6 years now. Their team are able to respond to any issues we have in an efficient & professional manner.", "time": 1719844691333, "rating": 5, "authorName": "Anna Coverdale" },
-        { "text": "EvolvIT have provided our IT support for nearly 3 years, the team are very knowledge and extremely helpful.", "time": 1716219576422, "rating": 5, "authorName": "Amber Janney" },
-        { "text": "EvolvIT continue to provide a fantastic managed IT service to my company.", "time": 1716300876050, "rating": 5, "authorName": "Adam Rohan" },
-        { "text": "Evolve IT have managed our support across 3 of my companies for the last 2 years.", "time": 1716393833326, "rating": 5, "authorName": "Darren Clapp" }
+      "openingHours": [
+        "Monday: Open 24 hours",
+        "Tuesday: Open 24 hours",
+        "Wednesday: Open 24 hours",
+        "Thursday: Open 24 hours",
+        "Friday: Open 24 hours",
+        "Saturday: Open 24 hours",
+        "Sunday: Open 24 hours"
       ],
-      "businessCategory": "consultant"
+      "recentReviews": [
+        {
+          "text": "We have enjoyed an excellent service from EvolvIT for 13 years now. Our queries are responded to quickly and efficiently, the team are easy to deal with and are always very helpful.",
+          "time": 1716561525517,
+          "rating": 5,
+          "authorName": "Lorraine Logan"
+        },
+        {
+          "text": "We have been customers of EvolvIT for over 6 years now. Their team are able to respond to any issues we have in an efficient & professional manner.",
+          "time": 1719844691333,
+          "rating": 5,
+          "authorName": "Anna Coverdale"
+        },
+        {
+          "text": "EvolvIT have provided our IT support for nearly 3 years, the team are very knowledge and extremely helpful.",
+          "time": 1716219576422,
+          "rating": 5,
+          "authorName": "Amber Janney"
+        },
+        {
+          "text": "EvolvIT continue to provide a fantastic managed IT service to my company.",
+          "time": 1716300876050,
+          "rating": 5,
+          "authorName": "Adam Rohan"
+        },
+        {
+          "text": "Evolve IT have managed our support across 3 of my companies for the last 2 years.",
+          "time": 1716393833326,
+          "rating": 5,
+          "authorName": "Darren Clapp"
+        }
+      ],
+      "businessCategory": "consultant",
+      "businessTypes": ["consultant"]
     },
     "serpData": {
       "sitelinks": false,
@@ -76,7 +148,7 @@
       "featuredSnippet": false,
       "localPackPresent": true,
       "knowledgePanelPresent": false,
-      "localVisabilityPosition": null
+      "localVisibilityPosition": null
     },
     "aiScore": {
       "generatedAt": "2026-04-23T18:40:00.348Z",
@@ -93,7 +165,10 @@
       "tested_at": "2026-04-23T18:15:09.249Z",
       "mentionCount": 2,
       "totalPrompts": 3,
-      "aiPresenceScore": 67
+      "aiPresenceScore": 67,
+      "averagePosition": null,
+      "recommendedCount": 0,
+      "competitorsAhead": []
     },
     "pagespeedData": {
       "mobile": { "cls": 0.001859, "fcp": 2554, "inp": null, "lcp": 2779, "performanceScore": 92 },
@@ -104,7 +179,11 @@
       "summary": "EvolvIT delivers excellent IT support with responsive, knowledgeable team consistently praised.",
       "generatedAt": "2026-04-23T18:38:43.335Z",
       "negativeThemes": [],
-      "positiveThemes": ["Quick response time", "Professional knowledgeable team", "Reliable issue resolution"]
+      "positiveThemes": [
+        "Quick response time",
+        "Professional knowledgeable team",
+        "Reliable issue resolution"
+      ]
     },
     "enrichmentErrors": null,
     "previousSignals": null,
@@ -144,9 +223,32 @@
           "hasFAQ": true,
           "hasBlog": true,
           "hasPortfolio": true,
-          "servicesListed": ["Fully Managed IT Support", "Co-Managed IT Support", "Remote IT Support", "IT Support for Small Business", "Outsourced IT Services", "Email Security Services", "Managed Cyber Security", "Cyber Essentials", "Penetration Testing", "Cyber Security Auditing", "Microsoft 365 Migration", "Backup & Disaster Recovery", "Cloud Telephony"],
+          "servicesListed": [
+            "Fully Managed IT Support",
+            "Co-Managed IT Support",
+            "Remote IT Support",
+            "IT Support for Small Business",
+            "Outsourced IT Services",
+            "Email Security Services",
+            "Managed Cyber Security",
+            "Cyber Essentials",
+            "Penetration Testing",
+            "Cyber Security Auditing",
+            "Microsoft 365 Migration",
+            "Backup & Disaster Recovery",
+            "Cloud Telephony"
+          ],
           "portfolioItemCount": 1,
-          "serviceAreasMentioned": ["South West", "Frome", "Somerset", "Birmingham", "Bristol", "UK", "Derby", "Devon"]
+          "serviceAreasMentioned": [
+            "South West",
+            "Frome",
+            "Somerset",
+            "Birmingham",
+            "Bristol",
+            "UK",
+            "Derby",
+            "Devon"
+          ]
         },
         "engagement": {
           "ctaText": ["GET IN TOUCH"],
@@ -168,12 +270,31 @@
         "phoneNumber": "0333 241 2323",
         "reviewCount": 80,
         "googleRating": 4.9,
-        "openingHours": ["Monday: 8:00 AM – 5:30 PM", "Tuesday: 8:00 AM – 5:30 PM", "Wednesday: 8:00 AM – 5:30 PM", "Thursday: 8:00 AM – 5:30 PM", "Friday: 8:00 AM – 5:30 PM", "Saturday: Closed", "Sunday: Closed"],
-        "recentReviews": [
-          { "text": "I cannot recommend Netitude highly enough. As a forward-thinking MSP, they have consistently met my business needs.", "time": 1720108075017, "rating": 5, "authorName": "Dan" },
-          { "text": "Always easy to contact you for support and never made to feel stupid for any question I ask", "time": 1765202396284, "rating": 5, "authorName": "Helen Goodchild" }
+        "openingHours": [
+          "Monday: 8:00 AM – 5:30 PM",
+          "Tuesday: 8:00 AM – 5:30 PM",
+          "Wednesday: 8:00 AM – 5:30 PM",
+          "Thursday: 8:00 AM – 5:30 PM",
+          "Friday: 8:00 AM – 5:30 PM",
+          "Saturday: Closed",
+          "Sunday: Closed"
         ],
-        "businessCategory": "consultant"
+        "recentReviews": [
+          {
+            "text": "I cannot recommend Netitude highly enough. As a forward-thinking MSP, they have consistently met my business needs.",
+            "time": 1720108075017,
+            "rating": 5,
+            "authorName": "Dan"
+          },
+          {
+            "text": "Always easy to contact you for support and never made to feel stupid for any question I ask",
+            "time": 1765202396284,
+            "rating": 5,
+            "authorName": "Helen Goodchild"
+          }
+        ],
+        "businessCategory": "consultant",
+        "businessTypes": ["consultant"]
       },
       "serpData": {
         "sitelinks": false,
@@ -182,7 +303,7 @@
         "featuredSnippet": false,
         "localPackPresent": true,
         "knowledgePanelPresent": false,
-        "localVisabilityPosition": null
+        "localVisibilityPosition": null
       },
       "aiScore": {
         "generatedAt": "2026-04-23T18:40:00.321Z",
@@ -195,17 +316,35 @@
         "gbpCompletenessScore": 85,
         "localVisibilityScore": 0
       },
-      "aiVisibility": { "tested_at": "2026-04-23T18:16:36.574Z", "mentionCount": 0, "totalPrompts": 3, "aiPresenceScore": 0 },
+      "aiVisibility": {
+        "tested_at": "2026-04-23T18:16:36.574Z",
+        "mentionCount": 0,
+        "totalPrompts": 3,
+        "aiPresenceScore": 0,
+        "averagePosition": null,
+        "recommendedCount": 0,
+        "competitorsAhead": []
+      },
       "pagespeedData": {
         "mobile": { "cls": 0, "fcp": 10749, "inp": null, "lcp": 17866, "performanceScore": 28 },
-        "desktop": { "cls": 0.036224, "fcp": 754, "inp": null, "lcp": 1133, "performanceScore": 65 },
+        "desktop": {
+          "cls": 0.036224,
+          "fcp": 754,
+          "inp": null,
+          "lcp": 1133,
+          "performanceScore": 65
+        },
         "fetchedAt": "2026-04-23T18:38:20.382Z"
       },
       "reviewSentiment": {
         "summary": "Netitude delivers excellent managed IT support with responsive, knowledgeable engineers.",
         "generatedAt": "2026-04-23T18:38:43.165Z",
         "negativeThemes": [],
-        "positiveThemes": ["responsive support availability", "business continuity expertise", "proactive security approach"]
+        "positiveThemes": [
+          "responsive support availability",
+          "business continuity expertise",
+          "proactive security approach"
+        ]
       },
       "enrichmentErrors": null,
       "previousSignals": null,
@@ -232,19 +371,34 @@
           "canonicalTagsPresent": true
         },
         "trust": {
-          "accreditations": ["Cyber Essentials Certification", "Cyber Essentials", "Microsoft Partner"],
+          "accreditations": [
+            "Cyber Essentials Certification",
+            "Cyber Essentials",
+            "Microsoft Partner"
+          ],
           "certifications": [],
           "teamPageExists": true,
           "insuranceMentioned": false,
           "guaranteesMentioned": [],
-          "awardsAndMemberships": ["Microsoft Partner", "Dell Technology Partner", "Carbon Footprint"],
+          "awardsAndMemberships": [
+            "Microsoft Partner",
+            "Dell Technology Partner",
+            "Carbon Footprint"
+          ],
           "reviewPlatformsLinked": ["Google Reviews"]
         },
         "content": {
           "hasFAQ": true,
           "hasBlog": true,
           "hasPortfolio": false,
-          "servicesListed": ["Small Business IT Support", "Managed Support", "Bespoke Solutions", "Cyber Security", "Cyber Security Awareness Training", "Small Business Protect"],
+          "servicesListed": [
+            "Small Business IT Support",
+            "Managed Support",
+            "Bespoke Solutions",
+            "Cyber Security",
+            "Cyber Security Awareness Training",
+            "Small Business Protect"
+          ],
           "portfolioItemCount": 0,
           "serviceAreasMentioned": ["Bristol", "UK"]
         },
@@ -254,7 +408,14 @@
           "bookingProvider": "Growably",
           "hasCallToAction": true,
           "hasBookingSystem": true,
-          "socialLinksPresent": ["Facebook", "Twitter", "LinkedIn", "WhatsApp", "Reddit", "Pinterest"],
+          "socialLinksPresent": [
+            "Facebook",
+            "Twitter",
+            "LinkedIn",
+            "WhatsApp",
+            "Reddit",
+            "Pinterest"
+          ],
           "hasNewsletterSignup": false,
           "hasPhoneNumberProminent": true
         }
@@ -268,12 +429,31 @@
         "phoneNumber": "0117 422 0485",
         "reviewCount": 74,
         "googleRating": 5,
-        "openingHours": ["Monday: 8:30 AM – 5:00 PM", "Tuesday: 8:30 AM – 5:00 PM", "Wednesday: 8:30 AM – 5:00 PM", "Thursday: 8:30 AM – 5:00 PM", "Friday: 8:30 AM – 5:00 PM", "Saturday: Closed", "Sunday: Closed"],
-        "recentReviews": [
-          { "text": "Working with Owen IT has been a breath of fresh air. Their quote for services was completely transparent.", "time": 1768496915994, "rating": 5, "authorName": "Clare A" },
-          { "text": "The team at Owen IT have been so responsive, helpful and supportive.", "time": 1767869864694, "rating": 5, "authorName": "Sarah Hart" }
+        "openingHours": [
+          "Monday: 8:30 AM – 5:00 PM",
+          "Tuesday: 8:30 AM – 5:00 PM",
+          "Wednesday: 8:30 AM – 5:00 PM",
+          "Thursday: 8:30 AM – 5:00 PM",
+          "Friday: 8:30 AM – 5:00 PM",
+          "Saturday: Closed",
+          "Sunday: Closed"
         ],
-        "businessCategory": "consultant"
+        "recentReviews": [
+          {
+            "text": "Working with Owen IT has been a breath of fresh air. Their quote for services was completely transparent.",
+            "time": 1768496915994,
+            "rating": 5,
+            "authorName": "Clare A"
+          },
+          {
+            "text": "The team at Owen IT have been so responsive, helpful and supportive.",
+            "time": 1767869864694,
+            "rating": 5,
+            "authorName": "Sarah Hart"
+          }
+        ],
+        "businessCategory": "consultant",
+        "businessTypes": ["consultant"]
       },
       "serpData": {
         "sitelinks": false,
@@ -282,7 +462,7 @@
         "featuredSnippet": false,
         "localPackPresent": true,
         "knowledgePanelPresent": false,
-        "localVisabilityPosition": null
+        "localVisibilityPosition": null
       },
       "aiScore": {
         "generatedAt": "2026-04-23T18:40:00.353Z",
@@ -295,17 +475,35 @@
         "gbpCompletenessScore": 85,
         "localVisibilityScore": 0
       },
-      "aiVisibility": { "tested_at": "2026-04-23T18:16:47.447Z", "mentionCount": 0, "totalPrompts": 3, "aiPresenceScore": 0 },
+      "aiVisibility": {
+        "tested_at": "2026-04-23T18:16:47.447Z",
+        "mentionCount": 0,
+        "totalPrompts": 3,
+        "aiPresenceScore": 0,
+        "averagePosition": null,
+        "recommendedCount": 0,
+        "competitorsAhead": []
+      },
       "pagespeedData": {
         "mobile": { "cls": 0, "fcp": 13377, "inp": null, "lcp": 23940, "performanceScore": 51 },
-        "desktop": { "cls": 0.007266, "fcp": 733, "inp": null, "lcp": 1854, "performanceScore": 68 },
+        "desktop": {
+          "cls": 0.007266,
+          "fcp": 733,
+          "inp": null,
+          "lcp": 1854,
+          "performanceScore": 68
+        },
         "fetchedAt": "2026-04-23T18:39:50.651Z"
       },
       "reviewSentiment": {
         "summary": "Owen IT delivers exceptional service with responsive, professional support and transparent communication.",
         "generatedAt": "2026-04-23T18:39:53.194Z",
         "negativeThemes": [],
-        "positiveThemes": ["Responsive and proactive", "Professional knowledgeable team", "Transparent communication support"]
+        "positiveThemes": [
+          "Responsive and proactive",
+          "Professional knowledgeable team",
+          "Transparent communication support"
+        ]
       },
       "enrichmentErrors": null,
       "previousSignals": null,
@@ -328,7 +526,17 @@
           "altTagCoverage": "none",
           "metaDescription": "Absolutely PC offers reliable IT support in Bristol, ensuring your business operates smoothly with expert solutions.",
           "internalLinkCount": 162,
-          "schemaMarkupTypes": ["WebPage", "BreadcrumbList", "WebSite", "Organization", "FAQPage", "LocalBusiness", "Article", "ImageObject", "Person"],
+          "schemaMarkupTypes": [
+            "WebPage",
+            "BreadcrumbList",
+            "WebSite",
+            "Organization",
+            "FAQPage",
+            "LocalBusiness",
+            "Article",
+            "ImageObject",
+            "Person"
+          ],
           "canonicalTagsPresent": true
         },
         "trust": {
@@ -344,12 +552,30 @@
           "hasFAQ": true,
           "hasBlog": true,
           "hasPortfolio": true,
-          "servicesListed": ["Managed IT Support", "Backup & Disaster Recovery", "Cloud Services", "Cyber Security", "Cyber Essentials", "Hardware", "Remote Working Solutions", "Networking", "Website Hosting", "Website Design & Development", "Telecoms & Broadband"],
+          "servicesListed": [
+            "Managed IT Support",
+            "Backup & Disaster Recovery",
+            "Cloud Services",
+            "Cyber Security",
+            "Cyber Essentials",
+            "Hardware",
+            "Remote Working Solutions",
+            "Networking",
+            "Website Hosting",
+            "Website Design & Development",
+            "Telecoms & Broadband"
+          ],
           "portfolioItemCount": 5,
           "serviceAreasMentioned": ["Bristol", "Patchway"]
         },
         "engagement": {
-          "ctaText": ["Call now for support", "Schedule a Consultation", "Get Started", "Get A Free Quote", "Help Desk"],
+          "ctaText": [
+            "Call now for support",
+            "Schedule a Consultation",
+            "Get Started",
+            "Get A Free Quote",
+            "Help Desk"
+          ],
           "hasContactForm": true,
           "bookingProvider": null,
           "hasCallToAction": true,
@@ -368,12 +594,31 @@
         "phoneNumber": "0117 975 9523",
         "reviewCount": 149,
         "googleRating": 4.9,
-        "openingHours": ["Monday: 8:00 AM – 5:30 PM", "Tuesday: 8:00 AM – 5:30 PM", "Wednesday: 8:00 AM – 5:30 PM", "Thursday: 8:00 AM – 5:30 PM", "Friday: 8:00 AM – 5:30 PM", "Saturday: Closed", "Sunday: Closed"],
-        "recentReviews": [
-          { "text": "Absolute PC provide our church IT support. They have been consistently on top of everything we've needed.", "time": 1631719749689, "rating": 5, "authorName": "Neil Thorogood" },
-          { "text": "We have been with absolutepc since our inception over 7 years ago but over the last 12 months they've really lost their way.", "time": 1741340515493, "rating": 1, "authorName": "Stuart Choak" }
+        "openingHours": [
+          "Monday: 8:00 AM – 5:30 PM",
+          "Tuesday: 8:00 AM – 5:30 PM",
+          "Wednesday: 8:00 AM – 5:30 PM",
+          "Thursday: 8:00 AM – 5:30 PM",
+          "Friday: 8:00 AM – 5:30 PM",
+          "Saturday: Closed",
+          "Sunday: Closed"
         ],
-        "businessCategory": "consultant"
+        "recentReviews": [
+          {
+            "text": "Absolute PC provide our church IT support. They have been consistently on top of everything we've needed.",
+            "time": 1631719749689,
+            "rating": 5,
+            "authorName": "Neil Thorogood"
+          },
+          {
+            "text": "We have been with absolutepc since our inception over 7 years ago but over the last 12 months they've really lost their way.",
+            "time": 1741340515493,
+            "rating": 1,
+            "authorName": "Stuart Choak"
+          }
+        ],
+        "businessCategory": "consultant",
+        "businessTypes": ["consultant"]
       },
       "serpData": {
         "sitelinks": false,
@@ -382,7 +627,7 @@
         "featuredSnippet": false,
         "localPackPresent": true,
         "knowledgePanelPresent": false,
-        "localVisabilityPosition": null
+        "localVisibilityPosition": null
       },
       "aiScore": {
         "generatedAt": "2026-04-23T18:40:00.355Z",
@@ -395,17 +640,45 @@
         "gbpCompletenessScore": 85,
         "localVisibilityScore": 0
       },
-      "aiVisibility": { "tested_at": "2026-04-23T18:18:55.766Z", "mentionCount": 0, "totalPrompts": 3, "aiPresenceScore": 0 },
+      "aiVisibility": {
+        "tested_at": "2026-04-23T18:18:55.766Z",
+        "mentionCount": 0,
+        "totalPrompts": 3,
+        "aiPresenceScore": 0,
+        "averagePosition": null,
+        "recommendedCount": 0,
+        "competitorsAhead": []
+      },
       "pagespeedData": {
-        "mobile": { "cls": 0.059217, "fcp": 3014, "inp": null, "lcp": 4432, "performanceScore": 41 },
-        "desktop": { "cls": 0.065765, "fcp": 836, "inp": null, "lcp": 1061, "performanceScore": 69 },
+        "mobile": {
+          "cls": 0.059217,
+          "fcp": 3014,
+          "inp": null,
+          "lcp": 4432,
+          "performanceScore": 41
+        },
+        "desktop": {
+          "cls": 0.065765,
+          "fcp": 836,
+          "inp": null,
+          "lcp": 1061,
+          "performanceScore": 69
+        },
         "fetchedAt": "2026-04-23T18:39:11.949Z"
       },
       "reviewSentiment": {
         "summary": "Mostly excellent IT support with responsive team; recent quality decline concerns.",
         "generatedAt": "2026-04-23T18:39:22.005Z",
-        "negativeThemes": ["Inexperienced junior staff", "Expensive ad hoc services", "Poor transition assistance"],
-        "positiveThemes": ["Quick response times", "Knowledgeable helpful team", "Comprehensive IT support"]
+        "negativeThemes": [
+          "Inexperienced junior staff",
+          "Expensive ad hoc services",
+          "Poor transition assistance"
+        ],
+        "positiveThemes": [
+          "Quick response times",
+          "Knowledgeable helpful team",
+          "Comprehensive IT support"
+        ]
       },
       "enrichmentErrors": null,
       "previousSignals": null,
@@ -428,11 +701,27 @@
           "altTagCoverage": "none",
           "metaDescription": "Comprehensive managed IT services, cybersecurity, structured cabling, and compliance to optimise and protect your business infrastructure.",
           "internalLinkCount": 195,
-          "schemaMarkupTypes": ["WebPage", "ImageObject", "BreadcrumbList", "WebSite", "Organization", "CollectionPage", "Article", "Person"],
+          "schemaMarkupTypes": [
+            "WebPage",
+            "ImageObject",
+            "BreadcrumbList",
+            "WebSite",
+            "Organization",
+            "CollectionPage",
+            "Article",
+            "Person"
+          ],
           "canonicalTagsPresent": true
         },
         "trust": {
-          "accreditations": ["Cyber Essentials", "ISO 9001", "ISO 27001", "ISO 45001", "GBC Accredited", "Microsoft Partner"],
+          "accreditations": [
+            "Cyber Essentials",
+            "ISO 9001",
+            "ISO 27001",
+            "ISO 45001",
+            "GBC Accredited",
+            "Microsoft Partner"
+          ],
           "certifications": [],
           "teamPageExists": true,
           "insuranceMentioned": true,
@@ -444,7 +733,21 @@
           "hasFAQ": false,
           "hasBlog": true,
           "hasPortfolio": true,
-          "servicesListed": ["Managed IT", "Microsoft Security & Compliance", "IT Services", "IT Security", "Cyber Security", "Data Protection", "Penetration Testing", "Dark Web ID", "EDR and Managed SOC", "Cyber Security Training", "Compliance", "Mobile Solutions", "Website Development"],
+          "servicesListed": [
+            "Managed IT",
+            "Microsoft Security & Compliance",
+            "IT Services",
+            "IT Security",
+            "Cyber Security",
+            "Data Protection",
+            "Penetration Testing",
+            "Dark Web ID",
+            "EDR and Managed SOC",
+            "Cyber Security Training",
+            "Compliance",
+            "Mobile Solutions",
+            "Website Development"
+          ],
           "portfolioItemCount": 1,
           "serviceAreasMentioned": []
         },
@@ -468,12 +771,31 @@
         "phoneNumber": "0117 202 0200",
         "reviewCount": 22,
         "googleRating": 4.9,
-        "openingHours": ["Monday: 8:00 AM – 6:00 PM", "Tuesday: 8:00 AM – 6:00 PM", "Wednesday: 8:00 AM – 6:00 PM", "Thursday: 8:00 AM – 6:00 PM", "Friday: 8:00 AM – 4:30 PM", "Saturday: Closed", "Sunday: Closed"],
-        "recentReviews": [
-          { "text": "Impact have always been such a great help with any issue I've raised over the past 3 years.", "time": 1753895378814, "rating": 5, "authorName": "suzanne hall" },
-          { "text": "Impact IT Solutions have always been extremely helpful and efficient.", "time": 1661955988448, "rating": 5, "authorName": "Jacqueline Lincoln" }
+        "openingHours": [
+          "Monday: 8:00 AM – 6:00 PM",
+          "Tuesday: 8:00 AM – 6:00 PM",
+          "Wednesday: 8:00 AM – 6:00 PM",
+          "Thursday: 8:00 AM – 6:00 PM",
+          "Friday: 8:00 AM – 4:30 PM",
+          "Saturday: Closed",
+          "Sunday: Closed"
         ],
-        "businessCategory": "telecommunications_service_provider"
+        "recentReviews": [
+          {
+            "text": "Impact have always been such a great help with any issue I've raised over the past 3 years.",
+            "time": 1753895378814,
+            "rating": 5,
+            "authorName": "suzanne hall"
+          },
+          {
+            "text": "Impact IT Solutions have always been extremely helpful and efficient.",
+            "time": 1661955988448,
+            "rating": 5,
+            "authorName": "Jacqueline Lincoln"
+          }
+        ],
+        "businessCategory": "telecommunications_service_provider",
+        "businessTypes": ["telecommunications_service_provider"]
       },
       "serpData": {
         "sitelinks": false,
@@ -482,7 +804,7 @@
         "featuredSnippet": false,
         "localPackPresent": true,
         "knowledgePanelPresent": false,
-        "localVisabilityPosition": null
+        "localVisibilityPosition": null
       },
       "aiScore": {
         "generatedAt": "2026-04-23T18:40:00.358Z",
@@ -495,9 +817,23 @@
         "gbpCompletenessScore": 85,
         "localVisibilityScore": 0
       },
-      "aiVisibility": { "tested_at": "2026-04-23T18:18:24.870Z", "mentionCount": 2, "totalPrompts": 3, "aiPresenceScore": 67 },
+      "aiVisibility": {
+        "tested_at": "2026-04-23T18:18:24.870Z",
+        "mentionCount": 2,
+        "totalPrompts": 3,
+        "aiPresenceScore": 67,
+        "averagePosition": null,
+        "recommendedCount": 0,
+        "competitorsAhead": []
+      },
       "pagespeedData": {
-        "mobile": { "cls": 0.153528, "fcp": 8005, "inp": null, "lcp": 11381, "performanceScore": 23 },
+        "mobile": {
+          "cls": 0.153528,
+          "fcp": 8005,
+          "inp": null,
+          "lcp": 11381,
+          "performanceScore": 23
+        },
         "desktop": { "cls": 0.044036, "fcp": 432, "inp": null, "lcp": 622, "performanceScore": 67 },
         "fetchedAt": "2026-04-23T18:37:42.316Z"
       },
@@ -505,7 +841,11 @@
         "summary": "Highly praised for exceptional support, quick responses, and technical expertise.",
         "generatedAt": "2026-04-23T18:37:55.995Z",
         "negativeThemes": [],
-        "positiveThemes": ["excellent customer support", "responsive quick service", "knowledgeable professional team"]
+        "positiveThemes": [
+          "excellent customer support",
+          "responsive quick service",
+          "knowledgeable professional team"
+        ]
       },
       "enrichmentErrors": null,
       "previousSignals": null,

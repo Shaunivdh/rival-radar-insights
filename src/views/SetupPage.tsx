@@ -112,7 +112,8 @@ const SetupPage = () => {
 
   useEffect(() => {
     if (user && project) router.replace('/dashboard');
-  }, [user, project, router]);
+    else if (user && !project && tab !== 'signup') router.replace('/setup');
+  }, [user, project, tab, router]);
 
   // Poll for scan completion
   useEffect(() => {
@@ -138,8 +139,8 @@ const SetupPage = () => {
     return () => clearInterval(interval);
   }, [scanning, projectId, router, savedProjectRef, setProject]);
 
+  // Redirect handled in the effect above; render nothing while it navigates.
   if (user && !project && tab !== 'signup') {
-    router.replace('/setup');
     return null;
   }
 

@@ -34,6 +34,10 @@ import {
   EyeOff,
 } from 'lucide-react';
 import type { PriorityAction } from '@/types';
+import { MOCK_PRIORITY_ACTIONS } from '@/lib/mockActionPlan';
+
+// Dev-only: preview the plan with sample data when a project has no real actions yet.
+const IS_DEV = process.env.NODE_ENV !== 'production';
 
 type Priority = 'critical' | 'high' | 'medium' | 'quick-win';
 type VerificationState = 'pending' | 'verified' | 'not-verified';
@@ -540,9 +544,13 @@ const ActionPlan = () => {
       });
   }, [project?.id, priorityActions.length, setPriorityActions]);
 
+  // Fall back to sample data in dev so the page can be previewed when empty.
+  const usingMock = !priorityActions.length && IS_DEV;
+  const effectiveActions = usingMock ? MOCK_PRIORITY_ACTIONS : priorityActions;
+
   const recommendations = useMemo(
-    () => priorityActions.map((a) => mapAction(a)),
-    [priorityActions],
+    () => effectiveActions.map((a) => mapAction(a)),
+    [effectiveActions],
   );
 
   const handleMarkDone = (id: string, note?: string) => {
@@ -551,7 +559,7 @@ const ActionPlan = () => {
       ...prev,
       [id]: { done: true, doneAt: new Date().toISOString(), note, verification: 'pending' },
     }));
-    if (!project?.id) return;
+    if (usingMock || !project?.id) return;
     updateActionStatus(id, project.id, 'completed', note).then((updated) => {
       setPriorityActions(updated);
     });
@@ -563,7 +571,7 @@ const ActionPlan = () => {
       delete next[id];
       return next;
     });
-    if (!project?.id) return;
+    if (usingMock || !project?.id) return;
     updateActionStatus(id, project.id, 'active').then((updated) => {
       setPriorityActions(updated);
     });
@@ -580,7 +588,7 @@ const ActionPlan = () => {
         dismissedAt: new Date().toISOString(),
       },
     }));
-    if (!project?.id) return;
+    if (usingMock || !project?.id) return;
     updateActionStatus(id, project.id, 'snoozed').then((updated) => {
       setPriorityActions(updated);
     });
@@ -592,7 +600,7 @@ const ActionPlan = () => {
       delete next[id];
       return next;
     });
-    if (!project?.id) return;
+    if (usingMock || !project?.id) return;
     updateActionStatus(id, project.id, 'active').then((updated) => {
       setPriorityActions(updated);
     });
@@ -614,8 +622,8 @@ const ActionPlan = () => {
   }, [recommendations, statuses]);
 
   const aiError = project?.ownBusiness?.enrichmentErrors?.ai_actions;
-  if (!priorityActions.length) return <EmptyState aiError={aiError} />;
-  const showAiWarning = !!aiError;
+  if (!effectiveActions.length) return <EmptyState aiError={aiError} />;
+  const showAiWarning = !!aiError && !usingMock;
 
   const priorities: Priority[] = ['critical', 'high', 'medium', 'quick-win'];
   const verifiedCount = completed.filter((r) => statuses[r.id]?.verification === 'verified').length;
@@ -624,18 +632,22 @@ const ActionPlan = () => {
   return (
     <div className="max-w-4xl mx-auto">
       <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} className="mb-8">
-        <div className="flex items-center gap-3 mb-2">
-          <div className="p-2.5 rounded-xl bg-primary/10">
-            <Lightbulb className="w-5 h-5 text-primary" />
+        <div className="relative overflow-hidden rounded-2xl bg-gradient-greeting p-6 border border-primary/10">
+          <div className="flex items-start gap-4">
+            <div className="w-12 h-12 rounded-xl bg-white/60 flex items-center justify-center shrink-0 shadow-sm">
+              <Lightbulb className="w-6 h-6 text-primary" />
+            </div>
+            <div className="min-w-0">
+              <h1 className="font-display text-2xl font-bold text-foreground">
+                Here's what I'd focus on for {businessName}
+              </h1>
+              <p className="text-muted-foreground text-sm mt-1 max-w-2xl leading-relaxed">
+                Based on your latest crawl, Google data, and competitor analysis — tick things off
+                as you go and I'll confirm they've landed on the next scan.
+              </p>
+            </div>
           </div>
-          <h1 className="font-display text-2xl font-bold">
-            Here's what I'd focus on for {businessName}
-          </h1>
         </div>
-        <p className="text-muted-foreground text-sm ml-12">
-          Based on your latest crawl, Google data, and competitor analysis — tick things off as you
-          go and I'll confirm they've landed on the next scan.
-        </p>
       </motion.div>
 
       {showAiWarning && (

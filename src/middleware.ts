@@ -3,19 +3,28 @@ import { NextResponse, type NextRequest } from 'next/server';
 
 const PROTECTED = ['/dashboard', '/competitors', '/changes', '/settings', '/setup'];
 
-async function signUnlockToken(password: string): Promise<string> {
+function hexToBytes(hex: string): Uint8Array | null {
+  if (hex.length === 0 || hex.length % 2 !== 0 || /[^0-9a-f]/i.test(hex)) return null;
+  const bytes = new Uint8Array(hex.length / 2);
+  for (let i = 0; i < bytes.length; i++) {
+    bytes[i] = parseInt(hex.slice(i * 2, i * 2 + 2), 16);
+  }
+  return bytes;
+}
+
+/** Constant-time check of the unlock cookie (HMAC hex set by /api/unlock). */
+async function verifyUnlockCookie(cookieHex: string, password: string): Promise<boolean> {
+  const sig = hexToBytes(cookieHex);
+  if (!sig) return false;
   const enc = new TextEncoder();
   const key = await crypto.subtle.importKey(
     'raw',
     enc.encode(password),
     { name: 'HMAC', hash: 'SHA-256' },
     false,
-    ['sign'],
+    ['verify'],
   );
-  const sig = await crypto.subtle.sign('HMAC', key, enc.encode('rival-radar-site-unlock'));
-  return Array.from(new Uint8Array(sig))
-    .map((b) => b.toString(16).padStart(2, '0'))
-    .join('');
+  return crypto.subtle.verify('HMAC', key, sig, enc.encode('rival-radar-site-unlock'));
 }
 
 export async function middleware(request: NextRequest) {
@@ -24,8 +33,8 @@ export async function middleware(request: NextRequest) {
   // Site-wide password lock
   if (process.env.SITE_PASSWORD) {
     const cookie = request.cookies.get('site-unlocked')?.value ?? '';
-    const expected = await signUnlockToken(process.env.SITE_PASSWORD);
-    if (cookie !== expected && pathname !== '/unlock' && !pathname.startsWith('/api/inngest')) {
+    const unlocked = await verifyUnlockCookie(cookie, process.env.SITE_PASSWORD);
+    if (!unlocked && pathname !== '/unlock' && !pathname.startsWith('/api/inngest')) {
       console.log(`[middleware] site-lock: blocked path=${pathname} reason=no-valid-unlock-cookie`);
       return NextResponse.redirect(new URL('/unlock', request.url));
     }

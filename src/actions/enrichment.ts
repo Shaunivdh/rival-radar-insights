@@ -1,5 +1,6 @@
-'use server';
-
+// NOTE: intentionally NOT a 'use server' file. These enrichment helpers are
+// only called by the Inngest worker; marking them 'use server' exposed them
+// as unauthenticated public endpoints.
 import {
   getPlaceData,
   getPlaceDataById,
@@ -8,7 +9,7 @@ import {
   searchTermsForTypes,
 } from '@/services/google';
 import { getRankingData } from '@/services/serp';
-import { updateBusiness } from '@/actions/projects';
+import { updateBusiness } from '@/lib/supabase/business';
 import { supabaseAdmin } from '@/lib/supabase/server';
 import { SERVICE_CATEGORIES, type ServiceCategory } from '@/lib/serviceCategories';
 import type { GoogleData, SerpData } from '@/types';
@@ -122,26 +123,38 @@ export async function fetchSerpData(
   const businessTypes = (bizRow?.google_data as GoogleData | null)?.businessTypes ?? [];
   const previousSerp = (bizRow?.serp_data as SerpData | null) ?? null;
 
-  const projectTerm = SERVICE_CATEGORIES[primaryService as ServiceCategory]?.searchTerm ?? primaryService;
-  const candidateTerms = [...new Set([projectTerm, ...searchTermsForTypes(businessTypes)])].slice(0, 3);
+  const projectTerm =
+    SERVICE_CATEGORIES[primaryService as ServiceCategory]?.searchTerm ?? primaryService;
+  const candidateTerms = [...new Set([projectTerm, ...searchTermsForTypes(businessTypes)])].slice(
+    0,
+    3,
+  );
   console.log(`[fetchSerpData] candidate terms for "${businessName}":`, candidateTerms);
 
   // Query each candidate term in parallel (they're independent) and keep the best (lowest, non-null)
   // position; the winning term is recorded in serpData.searchTerm. candidateTerms always has ≥1 entry.
   const results = await Promise.all(
-    candidateTerms.map((term) => getRankingData(businessName, term, resolvedLocation, apiKey, domain, ll)),
+    candidateTerms.map((term) =>
+      getRankingData(businessName, term, resolvedLocation, apiKey, domain, ll),
+    ),
   );
   let serpData: SerpData = results[0];
   for (const result of results) {
     const pos = result.localVisibilityPosition;
-    if (pos !== null && (serpData.localVisibilityPosition === null || pos < serpData.localVisibilityPosition)) {
+    if (
+      pos !== null &&
+      (serpData.localVisibilityPosition === null || pos < serpData.localVisibilityPosition)
+    ) {
       serpData = result;
     }
   }
   // Carry the prior scan's position so overtake detection can compare real before/after.
   // Key stays absent on the first scan — that absence is what keeps baseline scans silent.
   if (previousSerp) {
-    serpData = { ...serpData, previousLocalVisibilityPosition: previousSerp.localVisibilityPosition };
+    serpData = {
+      ...serpData,
+      previousLocalVisibilityPosition: previousSerp.localVisibilityPosition,
+    };
   }
   await updateBusiness(businessId, { serpData });
   console.log(

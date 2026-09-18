@@ -104,7 +104,7 @@ export const useRivalRadarStore = create<RivalRadarState>()((set, get) => ({
       set((state) => ({
         user: state.user?.id === u.id ? state.user : { id: u.id, email: u.email!, username },
       }));
-      const project = await getProject(u.id);
+      const project = await getProject();
       if (project) {
         set({ project, isDemoMode: false });
         fetchPriorityActions(project.id)

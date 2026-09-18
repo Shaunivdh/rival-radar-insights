@@ -22,7 +22,7 @@ import {
 import { calculateScores, recomputeOverallScore } from '@/services/scores';
 import { fetchPageSpeedData } from '@/services/pagespeed';
 import { suppressOscillatingChanges } from '@/services/diff';
-import { updateBusiness, saveChangeEvent } from '@/actions/projects';
+import { updateBusiness, saveChangeEvent } from '@/lib/supabase/business';
 import { mapPriorityActionRow } from '@/lib/priorityActionRow';
 import { normalizeUrl } from '@/lib/url';
 import { saveScoreSnapshot, getWeeklyDelta } from '@/lib/supabase/scores';
@@ -982,10 +982,7 @@ export const crawlBusinessFunction = inngest.createFunction(
       const weeksOver30 = Math.floor((daysSinceLastReview - 30) / 7);
       // Only decay scores we actually have — unknown stays unknown.
       if (aiScore.reviewVelocityScore !== null) {
-        aiScore.reviewVelocityScore = Math.max(
-          0,
-          aiScore.reviewVelocityScore - weeksOver30 * 10,
-        );
+        aiScore.reviewVelocityScore = Math.max(0, aiScore.reviewVelocityScore - weeksOver30 * 10);
       }
       aiScore.overallScore = recomputeOverallScore(aiScore);
       await updateBusiness(businessId, { aiScore });
@@ -1187,9 +1184,7 @@ export const crawlBusinessFunction = inngest.createFunction(
       if (!ownRaw) return;
 
       const ownBusiness = toPartialBiz(ownRaw);
-      const competitorBusinesses = withSignals
-        .filter((b) => !b.isOwn)
-        .map((b) => toPartialBiz(b));
+      const competitorBusinesses = withSignals.filter((b) => !b.isOwn).map((b) => toPartialBiz(b));
 
       const previousActions = await fetchPreviousActionBatch(meta.projectId);
       const useHistory = previousActions.length > 0 && !!ownRaw.signals;

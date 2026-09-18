@@ -47,6 +47,30 @@ async function getSessionUserId(): Promise<string> {
   return user.id;
 }
 
+/** Verify the session user owns `projectId`. Throws if not. Returns userId. */
+async function requireProjectOwnership(projectId: string): Promise<string> {
+  const userId = await getSessionUserId();
+  const { data } = await supabaseAdmin
+    .from('projects')
+    .select('id')
+    .eq('id', projectId)
+    .eq('user_id', userId)
+    .maybeSingle();
+  if (!data) throw new Error('Not authorized');
+  return userId;
+}
+
+/** Verify the session user owns the project that `businessId` belongs to. */
+async function requireBusinessOwnership(businessId: string): Promise<string> {
+  const { data: biz } = await supabaseAdmin
+    .from('businesses')
+    .select('project_id')
+    .eq('id', businessId)
+    .maybeSingle();
+  if (!biz?.project_id) throw new Error('Not authorized');
+  return requireProjectOwnership(biz.project_id as string);
+}
+
 // ── Row mappers ───────────────────────────────────────────────────────────────
 
 function mapBusiness(
@@ -178,7 +202,8 @@ export async function createProject(
   return rowsToProject(project, businesses);
 }
 
-export async function getProject(userId: string): Promise<Project | null> {
+export async function getProject(): Promise<Project | null> {
+  const userId = await getSessionUserId();
   const { data: project } = await supabaseAdmin
     .from('projects')
     .select('*, businesses(*)')
@@ -249,54 +274,8 @@ export async function getProject(userId: string): Promise<Project | null> {
   };
 }
 
-export async function updateBusiness(
-  businessId: string,
-  partial: Partial<
-    Pick<
-      Business,
-      | 'crawlStatus'
-      | 'crawlJobId'
-      | 'lastCrawledAt'
-      | 'aiScore'
-      | 'googleData'
-      | 'serpData'
-      | 'aiVisibility'
-      | 'pagespeedData'
-      | 'reviewSentiment'
-    >
-  >,
-  extras?: { googlePlaceId?: string },
-): Promise<void> {
-  const row: Record<string, unknown> = {};
-  if (partial.crawlStatus !== undefined) row.crawl_status = partial.crawlStatus;
-  if (partial.crawlJobId !== undefined) row.crawl_job_id = partial.crawlJobId;
-  if (partial.lastCrawledAt !== undefined)
-    row.last_crawled_at = partial.lastCrawledAt
-      ? new Date(partial.lastCrawledAt).toISOString()
-      : null;
-  if (partial.aiScore !== undefined) row.ai_score = partial.aiScore;
-  if (partial.googleData !== undefined) row.google_data = partial.googleData;
-  if (partial.serpData !== undefined) row.serp_data = partial.serpData;
-  if (partial.aiVisibility !== undefined) row.ai_visibility = partial.aiVisibility;
-  if (partial.pagespeedData !== undefined) row.pagespeed_data = partial.pagespeedData;
-  if (partial.reviewSentiment !== undefined) row.review_sentiment = partial.reviewSentiment;
-  if (extras?.googlePlaceId !== undefined) row.google_place_id = extras.googlePlaceId;
-
-  const { error } = await supabaseAdmin.from('businesses').update(row).eq('id', businessId);
-  if (error) throw new Error(error.message);
-}
-
-export async function saveChangeEvent(businessId: string, event: ChangeEvent): Promise<void> {
-  const { error } = await supabaseAdmin.from('change_events').insert({
-    id: event.id,
-    business_id: businessId,
-    detected_at: new Date(event.detectedAt).toISOString(),
-    severity: event.severity,
-    summary: event.summary,
-    changes: event.changes,
-  });
-  if (error) throw new Error(error.message);
-}
+// updateBusiness/saveChangeEvent moved to @/lib/supabase/business — they are
+// worker-only and must not be exposed as server-action endpoints.
 
 function isStale(lastCrawledAt: string | null): boolean {
   if (!lastCrawledAt) return true;
@@ -304,6 +283,7 @@ function isStale(lastCrawledAt: string | null): boolean {
 }
 
 export async function triggerInitialScans(projectId: string): Promise<void> {
+  await requireProjectOwnership(projectId);
   const { data: businesses } = await supabaseAdmin
     .from('businesses')
     .select('id, last_crawled_at')
@@ -355,6 +335,7 @@ export async function syncProject(projectId: string): Promise<{
   }[];
   priorityActions: PriorityAction[];
 }> {
+  await requireProjectOwnership(projectId);
   const { data: rows } = await supabaseAdmin
     .from('businesses')
     .select(
@@ -458,24 +439,13 @@ export async function syncProject(projectId: string): Promise<{
   // Always load existing recommendations — don't hide them just because a scan
   // is mid-flight. Gating this on "all crawls done" meant a stuck/in-progress
   // scan made previously-generated actions disappear from the UI.
-  let priorityActions: PriorityAction[] = [];
-  const { data: actions } = await supabaseAdmin
-    .from('priority_actions')
-    .select('*')
-    .eq('project_id', projectId)
-    .in('status', ['active', 'snoozed'])
-    .order('generated_at', { ascending: false })
-    .order('priority', { ascending: true })
-    .limit(15);
-
-  if (actions?.length) {
-    priorityActions = actions.map(mapPriorityActionRow);
-  }
+  const priorityActions = await queryPriorityActions(projectId);
 
   return { businesses, priorityActions };
 }
 
 export async function triggerSingleScan(businessId: string): Promise<void> {
+  await requireBusinessOwnership(businessId);
   await supabaseAdmin.from('businesses').update({ crawl_status: 'pending' }).eq('id', businessId);
 
   await inngest.send({
@@ -485,6 +455,7 @@ export async function triggerSingleScan(businessId: string): Promise<void> {
 }
 
 export async function rescanAll(projectId: string): Promise<void> {
+  await requireProjectOwnership(projectId);
   const { data: businesses } = await supabaseAdmin
     .from('businesses')
     .select('id')
@@ -513,7 +484,7 @@ export async function addCompetitor(
   projectId: string,
   competitor: Pick<Business, 'name' | 'url' | 'domain'>,
 ): Promise<Business> {
-  await getSessionUserId();
+  await requireProjectOwnership(projectId);
 
   const { data: existing } = await supabaseAdmin
     .from('businesses')
@@ -549,7 +520,7 @@ export async function addCompetitor(
   return mapBusiness({ ...row, crawl_status: 'pending' });
 }
 
-export async function fetchPriorityActions(projectId: string): Promise<PriorityAction[]> {
+async function queryPriorityActions(projectId: string): Promise<PriorityAction[]> {
   const { data: actions } = await supabaseAdmin
     .from('priority_actions')
     .select('*')
@@ -560,6 +531,11 @@ export async function fetchPriorityActions(projectId: string): Promise<PriorityA
     .limit(15);
 
   return (actions ?? []).map(mapPriorityActionRow);
+}
+
+export async function fetchPriorityActions(projectId: string): Promise<PriorityAction[]> {
+  await requireProjectOwnership(projectId);
+  return queryPriorityActions(projectId);
 }
 
 // ── Action status management ───────────────────────────────────────────────────
@@ -602,6 +578,7 @@ export async function updateActionStatus(
   status: 'active' | 'snoozed' | 'completed',
   note?: string,
 ): Promise<PriorityAction[]> {
+  await requireProjectOwnership(projectId);
   await supabaseAdmin
     .from('priority_actions')
     .update({
@@ -617,7 +594,7 @@ export async function updateActionStatus(
     await promoteQueuedActions(projectId);
   }
 
-  return fetchPriorityActions(projectId);
+  return queryPriorityActions(projectId);
 }
 
 export async function updateProjectBusinessDetails(
@@ -641,7 +618,8 @@ export async function updateProjectBusinessDetails(
   if (count === 0) throw new Error('Project not found');
 }
 
-export async function listProjects(userId: string): Promise<Project[]> {
+export async function listProjects(): Promise<Project[]> {
+  const userId = await getSessionUserId();
   const { data: projects, error } = await supabaseAdmin
     .from('projects')
     .select('*, businesses(*)')

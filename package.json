@@ -15,7 +15,13 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:integration": "vitest run src/lib/__tests__/ai.pipeline.test.ts",
-    "prepare": "husky"
+    "prepare": "husky",
+    "test:unit": "vitest run",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
+    "test:contract": "RUN_REAL_API=1 vitest run",
+    "test:seed": "bun run scripts/create-test-user.ts && bun run scripts/seed-test-project.ts",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.78.0",
@@ -78,6 +84,8 @@
   "devDependencies": {
     "@eslint/eslintrc": "^3.3.5",
     "@eslint/js": "^9.32.0",
+    "@inngest/test": "0.1.9",
+    "@playwright/test": "^1.63.0",
     "@react-email/components": "^1.0.12",
     "@tailwindcss/typography": "^0.5.16",
     "@types/node": "^22.16.5",
@@ -94,6 +102,7 @@
     "husky": "^9.1.7",
     "inngest-cli": "^1.17.5",
     "lint-staged": "^17.2.0",
+    "msw": "^2.15.0",
     "postcss": "^8.5.6",
     "prettier": "^3.8.3",
     "react-email": "^6.0.4",

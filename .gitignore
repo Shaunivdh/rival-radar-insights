@@ -44,3 +44,11 @@ yarn.lock
 *.njsproj
 *.sln
 *.sw?
+
+# Test env (copied from .env.local, used by Playwright + seed scripts)
+.env.test
+
+# Playwright
+/test-results/
+/playwright-report/
+/playwright/.cache/

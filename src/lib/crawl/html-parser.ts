@@ -1,3 +1,134 @@
+/** Array keys where AI and deterministic results are union-merged rather than overwritten. */
+export const MERGE_ARRAY_KEYS = [
+  'servicesListed',
+  'serviceAreasMentioned',
+  'h1Tags',
+  'accreditations',
+  'certifications',
+  'awardsAndMemberships',
+  'reviewPlatformsLinked',
+  'guaranteesMentioned',
+  'ctaText',
+  'socialLinksPresent',
+  'schemaMarkupTypes',
+];
+
+/**
+ * Overlay deterministic HTML signals on the AI-extracted JSON for one page.
+ * Scalars from the parser win (AI often returns empty strings for metadata the
+ * HTML plainly contains); arrays are unioned so neither side is lost.
+ */
+export function mergePageSignals(
+  aiJson: Record<string, unknown>,
+  parsed: Record<string, unknown>,
+): Record<string, unknown> {
+  const merged: Record<string, unknown> = { ...aiJson, ...parsed };
+  for (const key of MERGE_ARRAY_KEYS) {
+    const a = aiJson[key];
+    const b = parsed[key];
+    if (Array.isArray(a) && Array.isArray(b)) merged[key] = [...new Set([...a, ...b])];
+  }
+  return merged;
+}
+
+function stripTags(s: string): string {
+  return s
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/&nbsp;|&#160;/gi, ' ')
+    .replace(/&amp;/gi, '&')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+/** Services-like container: heading text, or an id/class on a section/div/nav/ul. */
+const SERVICE_SECTION_KEY_RE =
+  /\b(services?|treatments?|what[-_ ]we[-_ ]do|what[-_ ]we[-_ ]offer|our[-_ ]work|menu)\b/i;
+const SERVICE_SECTION_ATTR_RE =
+  /<(section|div|article|ul)\b[^>]*\b(?:id|class)=["']([^"']*\b(?:services?|treatments?|what-we-do|what-we-offer|our-work|menu)\b[^"']*)["'][^>]*>/gi;
+/** "menu" means a restaurant/salon menu — not a navigation menu. */
+const NAV_MENU_HINT_RE =
+  /\b(nav|navigation|header|footer|mobile|hamburger|dropdown|list-menu|inline-menu|menu-item|sub-menu|megamenu)\b|nav-|-nav\b|menu--|__menu/i;
+const SERVICE_SECTION_HEADING_RE = /<h([1-3])[^>]*>([\s\S]*?)<\/h\1>/gi;
+const SECTION_WINDOW_CHARS = 8000;
+
+function harvestItems(fragment: string): string[] {
+  const headings = [...fragment.matchAll(/<h[2-4][^>]*>([\s\S]*?)<\/h[2-4]>/gi)].map((m) => m[1]);
+  // An <li> that wraps a heading/paragraph is a card, not a list entry — its heading
+  // is already captured above and its full text would be a sentence.
+  const listItems = [...fragment.matchAll(/<li[^>]*>([\s\S]*?)<\/li>/gi)]
+    .map((m) => m[1])
+    .filter((inner) => !/<(h[1-6]|p|div|section)\b/i.test(inner));
+  return [...headings, ...listItems]
+    .map(stripTags)
+    .filter((t) => t.length >= 2 && t.length <= 60 && t.split(/\s+/).length <= 6);
+}
+
+/**
+ * Headings and list items that sit inside a section whose heading, id or class
+ * says it lists services/treatments/what-we-do/what-we-offer/our-work/menu.
+ * Bounded by the next closing </section> or a fixed window since regex cannot
+ * match nesting.
+ */
+function harvestSectionServices(html: string): string[] {
+  const out: string[] = [];
+
+  for (const m of html.matchAll(SERVICE_SECTION_ATTR_RE)) {
+    const attrValue = m[2];
+    const onlyMenuKey = !/\b(services?|treatments?|what-we-do|what-we-offer|our-work)\b/i.test(
+      attrValue,
+    );
+    if (onlyMenuKey && NAV_MENU_HINT_RE.test(attrValue)) continue;
+    const start = m.index! + m[0].length;
+    const rest = html.slice(start, start + SECTION_WINDOW_CHARS);
+    const close = rest.search(/<\/(section|article|ul)\s*>/i);
+    out.push(...harvestItems(close === -1 ? rest : rest.slice(0, close)));
+  }
+
+  for (const m of html.matchAll(SERVICE_SECTION_HEADING_RE)) {
+    const headingText = stripTags(m[2]);
+    if (!SERVICE_SECTION_KEY_RE.test(headingText) || headingText.split(/\s+/).length > 6) continue;
+    const start = m.index! + m[0].length;
+    const rest = html.slice(start, start + SECTION_WINDOW_CHARS);
+    // Stop at the next heading of the same or higher level — that's the next section.
+    const level = Number(m[1]);
+    const stop = rest.search(new RegExp(`<h[1-${level}][^>]*>`, 'i'));
+    out.push(...harvestItems(stop === -1 ? rest : rest.slice(0, stop)));
+  }
+
+  return [...new Set(out)];
+}
+
+const AREAS_HEADING_RE =
+  /<h[1-6][^>]*>[^<]*\b(areas? we (cover|serve|work in)|covering|service areas?|areas? covered|where we work|locations? (we )?(cover|serve))\b[^<]*<\/h[1-6]>/gi;
+/** Full UK postcode, e.g. "BS1 4DJ", "SW1A 1AA", "M1 1AE"; captures the outward district. */
+const UK_POSTCODE_RE = /\b([A-Z]{1,2}\d[A-Z\d]?)\s*\d[A-Z]{2}\b/g;
+
+function harvestServiceAreas(html: string, text: string): string[] {
+  const out = new Set<string>();
+
+  for (const m of html.matchAll(AREAS_HEADING_RE)) {
+    const start = m.index! + m[0].length;
+    const rest = html.slice(start, start + 3000);
+    const stop = rest.search(/<h[1-6][^>]*>/i);
+    const fragment = stop === -1 ? rest : rest.slice(0, stop);
+    const liItems = [...fragment.matchAll(/<li[^>]*>([\s\S]*?)<\/li>/gi)].map((x) =>
+      stripTags(x[1]),
+    );
+    const source =
+      liItems.length > 0 ? liItems : stripTags(fragment).split(/[,;|•·\n]|\band\b|&amp;/i);
+    for (const raw of source) {
+      const s = raw.replace(/[.!:]+$/, '').trim();
+      if (s.length < 2 || s.length > 40 || s.split(/\s+/).length > 4) continue;
+      if (!/^[A-Z]/.test(s)) continue;
+      out.add(s);
+    }
+  }
+
+  for (const m of text.matchAll(UK_POSTCODE_RE)) out.add(m[1].toUpperCase());
+
+  return [...out].slice(0, 40);
+}
+
 /**
  * Parse deterministic SEO signals directly from raw HTML.
  * More reliable than AI extraction for structured metadata fields.
@@ -58,23 +189,25 @@ export function parseHtmlSignals(html: string, baseUrl?: string): Record<string,
   }
   if (schemaTypes.size > 0) signals.schemaMarkupTypes = [...schemaTypes];
 
-  // Services listed — deterministic fallback: H1 comma/pipe splits, short H2/H3 headings, schema.org Service names
+  // Services listed — deterministic fallback: H1 comma/pipe splits, headings/<li> inside a
+  // services-like section, schema.org Service/Product/Offer names. The old "any short h2/h3"
+  // harvest is gone: it fed nav/footer noise ("Why Choose Us") to the LLM as services.
   const GENERIC_HEADINGS =
-    /^(about|contact|home|gallery|blog|news|team|faq|pricing|reviews|testimonials|get in touch|find us|opening hours|book now|book online|free quote|welcome|our story|location|locations|login|sign up|our services|our treatments|what we do|what we offer)$/i;
+    /^(about|contact|home|gallery|blog|news|team|faq|pricing|reviews|testimonials|get in touch|find us|opening hours|book now|book online|free quote|welcome|our story|location|locations|login|sign up|our services|our treatments|what we do|what we offer|why choose us|latest offers|our promise|how it works|menu|services|treatments|our work)$/i;
   const h1Text = [...html.matchAll(/<h1[^>]*>([\s\S]*?)<\/h1>/gi)]
     .map((m) => m[1].replace(/<[^>]+>/g, '').trim())
     .filter(Boolean);
   const servicesFromH1: string[] = [];
   for (const h1 of h1Text) {
-    const parts = h1
-      .split(/[,|]/)
-      .map((s) => s.replace(/&amp;/g, '&').trim())
-      .filter((s) => s.length >= 2 && s.split(/\s+/).length <= 5);
-    if (parts.length >= 2) servicesFromH1.push(...parts);
+    const parts = h1.split(/[,|]/).map((s) => s.replace(/&amp;/g, '&').trim());
+    // Only a real list ("Boiler Repair | Bathrooms | Heating") — every part Title-Case and
+    // short. A sentence with a comma ("Gentle, modern dentistry in Reading") is not a list.
+    const looksLikeList =
+      parts.length >= 2 &&
+      parts.every((s) => s.length >= 2 && s.split(/\s+/).length <= 4 && /^[A-Z]/.test(s));
+    if (looksLikeList) servicesFromH1.push(...parts);
   }
-  const shortH2H3 = [...html.matchAll(/<h[23][^>]*>([\s\S]*?)<\/h[23]>/gi)]
-    .map((m) => m[1].replace(/<[^>]+>/g, '').trim())
-    .filter((t) => t && t.split(/\s+/).length <= 4 && t.length < 50 && !GENERIC_HEADINGS.test(t));
+  const sectionServices = harvestSectionServices(html).filter((t) => !GENERIC_HEADINGS.test(t));
   const schemaServiceNames: string[] = [];
   for (const match of ldJsonMatches) {
     try {
@@ -97,9 +230,51 @@ export function parseHtmlSignals(html: string, baseUrl?: string): Record<string,
     }
   }
   const detectedServices = [
-    ...new Set([...servicesFromH1, ...schemaServiceNames, ...shortH2H3]),
+    ...new Set([...servicesFromH1, ...schemaServiceNames, ...sectionServices]),
   ].slice(0, 30);
   if (detectedServices.length > 0) signals.servicesListed = detectedServices;
+
+  // Social links — platform names from outbound hrefs (fallback when AI extraction fails)
+  const SOCIAL_PLATFORMS: [string, RegExp][] = [
+    ['Facebook', /href=["'][^"']*(?:^|\/\/)(?:www\.)?facebook\.com\/[^"']+["']/i],
+    ['Instagram', /href=["'][^"']*(?:^|\/\/)(?:www\.)?instagram\.com\/[^"']+["']/i],
+    ['LinkedIn', /href=["'][^"']*(?:^|\/\/)(?:[a-z]{2,3}\.)?linkedin\.com\/[^"']+["']/i],
+    ['TikTok', /href=["'][^"']*(?:^|\/\/)(?:www\.)?tiktok\.com\/[^"']+["']/i],
+    ['X', /href=["'][^"']*(?:^|\/\/)(?:www\.)?(?:x\.com|twitter\.com)\/[^"']+["']/i],
+    ['YouTube', /href=["'][^"']*(?:^|\/\/)(?:www\.)?(?:youtube\.com|youtu\.be)\/[^"']+["']/i],
+  ];
+  const socialLinks = SOCIAL_PLATFORMS.filter(([, re]) => re.test(html)).map(([name]) => name);
+  if (socialLinks.length > 0) signals.socialLinksPresent = socialLinks;
+
+  // Newsletter signup — email input near subscribe/newsletter copy, or a known ESP embed.
+  // Only set when true: the orchestrator merges parsed keys over AI keys, so a false here
+  // would erase an AI-detected true.
+  const emailInputs = [...html.matchAll(/<input\b[^>]*\btype=["']email["'][^>]*>/gi)];
+  const nearSubscribe = emailInputs.some((m) => {
+    const start = Math.max(0, m.index! - 1500);
+    const window = html.slice(start, m.index! + m[0].length + 1500);
+    return /\b(subscribe|newsletter|mailing list|sign ?up for (our )?(updates|news|emails?)|join our list)\b/i.test(
+      window,
+    );
+  });
+  const espEmbed =
+    /list-manage\.com|mc\.us\d+\.list-manage|mailchimp|klaviyo\.com|static\.klaviyo|convertkit\.com|ck\.page|mailerlite\.com|beehiiv\.com|substack\.com\/embed/i.test(
+      html,
+    );
+  if (nearSubscribe || espEmbed) signals.hasNewsletterSignup = true;
+
+  // Portfolio — link to a portfolio/gallery/our-work/projects/case-studies page. Only set when true.
+  if (
+    /href=["'][^"']*\/(portfolio|gallery|our-work|ourwork|projects|case-studies|casestudies)(\/|["']|\?|#)/i.test(
+      html,
+    )
+  )
+    signals.hasPortfolio = true;
+
+  // Service areas — text under an "areas we cover / serve" heading, plus UK postcode districts
+  // found in full postcodes on the page. AI stays primary; this is a union-merged fallback.
+  const serviceAreas = harvestServiceAreas(html, text);
+  if (serviceAreas.length > 0) signals.serviceAreasMentioned = serviceAreas;
 
   // Alt tag coverage
   const imgMatches = [...html.matchAll(/<img[^>]+>/gi)];

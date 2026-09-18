@@ -1,0 +1,18 @@
+{
+  "_builder": "static-html",
+  "_url": "https://www.hartleyandco.co.uk/",
+  "homepageH1": null,
+  "services": [
+    "Annual Accounts",
+    "Self Assessment Tax Returns",
+    "VAT Returns",
+    "Payroll",
+    "Bookkeeping"
+  ],
+  "hasContactForm": true,
+  "bookingProvider": "Calendly",
+  "socialLinks": ["LinkedIn"],
+  "accreditations": ["ICO", "Cyber Essentials"],
+  "reviewPlatforms": ["Google Reviews"],
+  "sitemap": false
+}

@@ -40,11 +40,17 @@ export interface ServiceCategoryConfig {
   countryModifier: string;
 }
 
-/** Fallback templates used when a category doesn't define its own. */
+/**
+ * Fallback templates used when a category doesn't define its own.
+ * Five queries → score steps of 20 (not 33) per run; the reported score is
+ * further smoothed as the mean of the last three runs (see checkAIVisibility).
+ */
 export const GENERIC_AI_QUERY_TEMPLATES = [
   'Best {service} in {location}',
   'Top rated {service} near {location}',
   'Who would you recommend for {service} in {location}',
+  'Which {service} in {location} has the best reviews',
+  'I need a {service} in {location} — who should I use',
 ];
 
 export const SERVICE_CATEGORIES: Record<ServiceCategory, ServiceCategoryConfig> = {

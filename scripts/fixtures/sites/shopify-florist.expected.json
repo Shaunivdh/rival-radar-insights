@@ -1,0 +1,18 @@
+{
+  "_builder": "shopify",
+  "_url": "https://bloomandbough.co.uk/",
+  "homepageH1": "Fresh flowers, hand-tied in Leeds",
+  "services": [
+    "Same-Day Bouquets",
+    "Wedding Flowers",
+    "Funeral Tributes",
+    "Weekly Flower Subscription",
+    "Corporate Flowers"
+  ],
+  "hasContactForm": true,
+  "bookingProvider": null,
+  "socialLinks": ["Instagram", "TikTok", "Facebook"],
+  "accreditations": [],
+  "reviewPlatforms": ["Feefo"],
+  "sitemap": true
+}

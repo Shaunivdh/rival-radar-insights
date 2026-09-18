@@ -48,17 +48,27 @@ Your priority is **correctness, minimal token usage, and small safe diffs**.
 
 ## 5. AI Usage (Anthropic)
 
-Claude is used only for:
+All calls live in `src/services/ai.ts` and go through `callLLMRaw`. Models come from
+`AI_MODEL_FAST` (default Haiku 4.5) and `AI_MODEL_SMART` (default Sonnet 5).
 
-- generateHealthScore
-- generatePriorityActions
-- generateChangeSummary
+| Function                                       | Model | max_tokens       | Output                                   |
+| ---------------------------------------------- | ----- | ---------------- | ---------------------------------------- |
+| `extractPageSignals` (per page)                | FAST  | 4096             | `EXTRACTION_SCHEMA`                      |
+| `generateReviewSentiment`                      | FAST  | 512              | `SENTIMENT_SCHEMA`                       |
+| `checkAIVisibility` (5 queries + web search)   | SMART | 1000 per query   | free text, then mention extraction       |
+| `extractMentionedBusinesses`                   | FAST  | 1024             | `MENTIONED_BUSINESSES_SCHEMA`            |
+| `generatePriorityActions` / `…WithHistory`     | SMART | 900 × open slots | `PRIORITY_ACTIONS_*_SCHEMA` (+ evidence) |
+| `validateActionsHybrid` (fact-checker patches) | SMART | 1500             | `VALIDATION_PATCHES_SCHEMA`              |
+| `generateChangeSummary`                        | FAST  | 1024             | `CHANGE_SUMMARY_SCHEMA`                  |
+
+Health scores are deterministic (`src/services/scores.ts`) — no AI.
 
 ### Requirements:
 
-- Output must be valid JSON only
-- Keep responses under 200 tokens
-- Prefer deterministic logic when possible
+- Every call passes a JSON schema via `output_config.format` (`src/services/aiSchemas.ts`); parse the text block directly, never strip fences or regex for brackets
+- `stop_reason === 'max_tokens'` throws `TruncatedOutputError` and is logged as `errorType: 'truncated'` — never parse a truncated body
+- LLM priority actions must cite `evidence` paths; unresolvable paths drop the action, mismatched values are flagged to the fact-checker
+- Prefer deterministic logic (templates, regex parsers) over AI whenever possible
 - No explanations in AI outputs
 
 ---

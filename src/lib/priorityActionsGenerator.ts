@@ -26,11 +26,11 @@ import type { ServiceCategory } from '@/lib/serviceCategories';
  */
 export async function generateAndPersistProjectActions(
   projectId: string,
-): Promise<{ inserted: number; reason?: string }> {
+): Promise<{ inserted: number; reason?: string; ownBusinessId?: string }> {
   const { data: allBiz } = await supabaseAdmin
     .from('businesses')
     .select(
-      'id, name, is_own_business, ai_score, google_data, pagespeed_data, serp_data, ai_visibility',
+      'id, name, is_own_business, ai_score, google_data, pagespeed_data, serp_data, ai_visibility, enrichment_errors',
     )
     .eq('project_id', projectId);
 
@@ -63,6 +63,7 @@ export async function generateAndPersistProjectActions(
         pagespeedData: (b.pagespeed_data as PageSpeedData) ?? null,
         serpData: (b.serp_data as Business['serpData']) ?? null,
         aiVisibility: (b.ai_visibility as Business['aiVisibility']) ?? null,
+        enrichmentErrors: (b.enrichment_errors as Business['enrichmentErrors']) ?? null,
       };
     }),
   );
@@ -76,8 +77,9 @@ export async function generateAndPersistProjectActions(
     .eq('id', projectId)
     .single();
 
-  // serpData/aiVisibility are included so signal-driven templates (e.g. local pack,
-  // AI visibility) can fire — richer than the crawl worker's inline builder.
+  // serpData/aiVisibility let the local-pack and AI-visibility templates fire;
+  // enrichmentErrors lets the extract-failed gate and prompt warnings work.
+  // This is the ONLY action-generation path — the crawl worker calls it too.
   const toBiz = (b: (typeof withData)[number]): Business => ({
     id: b.id,
     name: b.name,
@@ -93,7 +95,7 @@ export async function generateAndPersistProjectActions(
     aiScore: b.aiScore,
     aiVisibility: b.aiVisibility,
     reviewSentiment: null,
-    enrichmentErrors: null,
+    enrichmentErrors: b.enrichmentErrors,
     previousSignals: null,
     changeEvents: [],
   });
@@ -123,11 +125,13 @@ export async function generateAndPersistProjectActions(
             projRow?.primary_service as ServiceCategory,
           );
   } catch (e) {
-    if (e instanceof AIUnavailableError) return { inserted: 0, reason: 'AI temporarily unavailable' };
+    if (e instanceof AIUnavailableError)
+      return { inserted: 0, reason: 'AI temporarily unavailable', ownBusinessId: ownRaw.id };
     throw e;
   }
 
-  if (!rawActions.length) return { inserted: 0, reason: 'generation returned 0 actions' };
+  if (!rawActions.length)
+    return { inserted: 0, reason: 'generation returned 0 actions', ownBusinessId: ownRaw.id };
 
   // Deduplicate against actions that are still live or recently completed.
   const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
@@ -148,7 +152,8 @@ export async function generateAndPersistProjectActions(
   );
 
   const newActions = rawActions.filter((a) => !existingSet.has(a.action));
-  if (!newActions.length) return { inserted: 0, reason: 'all generated actions already exist' };
+  if (!newActions.length)
+    return { inserted: 0, reason: 'all generated actions already exist', ownBusinessId: ownRaw.id };
 
   const { count: activeCount } = await supabaseAdmin
     .from('priority_actions')
@@ -179,10 +184,14 @@ export async function generateAndPersistProjectActions(
 
   if (insertError) {
     console.error('[priorityActions] insert failed:', insertError);
-    return { inserted: 0, reason: `insert failed: ${insertError.message}` };
+    return {
+      inserted: 0,
+      reason: `insert failed: ${insertError.message}`,
+      ownBusinessId: ownRaw.id,
+    };
   }
 
-  return { inserted: newActions.length };
+  return { inserted: newActions.length, ownBusinessId: ownRaw.id };
 }
 
 /** Latest batch of priority actions (all rows sharing the most recent generated_at). */

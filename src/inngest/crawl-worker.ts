@@ -12,8 +12,6 @@ import { checkDirectSignals } from '@/lib/crawl/direct-checks';
 import { supabaseAdmin } from '@/lib/supabase/server';
 import { fetchGoogleData, fetchSerpData } from '@/actions/enrichment';
 import {
-  generatePriorityActions,
-  generatePriorityActionsWithHistory,
   generateChangeSummary,
   generateReviewSentiment,
   checkAIVisibility,
@@ -23,80 +21,21 @@ import { calculateScores, recomputeOverallScore } from '@/services/scores';
 import { fetchPageSpeedData } from '@/services/pagespeed';
 import { suppressOscillatingChanges } from '@/services/diff';
 import { updateBusiness, saveChangeEvent } from '@/lib/supabase/business';
-import { mapPriorityActionRow } from '@/lib/priorityActionRow';
+import { generateAndPersistProjectActions } from '@/lib/priorityActionsGenerator';
 import { normalizeUrl } from '@/lib/url';
 import { saveScoreSnapshot, getWeeklyDelta } from '@/lib/supabase/scores';
 import { logCrawlStep } from '@/lib/crawl/crawl-logger';
 import { THREAT_DEDUP_MS, CHANGE_CONFIRMATION_DELAY_MS } from '@/lib/crawl/config';
 import type {
   ExtractedSignals,
-  Business,
   ChangeEvent,
   AIHealthScore,
   AIVisibility,
   GoogleData,
   SerpData,
   PageSpeedData,
-  PriorityAction,
 } from '@/types';
 import type { ServiceCategory } from '@/lib/serviceCategories';
-
-/** Convert a minimal row into a Business object for priority action generation. */
-function toPartialBiz(b: {
-  id: string;
-  name: string;
-  signals: ExtractedSignals | null;
-  aiScore: AIHealthScore | null;
-  googleData: unknown;
-  pagespeedData: PageSpeedData | null;
-}): Business {
-  return {
-    id: b.id,
-    name: b.name,
-    url: '',
-    domain: '',
-    lastCrawledAt: null,
-    crawlJobId: null,
-    crawlStatus: 'complete',
-    signals: b.signals,
-    googleData: b.googleData as Business['googleData'],
-    serpData: null,
-    pagespeedData: b.pagespeedData,
-    aiScore: b.aiScore,
-    aiVisibility: null,
-    reviewSentiment: null,
-    enrichmentErrors: null,
-    previousSignals: null,
-    changeEvents: [],
-  };
-}
-
-/**
- * Fetch the most recent batch of priority actions for a project. A "batch" is
- * all rows sharing the exact latest `generated_at` (a single Supabase INSERT
- * uses one transaction timestamp, so batched rows share the value). Includes
- * all statuses — completed/snoozed/queued — so the with-history prompt can
- * acknowledge closed items.
- */
-async function fetchPreviousActionBatch(projectId: string): Promise<PriorityAction[]> {
-  const { data: latest } = await supabaseAdmin
-    .from('priority_actions')
-    .select('generated_at')
-    .eq('project_id', projectId)
-    .order('generated_at', { ascending: false })
-    .limit(1)
-    .maybeSingle();
-  if (!latest?.generated_at) return [];
-
-  const { data: rows } = await supabaseAdmin
-    .from('priority_actions')
-    .select('*')
-    .eq('project_id', projectId)
-    .eq('generated_at', latest.generated_at as string)
-    .order('priority', { ascending: true });
-
-  return (rows ?? []).map((r) => mapPriorityActionRow(r as Record<string, unknown>));
-}
 
 function rowToSignals(r: Record<string, unknown>): ExtractedSignals {
   return {
@@ -104,24 +43,6 @@ function rowToSignals(r: Record<string, unknown>): ExtractedSignals {
     trust: r.trust,
     content: r.content,
     engagement: r.engagement,
-  } as ExtractedSignals;
-}
-
-/** Fetch the previous (not most-recent) extracted_signals row for a business. */
-async function fetchPreviousSignals(businessId: string): Promise<ExtractedSignals | null> {
-  const { data } = await supabaseAdmin
-    .from('extracted_signals')
-    .select('seo, trust, content, engagement')
-    .eq('business_id', businessId)
-    .order('scanned_at', { ascending: false })
-    .limit(2);
-  const prev = data?.[1];
-  if (!prev?.seo) return null;
-  return {
-    seo: prev.seo,
-    trust: prev.trust,
-    content: prev.content,
-    engagement: prev.engagement,
   } as ExtractedSignals;
 }
 
@@ -172,6 +93,75 @@ async function clearEnrichmentError(
     .from('businesses')
     .update({ enrichment_errors: Object.keys(errors).length ? errors : null })
     .eq('id', businessId);
+}
+
+/**
+ * Run the single action-generation path (`generateAndPersistProjectActions`) and
+ * translate its outcome into the own business's `enrichment_errors.ai_actions`.
+ * Shared by the main pipeline's `priority-actions` step and the onFailure handler.
+ */
+async function runProjectActionGeneration(projectId: string, logPrefix: string): Promise<void> {
+  try {
+    const result = await generateAndPersistProjectActions(projectId);
+    const ownId = result.ownBusinessId;
+    if (!ownId) return;
+
+    if (result.inserted > 0) {
+      await clearEnrichmentError(ownId, 'ai_actions');
+      console.log(`[${logPrefix}] inserted ${result.inserted} priority actions for ${projectId}`);
+      return;
+    }
+
+    if (result.reason === 'AI temporarily unavailable') {
+      const retryAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+      await writeEnrichmentError(
+        ownId,
+        'ai_actions',
+        `Recommendations unavailable — retrying at ${retryAt}`,
+      );
+      return;
+    }
+
+    if (result.reason === 'generation returned 0 actions') {
+      // Should not happen — templates alone usually fire. Surface it instead of
+      // leaving the action plan silently empty (the 06-21 symptom).
+      console.warn(`[${logPrefix}] generation returned 0 actions for project ${projectId}`);
+      await writeEnrichmentError(
+        ownId,
+        'ai_actions',
+        'No recommendations were generated on the last scan — re-scan to try again.',
+      );
+      return;
+    }
+
+    if (result.reason?.startsWith('insert failed')) {
+      await writeEnrichmentError(
+        ownId,
+        'ai_actions',
+        'Unexpected error generating recommendations',
+      );
+      return;
+    }
+
+    // Dedupe outcomes ('all generated actions already exist') are not errors.
+    await clearEnrichmentError(ownId, 'ai_actions');
+    console.log(`[${logPrefix}] no new actions for ${projectId}: ${result.reason}`);
+  } catch (e) {
+    console.error(`[${logPrefix}] unexpected error for project ${projectId}:`, e);
+    const { data: own } = await supabaseAdmin
+      .from('businesses')
+      .select('id')
+      .eq('project_id', projectId)
+      .eq('is_own_business', true)
+      .maybeSingle();
+    if (own?.id) {
+      await writeEnrichmentError(
+        own.id as string,
+        'ai_actions',
+        'Unexpected error generating recommendations',
+      );
+    }
+  }
 }
 
 /**
@@ -231,126 +221,7 @@ export const crawlBusinessFunction = inngest.createFunction(
             .in('status', ['active', 'snoozed']);
           if ((count ?? 0) > 0) return;
 
-          const withSignals = await Promise.all(
-            allBiz.map(async (b) => {
-              const [{ data: sig }, { data: bizRow }] = await Promise.all([
-                supabaseAdmin
-                  .from('extracted_signals')
-                  .select('seo, trust, content, engagement')
-                  .eq('business_id', b.id)
-                  .order('scanned_at', { ascending: false })
-                  .limit(1)
-                  .maybeSingle(),
-                supabaseAdmin
-                  .from('businesses')
-                  .select('ai_score, google_data, pagespeed_data')
-                  .eq('id', b.id)
-                  .single(),
-              ]);
-              const signals = sig?.seo
-                ? ({
-                    seo: sig.seo,
-                    trust: sig.trust,
-                    content: sig.content,
-                    engagement: sig.engagement,
-                  } as ExtractedSignals)
-                : null;
-              return {
-                id: b.id as string,
-                name: b.name as string,
-                isOwn: b.is_own_business as boolean,
-                signals,
-                aiScore: (bizRow?.ai_score as AIHealthScore) ?? null,
-                googleData: bizRow?.google_data ?? null,
-                pagespeedData: (bizRow?.pagespeed_data as PageSpeedData) ?? null,
-              };
-            }),
-          );
-
-          const ownRaw = withSignals.find((b) => b.isOwn);
-          if (!ownRaw) return;
-
-          // Fetch project's business details
-          const { data: projRow } = await supabaseAdmin
-            .from('projects')
-            .select('primary_service, location, postcode')
-            .eq('id', projectId)
-            .single();
-
-          const ownBusiness = toPartialBiz(ownRaw);
-          const competitorBusinesses = withSignals
-            .filter((b) => !b.isOwn)
-            .map((b) => toPartialBiz(b));
-          const previousActions = await fetchPreviousActionBatch(projectId);
-          const useHistory = previousActions.length > 0 && !!ownRaw.signals;
-          const previousSignals = useHistory ? await fetchPreviousSignals(ownRaw.id) : null;
-
-          try {
-            const rawActions = useHistory
-              ? await generatePriorityActionsWithHistory(
-                  ownBusiness,
-                  competitorBusinesses,
-                  previousActions,
-                  previousSignals,
-                  ownRaw.signals!,
-                  projRow?.primary_service as ServiceCategory,
-                )
-              : await generatePriorityActions(
-                  ownBusiness,
-                  competitorBusinesses,
-                  projRow?.primary_service as ServiceCategory,
-                );
-
-            await clearEnrichmentError(ownRaw.id, 'ai_actions');
-            if (!rawActions.length) {
-              console.warn(
-                `[onFailure] priority-actions generation returned 0 actions for project ${projectId} (own=${ownRaw.id})`,
-              );
-              await writeEnrichmentError(
-                ownRaw.id,
-                'ai_actions',
-                'No recommendations were generated on the last scan — re-scan to try again.',
-              );
-              return;
-            }
-
-            await supabaseAdmin.from('priority_actions').insert(
-              rawActions.map((a, i) => ({
-                project_id: projectId,
-                priority: a.priority,
-                status: i < 5 ? 'active' : 'queued',
-                category: a.category,
-                action: a.action,
-                reason: a.reason,
-                why_it_matters: a.whyItMatters ?? null,
-                steps: a.steps ?? null,
-                effort: a.effort ?? null,
-                outcome: a.outcome ?? null,
-                competitor_reference: a.competitorReference ?? null,
-                estimated_impact: a.estimatedImpact,
-                timeframe: a.timeframe,
-                continuity_note: useHistory ? (a.continuityNote ?? null) : null,
-              })),
-            );
-            console.log(
-              `[onFailure] Generated ${rawActions.length} priority actions for project ${projectId}`,
-            );
-          } catch (e) {
-            if (e instanceof AIUnavailableError) {
-              await writeEnrichmentError(
-                ownRaw.id,
-                'ai_actions',
-                `Recommendations unavailable — retrying at ${(e as AIUnavailableError).retryAt}`,
-              );
-            } else {
-              console.error(`[onFailure] priority-actions error for ${ownRaw.id}:`, e);
-              await writeEnrichmentError(
-                ownRaw.id,
-                'ai_actions',
-                'Unexpected error generating recommendations',
-              );
-            }
-          }
+          await runProjectActionGeneration(projectId, 'onFailure');
         });
       }
 
@@ -1144,151 +1015,9 @@ export const crawlBusinessFunction = inngest.createFunction(
         if (ageMs < 24 * 60 * 60 * 1000) return;
       }
 
-      const withSignals = await Promise.all(
-        allBiz.map(async (b) => {
-          const [{ data: sig }, { data: bizRow }] = await Promise.all([
-            supabaseAdmin
-              .from('extracted_signals')
-              .select('seo, trust, content, engagement')
-              .eq('business_id', b.id)
-              .order('scanned_at', { ascending: false })
-              .limit(1)
-              .maybeSingle(),
-            supabaseAdmin
-              .from('businesses')
-              .select('ai_score, google_data, pagespeed_data')
-              .eq('id', b.id)
-              .single(),
-          ]);
-          const signals = sig?.seo
-            ? ({
-                seo: sig.seo,
-                trust: sig.trust,
-                content: sig.content,
-                engagement: sig.engagement,
-              } as ExtractedSignals)
-            : null;
-          return {
-            id: b.id as string,
-            name: b.name as string,
-            isOwn: b.is_own_business as boolean,
-            signals,
-            aiScore: (bizRow?.ai_score as AIHealthScore) ?? null,
-            googleData: bizRow?.google_data ?? null,
-            pagespeedData: (bizRow?.pagespeed_data as PageSpeedData) ?? null,
-          };
-        }),
-      );
-
-      const ownRaw = withSignals.find((b) => b.isOwn);
-      if (!ownRaw) return;
-
-      const ownBusiness = toPartialBiz(ownRaw);
-      const competitorBusinesses = withSignals.filter((b) => !b.isOwn).map((b) => toPartialBiz(b));
-
-      const previousActions = await fetchPreviousActionBatch(meta.projectId);
-      const useHistory = previousActions.length > 0 && !!ownRaw.signals;
-      const previousSignals = useHistory ? await fetchPreviousSignals(ownRaw.id) : null;
-
-      try {
-        const rawActions = useHistory
-          ? await generatePriorityActionsWithHistory(
-              ownBusiness,
-              competitorBusinesses,
-              previousActions,
-              previousSignals,
-              ownRaw.signals!,
-              meta.primaryService as ServiceCategory,
-            )
-          : await generatePriorityActions(
-              ownBusiness,
-              competitorBusinesses,
-              meta.primaryService as ServiceCategory,
-            );
-
-        await clearEnrichmentError(ownRaw.id, 'ai_actions');
-
-        if (!rawActions.length) {
-          // Should not happen — templates alone usually fire. Surface it instead of
-          // leaving the action plan silently empty (the 06-21 symptom).
-          console.warn(
-            `[priority-actions] generation returned 0 actions for project ${meta.projectId} (own=${ownRaw.id})`,
-          );
-          await writeEnrichmentError(
-            ownRaw.id,
-            'ai_actions',
-            'No recommendations were generated on the last scan — re-scan to try again.',
-          );
-          return;
-        }
-
-        // Fetch existing actions to deduplicate
-        const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
-
-        const { data: existingActions } = await supabaseAdmin
-          .from('priority_actions')
-          .select('action, status, actioned_at')
-          .eq('project_id', meta.projectId);
-
-        const existingSet = new Set(
-          (existingActions ?? [])
-            .filter((e) => {
-              // Skip if still active/snoozed/queued (duplicate)
-              if (['active', 'snoozed', 'queued'].includes(e.status)) return true;
-              // Skip if completed within the last 30 days
-              if (e.status === 'completed' && e.actioned_at && e.actioned_at >= thirtyDaysAgo)
-                return true;
-              return false;
-            })
-            .map((e) => e.action),
-        );
-
-        const newActions = rawActions.filter((a) => !existingSet.has(a.action));
-        if (!newActions.length) return;
-
-        // Count current active + snoozed to determine how many slots are open
-        const { count: activeCount } = await supabaseAdmin
-          .from('priority_actions')
-          .select('id', { count: 'exact', head: true })
-          .eq('project_id', meta.projectId)
-          .in('status', ['active', 'snoozed']);
-
-        const openSlots = Math.max(0, 15 - (activeCount ?? 0));
-
-        await supabaseAdmin.from('priority_actions').insert(
-          newActions.map((a, i) => ({
-            project_id: meta.projectId,
-            priority: a.priority,
-            status: i < openSlots ? 'active' : 'queued',
-            category: a.category,
-            action: a.action,
-            reason: a.reason,
-            why_it_matters: a.whyItMatters ?? null,
-            steps: a.steps ?? null,
-            effort: a.effort ?? null,
-            outcome: a.outcome ?? null,
-            competitor_reference: a.competitorReference ?? null,
-            estimated_impact: a.estimatedImpact,
-            timeframe: a.timeframe,
-            continuity_note: useHistory ? (a.continuityNote ?? null) : null,
-          })),
-        );
-      } catch (e) {
-        if (e instanceof AIUnavailableError) {
-          await writeEnrichmentError(
-            ownRaw.id,
-            'ai_actions',
-            `Recommendations unavailable — retrying at ${e.retryAt}`,
-          );
-        } else {
-          console.error(`[priority-actions] unexpected error for ${ownRaw.id}:`, e);
-          await writeEnrichmentError(
-            ownRaw.id,
-            'ai_actions',
-            'Unexpected error generating recommendations',
-          );
-        }
-      }
+      // Single action-generation path: selects serp_data, ai_visibility and
+      // enrichment_errors so every template and data-quality gate can fire.
+      await runProjectActionGeneration(meta.projectId, 'priority-actions');
     });
 
     // NOTE: the next crawl is NOT self-scheduled here. The daily health-check cron is the sole

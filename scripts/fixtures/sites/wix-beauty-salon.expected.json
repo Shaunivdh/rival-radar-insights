@@ -1,0 +1,19 @@
+{
+  "_builder": "wix",
+  "_url": "https://www.glowbeautystudio.co.uk/",
+  "homepageH1": "Beauty treatments in Brighton that make you glow",
+  "services": [
+    "Classic Lash Extensions",
+    "Russian Volume Lashes",
+    "Brow Lamination",
+    "Gel Nails",
+    "Dermaplaning Facial",
+    "LVL Lash Lift"
+  ],
+  "hasContactForm": true,
+  "bookingProvider": "Fresha",
+  "socialLinks": ["Instagram", "Facebook"],
+  "accreditations": [],
+  "reviewPlatforms": ["Trustpilot"],
+  "sitemap": true
+}

@@ -12,8 +12,8 @@ import {
   ChevronRight,
   Loader2,
 } from 'lucide-react';
-import type { GBPAccount, GBPLocation, GBPReview } from '@/services/gbp';
-import { STAR_MAP } from '@/services/gbp';
+import type { GBPAccount, GBPLocation, GBPReview } from '@/services/gbp.types';
+import { STAR_MAP } from '@/services/gbp.types';
 
 interface GBPStatus {
   connected: boolean;

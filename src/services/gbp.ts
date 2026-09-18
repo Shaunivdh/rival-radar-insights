@@ -1,4 +1,5 @@
 import { supabaseAdmin } from '@/lib/supabase/server';
+import type { GBPAccount, GBPLocation, GBPReview } from './gbp.types';
 
 const TOKEN_URL = 'https://oauth2.googleapis.com/token';
 const ACCOUNTS_URL = 'https://mybusinessaccountmanagement.googleapis.com/v1/accounts';
@@ -105,36 +106,7 @@ export async function deleteReply(token: string, locationName: string, reviewId:
 }
 
 // ── Types ─────────────────────────────────────────────────────────────────────
+// Moved to gbp.types.ts (client-safe); re-exported here for API routes.
 
-export interface GBPAccount {
-  name: string;
-  accountName: string;
-  type: string;
-}
-
-export interface GBPLocation {
-  name: string;
-  locationName: string;
-  primaryPhone?: string;
-  websiteUrl?: string;
-  storefrontAddress?: { addressLines?: string[] };
-}
-
-export interface GBPReview {
-  name: string;
-  reviewId: string;
-  reviewer: { displayName: string; profilePhotoUrl?: string; isAnonymous?: boolean };
-  starRating: 'ONE' | 'TWO' | 'THREE' | 'FOUR' | 'FIVE';
-  comment?: string;
-  createTime: string;
-  updateTime: string;
-  reviewReply?: { comment: string; updateTime: string };
-}
-
-export const STAR_MAP: Record<string, number> = {
-  ONE: 1,
-  TWO: 2,
-  THREE: 3,
-  FOUR: 4,
-  FIVE: 5,
-};
+export type { GBPAccount, GBPLocation, GBPReview } from './gbp.types';
+export { STAR_MAP } from './gbp.types';

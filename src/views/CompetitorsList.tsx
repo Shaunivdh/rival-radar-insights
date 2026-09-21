@@ -44,11 +44,11 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 
 const getScoreColor = (s: number) =>
   s >= 80
-    ? 'text-[hsl(142,71%,35%)]'
+    ? 'text-success-strong'
     : s >= 60
       ? 'text-primary'
       : s >= 40
-        ? 'text-[hsl(38,92%,40%)]'
+        ? 'text-warning-strong'
         : 'text-destructive';
 
 const TrendIcon = ({ delta }: { delta: number | null }) => {
@@ -60,7 +60,7 @@ const TrendIcon = ({ delta }: { delta: number | null }) => {
     );
   if (delta > 0)
     return (
-      <span className="inline-flex items-center gap-1 text-[hsl(142,71%,35%)] text-xs font-semibold">
+      <span className="inline-flex items-center gap-1 text-success-strong text-xs font-semibold">
         <TrendingUp className="w-3.5 h-3.5" />+{delta}
       </span>
     );
@@ -252,13 +252,13 @@ const CompetitorsList = () => {
             label: 'Above you',
             value: active.filter((c) => (c.aiScore?.overallScore ?? 0) > ownScore).length,
             icon: Trophy,
-            color: 'text-[hsl(142,71%,35%)]',
+            color: 'text-success-strong',
           },
           {
             label: 'Below you',
             value: active.filter((c) => (c.aiScore?.overallScore ?? 0) <= ownScore).length,
             icon: Target,
-            color: 'text-[hsl(38,92%,40%)]',
+            color: 'text-warning-strong',
           },
           { label: 'Slots left', value: slotsLeft, icon: Plus, color: 'text-muted-foreground' },
         ].map((s) => (
@@ -289,7 +289,7 @@ const CompetitorsList = () => {
         </div>
         {own.googleData && (
           <div className="hidden md:flex items-center gap-1 text-sm">
-            <Star className="w-4 h-4 fill-[hsl(38,92%,50%)] text-[hsl(38,92%,50%)]" />
+            <Star className="w-4 h-4 fill-warning text-warning" />
             {own.googleData.googleRating}
           </div>
         )}
@@ -341,7 +341,7 @@ const CompetitorsList = () => {
                   {/* Rating */}
                   {c.googleData ? (
                     <div className="flex items-center gap-1 text-sm w-24">
-                      <Star className="w-4 h-4 fill-[hsl(38,92%,50%)] text-[hsl(38,92%,50%)]" />
+                      <Star className="w-4 h-4 fill-warning text-warning" />
                       {c.googleData.googleRating}
                       <span className="text-xs text-muted-foreground">
                         ({c.googleData.reviewCount})
@@ -406,7 +406,7 @@ const CompetitorsList = () => {
                       <Badge
                         key={s}
                         variant="secondary"
-                        className="bg-[hsl(142,71%,35%)]/10 text-[hsl(142,71%,35%)] border-0"
+                        className="bg-success-strong/10 text-success-strong border-0"
                       >
                         ↑ {s}
                       </Badge>

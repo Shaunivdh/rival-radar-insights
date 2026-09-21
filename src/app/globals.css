@@ -34,9 +34,13 @@
 
     --success: 142 71% 45%;
     --success-foreground: 0 0% 100%;
+    /* Readable success text for tinted (bg-success/10) surfaces — AA at small sizes */
+    --success-strong: 142 71% 35%;
 
     --warning: 38 92% 50%;
     --warning-foreground: 0 0% 100%;
+    /* Readable warning text for tinted (bg-warning/10) surfaces — AA at small sizes */
+    --warning-strong: 38 92% 40%;
 
     --border: 260 15% 90%;
     --input: 260 15% 90%;
@@ -82,6 +86,14 @@
     --score-average: 45 90% 50%;
     --score-poor: 15 90% 50%;
 
+    /* Per-metric series colours (BusinessScoreCard bars) */
+    --metric-reputation: 262 60% 58%;
+    --metric-visibility: 45 90% 50%;
+    --metric-website: 142 71% 45%;
+    --metric-gbp: 38 92% 50%;
+    --metric-ai: 0 84% 60%;
+    --metric-reviews: 258 90% 66%;
+
     /* Neumorphism tokens */
     --neu-shadow-light: -6px -6px 14px hsl(0 0% 100%);
     --neu-shadow-dark: 6px 6px 14px hsl(260 15% 88%);
@@ -120,11 +132,11 @@
   }
 
   .severity-medium {
-    @apply bg-warning/10 text-[hsl(38,92%,50%)];
+    @apply bg-warning/10 text-warning;
   }
 
   .severity-low {
-    @apply bg-success/10 text-[hsl(var(--success))];
+    @apply bg-success/10 text-success;
   }
 
   .metric-value {

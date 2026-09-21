@@ -140,7 +140,7 @@ const priorityConfig: Record<
     label: 'Easy wins',
     icon: Zap,
     color: 'text-green-600',
-    description: 'Little changes you could do today — they all add up',
+    description: 'Little changes you could do today that all add up',
   },
 };
 
@@ -512,7 +512,7 @@ const EmptyState = ({ aiError }: { aiError?: string }) => (
       <>
         <h2 className="font-semibold text-base mb-1">Recommendations temporarily unavailable</h2>
         <p className="text-sm text-muted-foreground max-w-xs">
-          We couldn&apos;t generate this week&apos;s actions — we&apos;ll retry automatically on the
+          We couldn&apos;t generate this week&apos;s actions. We&apos;ll retry automatically on the
           next scan. Your previous recommendations are still saved.
         </p>
       </>
@@ -642,8 +642,8 @@ const ActionPlan = () => {
                 Here's what I'd focus on for {businessName}
               </h1>
               <p className="text-muted-foreground text-sm mt-1 max-w-2xl leading-relaxed">
-                Based on your latest crawl, Google data, and competitor analysis — tick things off
-                as you go and I'll confirm they've landed on the next scan.
+                Based on your latest crawl, Google data, and competitor analysis. Tick things off as
+                you go and I'll confirm they've landed on the next scan.
               </p>
             </div>
           </div>
@@ -655,8 +655,8 @@ const ActionPlan = () => {
           <div className="flex items-start gap-3 p-4 rounded-lg bg-amber-50 border border-amber-200 text-sm text-amber-800">
             <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
             <p>
-              We couldn&apos;t refresh your recommendations on the last scan — showing your most
-              recent actions below. We&apos;ll retry on the next scan.
+              We couldn&apos;t refresh your recommendations on the last scan, so we&apos;re showing
+              your most recent actions below. We&apos;ll retry on the next scan.
             </p>
           </div>
         </motion.div>
@@ -712,7 +712,7 @@ const ActionPlan = () => {
               <div className="flex items-center gap-2 mb-4">
                 <config.icon className={`w-5 h-5 ${config.color}`} />
                 <h2 className="font-display text-lg font-semibold">{config.label}</h2>
-                <span className="text-xs text-muted-foreground ml-1">— {config.description}</span>
+                <span className="text-xs text-muted-foreground ml-1">· {config.description}</span>
               </div>
               <div className="space-y-4">
                 {recs.map((rec, i) => (
@@ -736,11 +736,9 @@ const ActionPlan = () => {
           <div>
             <div className="flex items-center gap-2 mb-4">
               <CheckCircle2 className="w-5 h-5 text-primary" />
-              <h2 className="font-display text-lg font-semibold">
-                Nice work — you've sorted these
-              </h2>
+              <h2 className="font-display text-lg font-semibold">Nice work, you've sorted these</h2>
               <span className="text-xs text-muted-foreground ml-1">
-                — {verifiedCount} confirmed · {completed.length - verifiedCount} pending next scan
+                · {verifiedCount} confirmed · {completed.length - verifiedCount} pending next scan
               </span>
             </div>
             <div className="space-y-4">
@@ -766,7 +764,7 @@ const ActionPlan = () => {
               <EyeOff className="w-5 h-5 text-muted-foreground" />
               <h2 className="font-display text-lg font-semibold">Not a priority right now</h2>
               <span className="text-xs text-muted-foreground ml-1">
-                — we'll keep monitoring quietly and flag any of these if the signal gets worse
+                · we'll keep monitoring quietly and flag any of these if the signal gets worse
               </span>
             </div>
             <div className="space-y-4">

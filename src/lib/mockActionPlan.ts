@@ -15,7 +15,7 @@ export const MOCK_PRIORITY_ACTIONS: PriorityAction[] = [
     action: "You're invisible to AI assistants right now",
     reason: 'Not mentioned in any of 8 AI answers for your core services',
     whyItMatters:
-      'More customers are asking ChatGPT and Google’s AI for local recommendations before they ever search. Two of your competitors already show up in those answers — if you’re not mentioned, you’re missing buyers at the exact moment they’re choosing who to call.',
+      'More customers are asking ChatGPT and Google’s AI for local recommendations before they ever search. Two of your competitors already show up in those answers, so if you’re not mentioned you’re missing buyers at the exact moment they’re choosing who to call.',
     steps: [
       'Add clear, plain-language service descriptions to your homepage and service pages',
       'Publish an FAQ that answers the questions customers actually ask',
@@ -25,7 +25,7 @@ export const MOCK_PRIORITY_ACTIONS: PriorityAction[] = [
     outcome: 'Start appearing in AI-generated recommendations',
     competitorReference: 'AquaFix and DrainMaster are both recommended by ChatGPT for your area.',
     estimatedImpact: 'high',
-    timeframe: '2–3 hours',
+    timeframe: '2 to 3 hours',
     continuityNote: 'Still outstanding from last week',
   },
   {
@@ -37,7 +37,7 @@ export const MOCK_PRIORITY_ACTIONS: PriorityAction[] = [
     action: 'Reply to 12 Google reviews waiting on you',
     reason: '12 unanswered reviews, including 3 from the last 30 days',
     whyItMatters:
-      'Replying to reviews is one of the strongest trust signals Google looks at, and customers read your responses when deciding. A quick, warm reply — even to positive reviews — lifts your reputation score and shows you’re active and responsive.',
+      'Replying to reviews is one of the strongest trust signals Google looks at, and customers read your responses when deciding. A quick, warm reply, even to positive reviews, lifts your reputation score and shows you’re active and responsive.',
     steps: [
       'Reply to the 3 most recent reviews first',
       'Thank happy customers by name and keep it genuine',
@@ -46,7 +46,7 @@ export const MOCK_PRIORITY_ACTIONS: PriorityAction[] = [
     outcome: 'Lift your reputation score and win back trust',
     competitorReference: 'Your top competitor replies to ~90% of their reviews within 48 hours.',
     estimatedImpact: 'high',
-    timeframe: '30–45 mins',
+    timeframe: '30 to 45 mins',
     continuityNote: null,
   },
   {
@@ -58,16 +58,16 @@ export const MOCK_PRIORITY_ACTIONS: PriorityAction[] = [
     action: 'Climb out of the local pack’s back row',
     reason: 'Ranking #5 for your main "near me" search',
     whyItMatters:
-      'The top 3 map results get the overwhelming majority of clicks and calls. You’re close — a few focused improvements to your profile and citations could move you into that pack and noticeably increase inbound enquiries.',
+      'The top 3 map results get the overwhelming majority of clicks and calls. You’re close, and a few focused improvements to your profile and citations could move you into that pack and noticeably increase inbound enquiries.',
     steps: [
       'Add your primary service as a category on your Google Business Profile',
-      'Get 3–4 recent reviews that mention the service and your town',
+      'Get 3 to 4 recent reviews that mention the service and your town',
       'Make sure your name, address and phone match everywhere online',
     ],
     outcome: 'Move into the top 3 map results',
-    competitorReference: 'The #2 result has 40% fewer reviews than you — this is winnable.',
+    competitorReference: 'The #2 result has 40% fewer reviews than you, so this is winnable.',
     estimatedImpact: 'medium',
-    timeframe: '1–2 hours',
+    timeframe: '1 to 2 hours',
     continuityNote: null,
   },
   {
@@ -77,7 +77,7 @@ export const MOCK_PRIORITY_ACTIONS: PriorityAction[] = [
     category: 'Website',
     effort: 'medium',
     action: 'Speed up your mobile site',
-    reason: 'Mobile pages take 2.8s to load — slower than 70% of local rivals',
+    reason: 'Mobile pages take 2.8s to load, slower than 70% of local rivals',
     whyItMatters:
       'Most of your visitors are on their phones, and every extra second of load time loses roughly 10% of them before the page even appears. A faster site keeps more people around long enough to call or book.',
     steps: [
@@ -88,7 +88,7 @@ export const MOCK_PRIORITY_ACTIONS: PriorityAction[] = [
     outcome: 'Keep more visitors and improve your website score',
     competitorReference: null,
     estimatedImpact: 'medium',
-    timeframe: '1–2 hours',
+    timeframe: '1 to 2 hours',
     continuityNote: null,
   },
   {
@@ -98,11 +98,11 @@ export const MOCK_PRIORITY_ACTIONS: PriorityAction[] = [
     category: 'Conversion',
     effort: 'low',
     action: 'Add a few more photos to your Google profile',
-    reason: 'Only 4 photos — profiles with 10+ get noticeably more clicks',
+    reason: 'Only 4 photos, and profiles with 10+ get noticeably more clicks',
     whyItMatters:
       'Photos are often the first thing people see and they build instant trust. Businesses with more, recent photos get more profile views and direction requests, at basically no cost to you.',
     steps: [
-      'Upload 6–8 recent photos of your team, work and vehicles',
+      'Upload 6 to 8 recent photos of your team, work and vehicles',
       'Include at least one clear exterior shot',
       'Set a strong, well-lit image as your cover photo',
     ],

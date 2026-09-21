@@ -71,6 +71,21 @@ Health scores are deterministic (`src/services/scores.ts`) — no AI.
 - Prefer deterministic logic (templates, regex parsers) over AI whenever possible
 - No explanations in AI outputs
 
+### Copy Style (NON-NEGOTIABLE)
+
+Applies to every string a user can read: LLM output (priority actions, change summaries,
+fact-checker patches), the deterministic templates in `src/lib/priorityTemplates.ts`, the
+mock plan in `src/lib/mockActionPlan.ts`, and UI copy.
+
+- **NO DASHES IN AI-GENERATED RECOMMENDATIONS.** No em dashes (—), no en dashes (–), no
+  hyphen used as a dash, no arrows (→). Use a comma, colon, semicolon, or a new sentence.
+- No dashes in ranges either: write "2 to 3 hours", "15 to 20 reviews", not "2–3 hours".
+- Hyphens inside ordinary compound words are fine ("plain-English", "top-rated", "time-to-result").
+- **UK English** spelling and phrasing: organise, colour, personalise, enquiry, maths.
+- Prompt text counts too: never write a dash into a prompt string or an in-prompt example,
+  the model copies the punctuation it is shown. Enforced in `SCOUTLY_SYSTEM`, `TONE_RULES`
+  and `SCOUTLY_FACT_CHECKER_SYSTEM` (`src/services/ai.ts`).
+
 ---
 
 ## 6. Crawling System (@crawl-rules)

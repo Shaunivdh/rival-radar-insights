@@ -198,7 +198,7 @@ const CompetitorsList = () => {
         <div>
           <h1 className="text-3xl lg:text-4xl font-bold mb-2">Competitors</h1>
           <p className="text-muted-foreground">
-            Track up to 5 local rivals. Spot what they do better — and where you can overtake them.
+            Track up to 5 local rivals. Spot what they do better, and where you can overtake them.
           </p>
         </div>
         <Dialog open={open} onOpenChange={setOpen}>

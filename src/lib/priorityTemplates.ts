@@ -71,8 +71,13 @@ export const PRIORITY_TEMPLATES: PriorityTemplate[] = [
   {
     id: 'missing_h1',
     trigger: (b) => {
-      const h1s = b.signals?.seo?.h1Tags;
-      return h1s != null && h1s.length === 0;
+      // Homepage-only signal: `h1Tags` is a site-wide union, so a site with an h1 on
+      // /services but none on / must still fire. null = root page unusable → do not fire.
+      const seo = b.signals?.seo;
+      if (!seo) return false;
+      if (seo.homepageH1Count !== undefined) return seo.homepageH1Count === 0;
+      // Legacy rows (pre-homepageH1Count): fall back to the site-wide union.
+      return seo.h1Tags != null && seo.h1Tags.length === 0;
     },
     category: 'Website',
     effort: 'low',

@@ -20,7 +20,12 @@ vi.mock('@anthropic-ai/sdk', () => {
 });
 
 // Now import the functions under test — they'll get the mocked Anthropic
-import { generatePriorityActions, generatePriorityActionsWithHistory } from '@/services/ai';
+import {
+  generatePriorityActions,
+  generatePriorityActionsWithHistory,
+  AIUnavailableError,
+  TruncatedOutputError,
+} from '@/services/ai';
 
 // ── Helpers ─────────────────────────────────────────────────────────────
 
@@ -129,17 +134,66 @@ function buildCompetitor(name: string, overrides: Partial<Business> = {}): Busin
   });
 }
 
-/** Build an Anthropic-shaped message response wrapping a JSON string. */
-function llmResponse(json: unknown) {
+/**
+ * Build an Anthropic-shaped message response wrapping a JSON string.
+ * Arrays are wrapped as `{ actions: [...] }` — structured outputs require an
+ * object root, which is what the generation schema asks for.
+ */
+function llmResponse(json: unknown, stopReason: 'end_turn' | 'max_tokens' = 'end_turn') {
+  const body = Array.isArray(json) ? { actions: json } : json;
   return {
     id: 'msg_test',
     type: 'message',
     role: 'assistant',
-    model: 'claude-haiku-4-5-20251001',
-    content: [{ type: 'text', text: JSON.stringify(json) }],
-    stop_reason: 'end_turn',
+    model: 'claude-sonnet-5',
+    content: [{ type: 'text', text: JSON.stringify(body) }],
+    stop_reason: stopReason,
     stop_sequence: null,
     usage: { input_tokens: 100, output_tokens: 50 },
+  };
+}
+
+/** Signals with every site-derived gap open, so many templates would fire. */
+function emptySignals(): ExtractedSignals {
+  return {
+    seo: {
+      title: '',
+      metaDescription: '',
+      h1Tags: [],
+      hasSitemap: false,
+      hasRobotsTxt: false,
+      internalLinkCount: 0,
+      schemaMarkupTypes: [],
+      canonicalTagsPresent: false,
+      altTagCoverage: 'none',
+    },
+    trust: {
+      accreditations: [],
+      certifications: [],
+      awardsAndMemberships: [],
+      reviewPlatformsLinked: [],
+      teamPageExists: false,
+      insuranceMentioned: false,
+      guaranteesMentioned: [],
+    },
+    content: {
+      servicesListed: [],
+      serviceAreasMentioned: [],
+      hasBlog: false,
+      hasPortfolio: false,
+      portfolioItemCount: 0,
+      hasFAQ: false,
+    },
+    engagement: {
+      hasContactForm: false,
+      hasBookingSystem: false,
+      bookingProvider: null,
+      hasCallToAction: false,
+      ctaText: [],
+      hasNewsletterSignup: false,
+      socialLinksPresent: [],
+      hasPhoneNumberProminent: false,
+    },
   };
 }
 
@@ -327,8 +381,10 @@ describe('Priority action pipeline (integration)', () => {
     const callArgs = mockCreate.mock.calls[0][0];
     const prompt = callArgs.messages[0].content;
     expect(prompt).toContain('already covered');
-    // maxTokens should reflect 4 remaining slots (4 * 833 = 3332)
-    expect(callArgs.max_tokens).toBe(3332);
+    // maxTokens should reflect 4 remaining slots (4 * 900 = 3600)
+    expect(callArgs.max_tokens).toBe(3600);
+    // Structured output: the generation schema is sent with every call
+    expect(callArgs.output_config?.format?.type).toBe('json_schema');
   });
 
   // ── 3. LLM only ────────────────────────────────────────────────────
@@ -347,8 +403,8 @@ describe('Priority action pipeline (integration)', () => {
     // Prompt should NOT contain coveredNote
     const prompt = mockCreate.mock.calls[0][0].messages[0].content;
     expect(prompt).not.toContain('already covered');
-    // maxTokens for 5 slots = 5 * 833 = 4165
-    expect(mockCreate.mock.calls[0][0].max_tokens).toBe(4165);
+    // maxTokens for 5 slots = 5 * 900 = 4500
+    expect(mockCreate.mock.calls[0][0].max_tokens).toBe(4500);
   });
 
   // ── 4. Validator-flagged: unverified average triggers patch call ────
@@ -358,7 +414,10 @@ describe('Priority action pipeline (integration)', () => {
     // First call: generation — return actions with a flagged phrase. Pad to 5 LLM actions.
     const flaggedActions = cannedLLMActions(3);
     flaggedActions.push({ ...flaggedActions[2], action: 'Add a customer testimonials section' });
-    flaggedActions.push({ ...flaggedActions[1], action: 'Publish a frequently asked questions page' });
+    flaggedActions.push({
+      ...flaggedActions[1],
+      action: 'Publish a frequently asked questions page',
+    });
     flaggedActions[0] = {
       ...flaggedActions[0],
       whyItMatters: 'Your competitors average 4 reviews per month, leaving you behind.',
@@ -383,7 +442,7 @@ describe('Priority action pipeline (integration)', () => {
     // Validator should have made a second call
     expect(mockCreate).toHaveBeenCalledTimes(2);
     // The second call should be the validator, identified by its system prompt persona.
-    expect(mockCreate.mock.calls[1][0].system).toContain("fact-checker");
+    expect(mockCreate.mock.calls[1][0].system).toContain('fact-checker');
     // The patched action should no longer contain the flagged phrase
     expect(result[0].whyItMatters).not.toContain('competitors average 4');
     expect(result[0].whyItMatters).toContain('Bob Plumbing');
@@ -474,5 +533,132 @@ describe('Priority action pipeline (integration)', () => {
     const withContinuity = result.filter((a) => a.continuityNote);
     expect(withContinuity.length).toBeGreaterThanOrEqual(1);
     expect(withContinuity[0].continuityNote).toContain('phone number');
+  });
+
+  // ── 6. Extraction failed: site-signal templates stay silent, prompt warns ──
+  it('gates site-signal templates and warns the model when extraction failed', async () => {
+    // Every site-derived gap is open, so without the gate ≥5 templates would fire
+    // and the LLM would never be called.
+    const own = buildBusiness({
+      signals: emptySignals(),
+      enrichmentErrors: {
+        extract: 'Page-signal extraction failed — some on-site recommendations may be unavailable.',
+      },
+    });
+
+    const llm = cannedLLMActions(3);
+    llm.push({ ...llm[2], action: 'Add a customer testimonials section' });
+    llm.push({ ...llm[1], action: 'Publish a frequently asked questions page' });
+    mockCreate.mockResolvedValueOnce(llmResponse(llm));
+
+    const result = await generatePriorityActions(own, competitors);
+
+    // The LLM was asked to fill all 5 slots: no site-signal template fired
+    expect(mockCreate).toHaveBeenCalledTimes(1);
+    expect(result.map((a) => a.action)).not.toContain('Add your phone number to the homepage');
+    expect(result.map((a) => a.action)).not.toContain('Add a main heading to your homepage');
+    const prompt = mockCreate.mock.calls[0][0].messages[0].content as string;
+    expect(prompt).toContain('Page-signal extraction failed');
+    expect(prompt).not.toContain('already covered');
+  });
+
+  // ── 7. Truncated output is detected, not parsed ─────────────────────
+  it('throws on max_tokens and logs errorType truncated instead of parsing', async () => {
+    const own = buildBusiness();
+    mockCreate.mockResolvedValueOnce(
+      llmResponse(
+        { actions: [{ priority: 1, category: 'Reviews', action: 'cut off mid-' }] },
+        'max_tokens',
+      ),
+    );
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => undefined);
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+
+    let thrown: unknown;
+    try {
+      await generatePriorityActions(own, competitors);
+    } catch (e) {
+      thrown = e;
+    }
+
+    expect(thrown).toBeInstanceOf(AIUnavailableError);
+    expect((thrown as AIUnavailableError).cause).toBeInstanceOf(TruncatedOutputError);
+    const events = logSpy.mock.calls
+      .map((c) => String(c[0]))
+      .filter((l) => l.startsWith('[ai-event]'))
+      .map((l) => JSON.parse(l.slice('[ai-event] '.length)));
+    expect(events.some((e) => e.event === 'generation' && e.errorType === 'truncated')).toBe(true);
+
+    logSpy.mockRestore();
+    warnSpy.mockRestore();
+  });
+
+  // ── 8. Evidence grounding: unknown paths drop the action, mismatches get patched ──
+  it('rejects an LLM action whose evidence cites a non-existent signal', async () => {
+    const own = buildBusiness();
+
+    const llm = cannedLLMActions(3).map((a, i) => ({
+      ...a,
+      evidence:
+        i === 0
+          ? ['own.signals.engagement.hasWidget=false'] // path does not exist → drop
+          : ['own.signals.engagement.hasBookingSystem=false', 'own.scores.reviewVelocity=40'],
+    }));
+    mockCreate.mockResolvedValueOnce(llmResponse(llm));
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+
+    const result = await generatePriorityActions(own, competitors);
+
+    expect(result.map((a) => a.action)).not.toContain('Get listed in AI recommendations');
+    expect(result).toHaveLength(2);
+    // evidence is internal — never returned/persisted
+    expect(result.every((a) => !('evidence' in a))).toBe(true);
+    warnSpy.mockRestore();
+  });
+
+  it('flags an LLM action whose evidence value contradicts the data', async () => {
+    const own = buildBusiness(); // googleRating 4.6, reviewCount 32
+
+    const llm = cannedLLMActions(3);
+    llm.push({ ...llm[2], action: 'Add a customer testimonials section' });
+    llm.push({ ...llm[1], action: 'Publish a frequently asked questions page' });
+    const withEvidence = llm.map((a, i) => ({
+      ...a,
+      evidence: i === 1 ? ['own.reviewCount=3'] : ['own.googleRating=4.6'],
+    }));
+    mockCreate.mockResolvedValueOnce(llmResponse(withEvidence));
+    mockCreate.mockResolvedValueOnce(llmResponse({ patches: [] }));
+
+    const result = await generatePriorityActions(own, competitors);
+
+    expect(result).toHaveLength(5);
+    // The mismatch was flagged, so the fact-checker was called with it
+    expect(mockCreate).toHaveBeenCalledTimes(2);
+    const validatorPrompt = mockCreate.mock.calls[1][0].messages[0].content as string;
+    expect(validatorPrompt).toContain('evidence_mismatch');
+    expect(validatorPrompt).toContain('own.reviewCount=3');
+  });
+
+  // ── 9. Existence checks cover every hasX flag, not four hand-written ones ──
+  it('flags an action that recommends adding a feature the business already has', async () => {
+    const own = buildBusiness(); // hasContactForm: true, hasFAQ: true
+
+    const llm = cannedLLMActions(3);
+    llm.push({ ...llm[2], action: 'Add a customer testimonials section' });
+    llm.push({
+      ...llm[1],
+      action: 'Add a contact form to your site',
+      whyItMatters:
+        'Visitors have no way to message you. Set up a contact form on your contact page.',
+    });
+    mockCreate.mockResolvedValueOnce(llmResponse(llm));
+    mockCreate.mockResolvedValueOnce(llmResponse({ patches: [] }));
+
+    await generatePriorityActions(own, competitors);
+
+    expect(mockCreate).toHaveBeenCalledTimes(2);
+    const validatorPrompt = mockCreate.mock.calls[1][0].messages[0].content as string;
+    expect(validatorPrompt).toContain('recommends_existing');
+    expect(validatorPrompt).toContain('contact form');
   });
 });

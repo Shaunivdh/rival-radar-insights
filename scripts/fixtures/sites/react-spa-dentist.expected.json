@@ -1,0 +1,20 @@
+{
+  "_builder": "react-spa (rendered)",
+  "_url": "https://www.riversidedentalcare.co.uk/",
+  "homepageH1": "Gentle, modern dentistry in Reading",
+  "services": [
+    "Dental Check-ups",
+    "Hygienist Visits",
+    "Invisalign",
+    "Teeth Whitening",
+    "Composite Bonding",
+    "Dental Implants"
+  ],
+  "hasContactForm": true,
+  "bookingProvider": "Jane App",
+  "socialLinks": ["Facebook", "Instagram"],
+  "_accreditations_note": "CQC (Dental) is the parser's sector-specific label for the same CQC registration.",
+  "accreditations": ["CQC", "CQC (Dental)", "GDC", "Invisalign Provider"],
+  "reviewPlatforms": ["Google Reviews", "Trustpilot"],
+  "sitemap": true
+}

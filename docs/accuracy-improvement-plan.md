@@ -206,3 +206,58 @@ These reduce false negatives on the signals that drive templates and the website
 Week 1: Phase 1, start 5.1, Phase 2 items 2.1–2.5.
 Week 2: 2.6–2.8, Phase 3, 5.2.
 Week 3: Phase 4, 5.3, baseline numbers committed.
+
+---
+
+## Status (2026-09-18)
+
+Phases 1–5 are implemented on branch `accuracy-improvement-plan` (commit `18f551a`). Typecheck clean,
+60 unit tests passing. Nothing has been verified against the live Anthropic API yet, and the Phase 5.1
+fixture set is six synthetic pages, not the 20 real sites the plan calls for.
+
+Decisions applied from this document's own recommendations (revisit if wrong):
+
+- 3.4 → (a) relabel only, no ChatGPT/Perplexity providers
+- 4.4 → Sonnet 5 (`AI_MODEL_SMART` default is now `claude-sonnet-5`)
+- 2.1 → extraction cap of 8 pages (`CRAWL_AI_EXTRACT_PAGES`)
+
+### To do
+
+**1. Ship the branch**
+
+- [ ] Push `accuracy-improvement-plan` and open a PR against `main`
+- [ ] Set `AI_MODEL_SMART` in the deployed env if the `claude-sonnet-5` default is not wanted
+- [ ] Set `CRAWL_AI_EXTRACT_PAGES` if 8 pages per crawl is above the cost ceiling
+
+**2. Verify against the live API** (nothing in the branch has hit Anthropic yet)
+
+- [ ] `bunx tsx scripts/eval-extraction.ts` with a key — confirm schema-valid JSON, no `truncated` events; paste the table into the PR
+- [ ] `bunx tsx scripts/test-ai.ts actions` — read five generated actions; check `evidence` paths resolve and `evidence_mismatch` flags are not spurious
+- [ ] `bunx tsx scripts/test-ai.ts visibility` — confirm `web_search_20260209` is accepted on Sonnet 5 and `runScores` is written
+- [ ] One real crawl on a staging project; grep logs for `[ai-event]` with `success:false`
+
+**3. Real ground-truth fixtures (5.1, still open)**
+
+- [ ] Pick 20 UK local-business homepages across Wix, Squarespace, WordPress/Elementor, Shopify, static, React SPA
+- [ ] Fetch rendered HTML once via `crawlSinglePage` (or the crawl cache) into `scripts/fixtures/sites/<slug>.html`
+- [ ] Hand-label each `<slug>.expected.json` from the page, not from parser output
+- [ ] Re-run the vitest eval, lower `baseline.json` floors to measured numbers, commit both together with a reason
+- [ ] Delete the six synthetic fixtures, or mark them synthetic in the README so they do not inflate recall
+
+**4. Telemetry to watch for a week (5.4)**
+
+- [ ] `extract_signals` failures and `truncated` count — target zero parse failures
+- [ ] `validation` flags per generation by type — if `evidence_mismatch` dominates, loosen `evidenceValueMatches` before loosening the prompt
+- [ ] AI-presence variance per business across runs — confirm five queries + smoothing reduced noise
+
+**5. Decisions to close**
+
+- [ ] ChatGPT/Perplexity: keep relabel-only, or schedule option (b) or (c)
+- [ ] Sonnet 5 vs Opus 5 for advice, after a week of real actions
+- [ ] 8-page extraction cap vs actual per-crawl cost
+
+**6. Small follow-ups**
+
+- [ ] Unit test for `checkDirectSignals` with mocked fetch: HEAD-hostile host, SPA catch-all HTML for robots.txt, `wp-sitemap.xml` only
+- [ ] Once every business has a `homepageH1Count`, remove the legacy `h1Tags` fallback in `missing_h1`
+- [ ] Check dashboard weekly-delta copy still reads correctly with AI presence held constant under a 20-point move

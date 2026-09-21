@@ -25,6 +25,9 @@ jobs:
       # Demo-mode only in CI: no Supabase secrets, so seeded tests skip themselves.
       NEXT_PUBLIC_SUPABASE_URL: http://supabase.invalid
       NEXT_PUBLIC_SUPABASE_ANON_KEY: ci-anon-key
+      # Placeholder only — src/lib/supabase/server.ts throws at module load
+      # without it, which 500s every route and stalls the Playwright webServer.
+      SUPABASE_SERVICE_ROLE_KEY: ci-service-role-key
       NEXT_PUBLIC_APP_URL: http://localhost:3000
     steps:
       - uses: actions/checkout@v4

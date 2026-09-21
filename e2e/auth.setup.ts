@@ -13,7 +13,7 @@
 import { test as setup, expect } from '@playwright/test';
 import { execFileSync } from 'child_process';
 import { randomBytes } from 'crypto';
-import { createClient } from '@supabase/supabase-js';
+import { createClient, type User } from '@supabase/supabase-js';
 
 export const E2E_EMAIL = 'e2e@rivalradar.test';
 const E2E_PASSWORD = `E2e-${randomBytes(9).toString('base64url')}`;
@@ -39,8 +39,9 @@ setup('seed project and sign in', async ({ page }) => {
       auth: { autoRefreshToken: false, persistSession: false },
     },
   );
-  const { data: users } = await admin.auth.admin.listUsers({ perPage: 200 });
-  const user = users.users.find((u) => u.email === E2E_EMAIL);
+  const { data: listed } = await admin.auth.admin.listUsers({ perPage: 200 });
+  const users: User[] = listed?.users ?? [];
+  const user = users.find((u) => u.email === E2E_EMAIL);
   expect(user, 'e2e user exists').toBeTruthy();
   const { data: project } = await admin
     .from('projects')

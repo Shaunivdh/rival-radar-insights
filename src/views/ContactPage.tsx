@@ -39,7 +39,7 @@ const ContactPage = () => {
     setSent(true);
     toast({
       title: 'Message sent',
-      description: 'We usually reply within 2 hours on weekdays.',
+      description: 'We usually reply within 24 hours on weekdays.',
     });
   };
 
@@ -65,7 +65,7 @@ const ContactPage = () => {
           will get back to you quickly.
         </p>
         <p className="text-xs text-muted-foreground">
-          We usually reply within 2 hours on weekdays.
+          We usually reply within 24 hours on weekdays.
         </p>
       </div>
 

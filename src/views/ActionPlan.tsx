@@ -234,7 +234,20 @@ const RecommendationCard = ({
         className={`neu overflow-hidden hover:shadow-lg transition-shadow ${isDone || isDismissed ? 'opacity-90' : ''}`}
       >
         <CardContent className="p-0">
-          <button onClick={() => setExpanded(!expanded)} className="w-full text-left p-6 pb-4">
+          <div
+            role="button"
+            tabIndex={0}
+            aria-expanded={expanded}
+            onClick={() => setExpanded(!expanded)}
+            onKeyDown={(e) => {
+              if (e.target !== e.currentTarget) return;
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                setExpanded(!expanded);
+              }
+            }}
+            className="w-full text-left p-6 pb-4 cursor-pointer"
+          >
             <div className="flex items-start justify-between gap-4 mb-3">
               <div className="flex items-center gap-2 flex-wrap">
                 <rec.categoryIcon className="w-4 h-4 text-primary shrink-0" />
@@ -371,7 +384,7 @@ const RecommendationCard = ({
                 )}
               </div>
             </div>
-          </button>
+          </div>
 
           <AnimatePresence>
             {expanded && (

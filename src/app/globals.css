@@ -224,3 +224,36 @@
     box-shadow: var(--neu-shadow-strong);
   }
 }
+
+/* Scoutly mascot: the right ear flicks now and then, as if the fox is listening. */
+@keyframes scoutly-ear-twitch {
+  0%,
+  62%,
+  100% {
+    transform: rotate(0deg);
+  }
+  66% {
+    transform: rotate(-9deg);
+  }
+  71% {
+    transform: rotate(3deg);
+  }
+  76% {
+    transform: rotate(-6deg);
+  }
+  82% {
+    transform: rotate(0deg);
+  }
+}
+
+.scoutly-ear {
+  transform-box: fill-box;
+  transform-origin: 39% 82%;
+  animation: scoutly-ear-twitch 5s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .scoutly-ear {
+    animation: none;
+  }
+}

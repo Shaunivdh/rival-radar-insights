@@ -13,6 +13,9 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     setMounted(true);
+    // A project already in the store means an earlier page primed auth, so the
+    // page renders straight away while initAuth revalidates in the background.
+    if (useRivalRadarStore.getState().project) setAuthReady(true);
     initAuth().finally(() => setAuthReady(true));
   }, [initAuth]);
 
@@ -29,19 +32,17 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     }
   }, [mounted, authReady, user, project, isDemoMode, deleteProject, router]);
 
-  if (!mounted) return null;
-
-  // Show spinner while auth + project fetch is in flight
-  if (!authReady) {
-    return (
-      <div className="flex min-h-screen items-center justify-center">
-        <div className="w-6 h-6 rounded-full border-2 border-primary border-t-transparent animate-spin" />
-      </div>
-    );
-  }
-
-  // Redirect is in flight
-  if (!project) return null;
-
-  return <AppShell>{children}</AppShell>;
+  // The shell stays mounted throughout, so moving in from a public page keeps
+  // the sidebar and topbar on screen and only swaps the content area.
+  return (
+    <AppShell>
+      {mounted && authReady && project ? (
+        children
+      ) : (
+        <div className="flex min-h-[60vh] items-center justify-center">
+          <div className="w-6 h-6 rounded-full border-2 border-primary border-t-transparent animate-spin" />
+        </div>
+      )}
+    </AppShell>
+  );
 }

@@ -394,7 +394,7 @@ const CompetitorsList = () => {
                           <Archive className="w-4 h-4" />
                         </Button>
                       </TooltipTrigger>
-                      <TooltipContent>Archive — keeps history, frees a slot</TooltipContent>
+                      <TooltipContent>Archive, keeps history and frees a slot</TooltipContent>
                     </Tooltip>
                   </TooltipProvider>
                 </div>
@@ -526,7 +526,7 @@ const CompetitorsList = () => {
                             </TooltipTrigger>
                             <TooltipContent>
                               {slotsLeft === 0
-                                ? 'No slots free — archive an active competitor first'
+                                ? 'No slots free, archive an active competitor first'
                                 : 'Restore to active tracking'}
                             </TooltipContent>
                           </Tooltip>

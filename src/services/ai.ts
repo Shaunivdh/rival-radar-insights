@@ -262,13 +262,13 @@ const FIELD_RULES = `Field rules:
 - action: conversational headline describing the gap in plain English, max 10 words
 - reason: ≤15-word plain-English summary of the gap
 - whyItMatters: 2 to 3 sentences. Reference actual score values from the data. Name specific competitors when citing them, and never say "competitors average X" unless you show the maths.
-- steps: 3–5 specific, doable action items the owner can start this week. Each step is plain English. Be concrete (specific platform names, specific pages).
-- outcome: 4–8 word goal statement
+- steps: 3 to 5 specific, doable action items the owner can start this week. Each step is plain English. Be concrete (specific platform names, specific pages).
+- outcome: 4 to 8 word goal statement
 - effort: 'low' (< 1 hour), 'medium' (1 day), or 'high' (1+ week)
 - category: one of "AI Visibility" | "Reviews" | "Local SEO" | "Website" | "Trust" | "Conversion"
 - timeframe: realistic time-to-result, written without a dash (e.g. "2 to 3 weeks")
 - competitorReference: plain-English note naming a specific competitor and what they have that this business lacks, or null. Must be consistent with whyItMatters.
-- evidence: 1–4 data paths you relied on, each written as path=value exactly as it appears in the JSON below. Paths start with "own." or "competitor.<name>." and walk the object keys, e.g. "own.signals.engagement.hasContactForm=false", "own.scores.reputation=70", "competitor.Acme Ltd.reviewCount=140". Every path must exist in the data. Actions whose evidence does not resolve are discarded.`;
+- evidence: 1 to 4 data paths you relied on, each written as path=value exactly as it appears in the JSON below. Paths start with "own." or "competitor.<name>." and walk the object keys, e.g. "own.signals.engagement.hasContactForm=false", "own.scores.reputation=70", "competitor.Acme Ltd.reviewCount=140". Every path must exist in the data. Actions whose evidence does not resolve are discarded.`;
 
 const PRIORITY_SCHEMA_BASE = `{"actions":[{"priority":1,"category":"string","effort":"low"|"medium"|"high","action":"string","reason":"string","whyItMatters":"string","steps":["string"],"outcome":"string","competitorReference":"string|null","estimatedImpact":"high"|"medium","timeframe":"string","evidence":["string"]}]}`;
 
@@ -476,7 +476,7 @@ PRIORITISATION RULES:
 
 ${FIELD_RULES}
 
-Priority numbering: Unique integers 1–${remainingSlots} ordered by impact. No gaps, no duplicates.
+Priority numbering: Unique integers 1 to ${remainingSlots} ordered by impact. No gaps, no duplicates.
 
 Schema (JSON object only, no markdown):
 ${PRIORITY_SCHEMA_BASE}

@@ -26,6 +26,8 @@
 
     --accent: 32 95% 55%;
     --accent-foreground: 0 0% 100%;
+    /* Readable accent text for tinted (bg-accent/10) surfaces — AA at small sizes */
+    --accent-strong: 32 95% 28%;
 
     --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 100%;
@@ -60,9 +62,9 @@
     --gradient-card: linear-gradient(180deg, hsl(0 0% 100%), hsl(260 15% 98%));
     --gradient-canvas: linear-gradient(
       140deg,
-      hsl(262 50% 96%) 0%,
-      hsl(280 60% 97%) 40%,
-      hsl(200 70% 96%) 100%
+      hsl(262 55% 98%) 0%,
+      hsl(280 60% 98.5%) 40%,
+      hsl(265 60% 98%) 100%
     );
     --gradient-greeting: linear-gradient(
       135deg,
@@ -84,6 +86,7 @@
     --neu-shadow-light: -6px -6px 14px hsl(0 0% 100%);
     --neu-shadow-dark: 6px 6px 14px hsl(260 15% 88%);
     --neu-shadow: var(--neu-shadow-light), var(--neu-shadow-dark);
+    --neu-shadow-strong: -8px -8px 18px hsl(0 0% 100%), 8px 8px 20px hsl(260 15% 84%);
     --neu-inset: inset 3px 3px 6px hsl(260 15% 88%), inset -3px -3px 6px hsl(0 0% 100%);
   }
 }
@@ -207,6 +210,7 @@
 
   .neu-flat {
     background: hsl(var(--background));
-    box-shadow: var(--neu-shadow);
+    border-radius: var(--radius);
+    box-shadow: var(--neu-shadow-strong);
   }
 }

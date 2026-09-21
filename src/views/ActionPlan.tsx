@@ -679,7 +679,7 @@ const ActionPlan = () => {
               </div>
               <Badge
                 variant="outline"
-                className="text-[11px] gap-1 bg-accent/10 text-accent-foreground border-accent/30"
+                className="text-[11px] gap-1 bg-accent/10 text-accent-strong border-accent/30"
               >
                 <Clock className="w-3 h-3" /> Re-checked each scan
               </Badge>

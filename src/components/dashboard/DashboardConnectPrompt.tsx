@@ -1,28 +1,16 @@
 'use client';
 
 import Link from 'next/link';
-import { useState } from 'react';
-import { ArrowRight, Sparkles, Search, MapPin, MousePointerClick, X } from 'lucide-react';
+import { ArrowRight, Sparkles, Search, MapPin, MousePointerClick } from 'lucide-react';
 
 /**
  * Prompt shown on the dashboard inviting the user to connect their Google Business Profile.
  * Educates on what they'll unlock: Search/Maps impressions + Website clicks, month-on-month.
- * UI-only + dismissible for the session (no connection-status fetch).
+ * UI-only (no connection-status fetch).
  */
 const DashboardConnectPrompt = () => {
-  const [dismissed, setDismissed] = useState(false);
-  if (dismissed) return null;
-
   return (
-    <div className="relative overflow-hidden rounded-2xl border border-primary/25 bg-gradient-to-r from-primary/[0.07] via-primary/[0.04] to-accent/[0.07] p-5">
-      <button
-        onClick={() => setDismissed(true)}
-        className="absolute top-3 right-3 grid place-items-center w-7 h-7 rounded-full text-muted-foreground hover:bg-background/60"
-        aria-label="Dismiss"
-      >
-        <X className="w-3.5 h-3.5" />
-      </button>
-
+    <div className="relative overflow-hidden rounded-2xl border border-primary/10 bg-gradient-greeting p-6">
       <div className="flex flex-col md:flex-row md:items-center gap-5">
         <div className="grid place-items-center w-12 h-12 rounded-xl bg-primary text-primary-foreground shrink-0">
           <Sparkles className="w-5 h-5" />

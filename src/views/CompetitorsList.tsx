@@ -8,7 +8,6 @@ import { addCompetitor, triggerSingleScan } from '@/actions/projects';
 import type { Business } from '@/types';
 import {
   Plus,
-  Search,
   TrendingUp,
   TrendingDown,
   Minus,
@@ -114,7 +113,6 @@ const CompetitorsList = () => {
   const { project, addCompetitorToStore, syncBusinesses } = useRivalRadarStore();
   const searchParams = useSearchParams();
   const debugMode = isDev && searchParams.get('debug') === 'true';
-  const [search, setSearch] = useState('');
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState({ name: '', url: '' });
   const [formError, setFormError] = useState('');
@@ -139,12 +137,6 @@ const CompetitorsList = () => {
   const archivedIds = new Set(archived.map((a) => a.biz.id));
   const active = project.competitors.filter((c) => !archivedIds.has(c.id));
   const slotsLeft = Math.max(0, 5 - active.length);
-
-  const filtered = active.filter(
-    (c) =>
-      c.name.toLowerCase().includes(search.toLowerCase()) ||
-      c.domain.toLowerCase().includes(search.toLowerCase()),
-  );
 
   const archiveCompetitor = (biz: Business) => {
     const archivedAt = new Date().toLocaleDateString('en-GB', {
@@ -284,17 +276,6 @@ const CompetitorsList = () => {
         ))}
       </div>
 
-      {/* Search */}
-      <div className="relative mb-6 max-w-md">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-        <Input
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder="Search competitors…"
-          className="pl-10"
-        />
-      </div>
-
       {/* Your row */}
       <div className="card-surface mb-4 bg-primary/5 flex items-center gap-6 flex-wrap">
         <Badge className="bg-primary text-primary-foreground">YOU</Badge>
@@ -319,7 +300,7 @@ const CompetitorsList = () => {
 
       {/* Competitor cards */}
       <div className="space-y-3">
-        {filtered.map((c, i) => {
+        {active.map((c, i) => {
           const score = c.aiScore?.overallScore ?? null;
           const delta = c.aiScore?.weeklyDelta ?? null;
           const strengths = getStrengths(c);
@@ -445,13 +426,6 @@ const CompetitorsList = () => {
             </motion.div>
           );
         })}
-
-        {filtered.length === 0 && active.length > 0 && (
-          <div className="card-surface p-10 text-center">
-            <AlertCircle className="w-10 h-10 text-muted-foreground mx-auto mb-3" />
-            <p className="text-muted-foreground">No competitors match "{search}".</p>
-          </div>
-        )}
 
         {active.length === 0 && archived.length === 0 && (
           <div className="card-surface p-10 text-center">

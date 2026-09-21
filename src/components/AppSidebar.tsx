@@ -6,7 +6,6 @@ import {
   LayoutDashboard,
   Users,
   Settings,
-  Zap,
   LogOut,
   Building2,
   Lightbulb,
@@ -119,15 +118,6 @@ export const AppSidebar = () => {
             </button>
           </div>
         )}
-        <div className="card-surface bg-primary/5 border-primary/10 flex items-start gap-3 p-3">
-          <Zap className="w-4 h-4 text-primary mt-0.5 shrink-0" />
-          <div>
-            <p className="text-xs font-medium text-foreground">Pro Tip</p>
-            <p className="text-xs text-muted-foreground mt-0.5">
-              Add API keys in Settings to enable live scanning.
-            </p>
-          </div>
-        </div>
       </div>
     </aside>
   );

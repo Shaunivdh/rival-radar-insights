@@ -1,6 +1,7 @@
 import { createServerClient } from '@supabase/ssr';
 import type { Database } from '@/types/database';
 import { NextResponse, type NextRequest } from 'next/server';
+import { logger } from '@/lib/logger';
 
 const PROTECTED = ['/dashboard', '/competitors', '/changes', '/settings', '/setup'];
 
@@ -36,11 +37,14 @@ export async function middleware(request: NextRequest) {
     const cookie = request.cookies.get('site-unlocked')?.value ?? '';
     const unlocked = await verifyUnlockCookie(cookie, process.env.SITE_PASSWORD);
     if (!unlocked && pathname !== '/unlock' && !pathname.startsWith('/api/inngest')) {
-      console.log(`[middleware] site-lock: blocked path=${pathname} reason=no-valid-unlock-cookie`);
+      logger.info('middleware', 'site-lock: blocked', {
+        path: pathname,
+        reason: 'no-valid-unlock-cookie',
+      });
       return NextResponse.redirect(new URL('/unlock', request.url));
     }
     if (pathname !== '/unlock') {
-      console.log(`[middleware] site-lock: pass path=${pathname}`);
+      logger.info('middleware', 'site-lock: pass', { path: pathname });
     }
   }
 
@@ -71,19 +75,29 @@ export async function middleware(request: NextRequest) {
   } = await supabase.auth.getUser();
 
   if (authError) {
-    console.error(`[middleware] supabase.auth.getUser error path=${pathname}:`, authError.message);
+    logger.error('middleware', 'supabase.auth.getUser error', {
+      path: pathname,
+      error: authError.message,
+    });
   }
 
   const isProtected = PROTECTED.some((p) => pathname.startsWith(p));
   const isDemo = request.cookies.get('rr-demo')?.value === '1';
   const isServerAction = request.headers.has('next-action');
 
-  console.log(
-    `[middleware] path=${pathname} userId=${user?.id ?? 'none'} isProtected=${isProtected} isDemo=${isDemo} isServerAction=${isServerAction}`,
-  );
+  logger.info('middleware', 'Request', {
+    path: pathname,
+    userId: user?.id ?? 'none',
+    isProtected,
+    isDemo,
+    isServerAction,
+  });
 
   if (isProtected && !user && !isDemo) {
-    console.log(`[middleware] redirect→/ reason=unauthenticated-protected path=${pathname}`);
+    logger.info('middleware', 'Redirect to /', {
+      reason: 'unauthenticated-protected',
+      path: pathname,
+    });
     return NextResponse.redirect(new URL('/', request.url));
   }
 
@@ -95,10 +109,13 @@ export async function middleware(request: NextRequest) {
       .limit(1)
       .maybeSingle();
     if (projError) {
-      console.error(`[middleware] projects query error userId=${user.id}:`, projError.message);
+      logger.error('middleware', 'Projects query error', {
+        userId: user.id,
+        error: projError.message,
+      });
     }
     const dest = data ? '/dashboard' : '/setup';
-    console.log(`[middleware] redirect→${dest} userId=${user.id} hasProject=${!!data}`);
+    logger.info('middleware', 'Redirect', { dest, userId: user.id, hasProject: !!data });
     return NextResponse.redirect(new URL(dest, request.url));
   }
 

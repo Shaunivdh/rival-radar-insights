@@ -1,3 +1,5 @@
+import { logger } from '@/lib/logger';
+
 export interface AIEvent {
   event:
     | 'generation'
@@ -31,5 +33,5 @@ export interface AIEvent {
  * makes these lines grep-able in any log aggregator.
  */
 export function logAIEvent(event: AIEvent): void {
-  console.log(`[ai-event] ${JSON.stringify(event)}`);
+  logger.info('ai-event', event.event, { ...event });
 }

@@ -25,6 +25,7 @@ import type {
   ChangeEvent,
 } from '@/types';
 import { normalizeUrl, extractDomain, isValidUrl } from '@/lib/url';
+import { logger } from '@/lib/logger';
 
 type ProjectRow = Database['public']['Tables']['projects']['Row'];
 
@@ -109,9 +110,12 @@ export async function createProject(
   if (invalidUrl) throw new Error(`Invalid website URL: ${invalidUrl}`);
   if (competitors.length > 5) throw new Error('Maximum of 5 competitors allowed');
 
-  console.log(
-    `[createProject] userId=${userId} name="${name}" own="${ownBusiness.name}" competitors=${competitors.length}`,
-  );
+  logger.info('createProject', 'Creating', {
+    userId,
+    name,
+    own: ownBusiness.name,
+    competitors: competitors.length,
+  });
 
   const { data: project, error: projectError } = await supabaseAdmin
     .from('projects')
@@ -126,7 +130,7 @@ export async function createProject(
     .single();
 
   if (projectError) {
-    console.error(`[createProject] project insert failed userId=${userId}:`, projectError.message);
+    logger.error('createProject', 'Project insert failed', { userId, error: projectError.message });
     throw new Error(projectError.message);
   }
 
@@ -151,18 +155,19 @@ export async function createProject(
     .select();
 
   if (bizError) {
-    console.error(
-      `[createProject] businesses insert failed projectId=${project.id}:`,
-      bizError.message,
-    );
+    logger.error('createProject', 'Businesses insert failed', {
+      projectId: project.id,
+      error: bizError.message,
+    });
     // Clean up orphaned project
     await supabaseAdmin.from('projects').delete().eq('id', project.id);
     throw new Error(bizError.message);
   }
 
-  console.log(
-    `[createProject] created projectId=${project.id} businesses=${businesses?.length ?? 0}`,
-  );
+  logger.info('createProject', 'Created', {
+    projectId: project.id,
+    businesses: businesses?.length ?? 0,
+  });
   return rowsToProject(project, businesses);
 }
 
@@ -252,21 +257,25 @@ export async function triggerInitialScans(projectId: string): Promise<void> {
     .eq('project_id', projectId);
 
   if (!businesses?.length) {
-    console.warn(`[triggerInitialScans] no businesses found for projectId=${projectId}`);
+    logger.warn('triggerInitialScans', 'No businesses found', { projectId });
     return;
   }
 
   const stale = businesses.filter((b) => isStale(b.last_crawled_at as string | null));
   if (!stale.length) {
-    console.log(
-      `[triggerInitialScans] all businesses fresh, skipping projectId=${projectId} total=${businesses.length}`,
-    );
+    logger.info('triggerInitialScans', 'All businesses fresh, skipping', {
+      projectId,
+      total: businesses.length,
+    });
     return;
   }
 
-  console.log(
-    `[triggerInitialScans] queuing ${stale.length}/${businesses.length} businesses for projectId=${projectId} ids=${stale.map((b) => b.id).join(',')}`,
-  );
+  logger.info('triggerInitialScans', 'Queuing businesses', {
+    stale: stale.length,
+    total: businesses.length,
+    projectId,
+    ids: stale.map((b) => b.id),
+  });
 
   await supabaseAdmin
     .from('businesses')
@@ -283,7 +292,7 @@ export async function triggerInitialScans(projectId: string): Promise<void> {
       ts: Date.now() + i * 15000, // stagger by 15s each
     })),
   );
-  console.log(`[triggerInitialScans] inngest events sent for projectId=${projectId}`);
+  logger.info('triggerInitialScans', 'Inngest events sent', { projectId });
 }
 
 export async function syncProject(projectId: string): Promise<{

@@ -17,6 +17,7 @@ import { extractPageSignals } from '@/services/ai';
 import { parseHtmlSignals } from '@/lib/crawl/html-parser';
 import { normalizeUrl } from '@/lib/url';
 import type { RawCrawlResult } from '@/types';
+import { logger } from '@/lib/logger';
 
 const MAX_PRIORITY_PAGES = parseInt(process.env.CRAWL_PRIORITY_PAGES ?? '5', 10);
 const MAX_TOTAL_PAGES = parseInt(process.env.CRAWL_MAX_PAGES ?? '15', 10);
@@ -257,9 +258,9 @@ export async function startBusinessCrawl(
         );
   } catch (e) {
     if (e instanceof CrawlDisallowedError) {
-      console.warn(
-        `[crawl] CF crawl disallowed for ${normalizedUrl} — trying direct fetch fallback`,
-      );
+      logger.warn('crawl', 'CF crawl disallowed — trying direct fetch fallback', {
+        url: normalizedUrl,
+      });
       const html = await fetchPageDirect(normalizedUrl);
 
       if (html) {
@@ -281,12 +282,12 @@ export async function startBusinessCrawl(
           })
           .eq('id', businessId);
 
-        console.log(`[crawl] Direct fetch fallback succeeded for ${normalizedUrl}`);
+        logger.info('crawl', 'Direct fetch fallback succeeded', { url: normalizedUrl });
         return DIRECT_FETCH_DONE;
       }
 
       // Direct fetch also failed — mark as disallowed
-      console.error(`[crawl] Direct fetch also failed for ${normalizedUrl}`);
+      logger.error('crawl', 'Direct fetch also failed', { url: normalizedUrl });
       await supabaseAdmin
         .from('businesses')
         .update({
@@ -373,28 +374,33 @@ export async function extractAndPersistSignals(
         // Only include h1 for actual error pages — on challenge/popup pages the h1 is from the blocker, not the real site
         ...(rootDiag.blockType === 'error_page' ? { h1: rootDiag.h1 } : {}),
       };
-      console.warn(`[crawl] Unusable root page for job ${jobId}:`, JSON.stringify(diagLog));
+      logger.warn('crawl', 'Unusable root page', { jobId, diagnostics: diagLog });
 
       // Strip popup/overlay elements from the rendered HTML — real content is likely underneath
       const { html: strippedHtml, strippedCount } = stripPopupOverlays(rootHtml);
       const strippedDiag = diagnosePage(strippedHtml);
 
       if (strippedCount > 0) {
-        console.log(
-          `[crawl] Stripped ${strippedCount} popup/overlay patterns from ${url} (${rootHtml.length} → ${strippedHtml.length} chars)`,
-        );
+        logger.info('crawl', 'Stripped popup/overlay patterns', {
+          strippedCount,
+          url,
+          beforeChars: rootHtml.length,
+          afterChars: strippedHtml.length,
+        });
       }
 
       if (!strippedDiag.unusable && strippedHtml.length > 500) {
-        console.log(`[crawl] Stripped HTML is usable for ${url} — using cleaned version`);
+        logger.info('crawl', 'Stripped HTML is usable — using cleaned version', { url });
         rawResult = {
           status: 'completed',
           pages: [{ ...rootResult.pages[0], html: strippedHtml }, ...rootResult.pages.slice(1)],
         };
       } else {
         // Stripping didn't help — retry with networkidle0 + longer timeout
-        console.warn(
-          `[crawl] Stripping didn't recover usable content for ${url} — retrying with networkidle0 + 30s timeout`,
+        logger.warn(
+          'crawl',
+          "Stripping didn't recover usable content — retrying with networkidle0 + 30s timeout",
+          { url },
         );
         await new Promise((r) => setTimeout(r, 5000));
         const retryPage = await crawlSinglePage(url, EXTRACTION_PROMPT, credentials, {
@@ -406,21 +412,21 @@ export async function extractAndPersistSignals(
         if (retryHtml && diagnosePage(retryHtml).unusable) {
           const retryStripped = stripPopupOverlays(retryHtml);
           if (retryStripped.strippedCount > 0) {
-            console.log(
-              `[crawl] Stripped ${retryStripped.strippedCount} patterns from retry result for ${url}`,
-            );
+            logger.info('crawl', 'Stripped patterns from retry result', {
+              strippedCount: retryStripped.strippedCount,
+              url,
+            });
             retryHtml = retryStripped.html;
           }
         }
 
         const retryDiag = retryHtml ? diagnosePage(retryHtml) : null;
         if (retryDiag && !retryDiag.unusable && retryHtml.length > 500) {
-          console.log(
-            `[crawl] Retry succeeded for ${url}`,
-            retryDiag.hasPopupSignals
-              ? `(popup signals still present: ${retryDiag.popupSelectors.join(', ')})`
-              : '(clean page)',
-          );
+          logger.info('crawl', 'Retry succeeded', {
+            url,
+            popupSignals: retryDiag.hasPopupSignals,
+            popupSelectors: retryDiag.popupSelectors,
+          });
           rawResult = {
             status: 'completed',
             pages: [
@@ -444,10 +450,10 @@ export async function extractAndPersistSignals(
             internalLinkCount: finalDiag.internalLinkCount,
             ...(finalDiag.blockType === 'error_page' ? { h1: finalDiag.h1 } : {}),
           };
-          console.error(
-            `[crawl] Retry failed for ${url} — page remains unusable:`,
-            JSON.stringify(finalLog),
-          );
+          logger.error('crawl', 'Retry failed — page remains unusable', {
+            url,
+            diagnostics: finalLog,
+          });
 
           const userMessage =
             finalDiag.blockType === 'challenge_or_popup'
@@ -473,26 +479,24 @@ export async function extractAndPersistSignals(
           // Remove the unusable root page from results so sub-page signals aren't contaminated
           // by challenge page titles/h1s — sub-pages will provide the real data
           rawResult = { ...rawResult, pages: rawResult.pages.slice(1) };
-          console.log(
-            `[crawl] Removed unusable root page from results — ${rawResult.pages.length} sub-pages remain`,
-          );
+          logger.info('crawl', 'Removed unusable root page from results', {
+            subPagesRemaining: rawResult.pages.length,
+          });
         }
       }
     } else if (rootHtml && rootDiag.hasPopupSignals) {
       // Page is usable but has popup indicators — log as warning for monitoring
-      console.warn(
-        `[crawl] Popup signals detected on ${url} (page still usable):`,
-        JSON.stringify({
-          popupSelectors: rootDiag.popupSelectors,
-          internalLinkCount: rootDiag.internalLinkCount,
-        }),
-      );
+      logger.warn('crawl', 'Popup signals detected (page still usable)', {
+        url,
+        popupSelectors: rootDiag.popupSelectors,
+        internalLinkCount: rootDiag.internalLinkCount,
+      });
     }
 
     if (!rootHtml) {
-      console.warn(
-        `[crawl] Root page HTML is empty for job ${jobId} — multi-page enrichment will be skipped`,
-      );
+      logger.warn('crawl', 'Root page HTML is empty — multi-page enrichment will be skipped', {
+        jobId,
+      });
     }
     const extraLimit = Math.min(MAX_PRIORITY_PAGES, MAX_TOTAL_PAGES - rawResult.pages.length);
 
@@ -502,7 +506,10 @@ export async function extractAndPersistSignals(
 
     if (htmlForLinks && extraLimit > 0) {
       let priorityLinks = extractPriorityLinks(htmlForLinks, url, extraLimit);
-      console.log(`[crawl] Found ${priorityLinks.length} priority pages to crawl:`, priorityLinks);
+      logger.info('crawl', 'Found priority pages to crawl', {
+        count: priorityLinks.length,
+        priorityLinks,
+      });
 
       // Fallback: if no links found from HTML (JS-rendered nav), probe common paths
       if (priorityLinks.length === 0) {
@@ -517,10 +524,9 @@ export async function extractAndPersistSignals(
           '/contact',
         ];
         priorityLinks = fallbackPaths.map((p) => base + p).slice(0, extraLimit);
-        console.log(
-          `[crawl] No links found in HTML — falling back to common paths:`,
+        logger.info('crawl', 'No links found in HTML — falling back to common paths', {
           priorityLinks,
-        );
+        });
       }
 
       if (priorityLinks.length > 0) {
@@ -533,17 +539,17 @@ export async function extractAndPersistSignals(
 
         if (validPages.length > 0) {
           rawResult = { status: 'completed', pages: [...rootResult.pages, ...validPages] };
-          console.log(
-            `[crawl] Merged ${validPages.length} extra pages. Total: ${rawResult.pages.length}`,
-          );
-          console.log(
-            `[crawl] Pages after merge:`,
-            rawResult.pages.map((p) => ({
+          logger.info('crawl', 'Merged extra pages', {
+            merged: validPages.length,
+            total: rawResult.pages.length,
+          });
+          logger.info('crawl', 'Pages after merge', {
+            pages: rawResult.pages.map((p) => ({
               url: p.url,
               hasHtml: !!p.html,
               htmlLen: p.html?.length ?? 0,
             })),
-          );
+          });
         }
       }
     }
@@ -565,7 +571,9 @@ export async function extractAndPersistSignals(
     }
   });
   if (dedupedPages.length < rawResult.pages.length) {
-    console.log(`[crawl] Deduped ${rawResult.pages.length - dedupedPages.length} duplicate pages`);
+    logger.info('crawl', 'Deduped duplicate pages', {
+      deduped: rawResult.pages.length - dedupedPages.length,
+    });
     rawResult = { ...rawResult, pages: dedupedPages };
   }
 
@@ -592,9 +600,10 @@ export async function extractAndPersistSignals(
       ...rawResult,
       pages: rawResult.pages.map((p, i) => (i < 5 ? { ...p, json: extracted[i] } : p)),
     };
-    console.log(
-      `[crawl] Extracted signals from HTML for ${pagesToExtract.length} pages (${extractFailures} failed)`,
-    );
+    logger.info('crawl', 'Extracted signals from HTML', {
+      pages: pagesToExtract.length,
+      failures: extractFailures,
+    });
   }
 
   // Always apply deterministic HTML parsing on top of AI-extracted json.
@@ -630,16 +639,14 @@ export async function extractAndPersistSignals(
   };
 
   const signals = await extractSignals(rawResult);
-  console.log(
-    `[crawl] Engagement signals for ${businessId}:`,
-    JSON.stringify({
-      hasPhoneNumberProminent: signals.engagement.hasPhoneNumberProminent,
-      hasContactForm: signals.engagement.hasContactForm,
-      hasCallToAction: signals.engagement.hasCallToAction,
-      h1TagCount: signals.seo.h1Tags.length,
-      schemaMarkupTypes: signals.seo.schemaMarkupTypes,
-    }),
-  );
+  logger.info('crawl', 'Engagement signals', {
+    businessId,
+    hasPhoneNumberProminent: signals.engagement.hasPhoneNumberProminent,
+    hasContactForm: signals.engagement.hasContactForm,
+    hasCallToAction: signals.engagement.hasCallToAction,
+    h1TagCount: signals.seo.h1Tags.length,
+    schemaMarkupTypes: signals.seo.schemaMarkupTypes,
+  });
 
   // Archive previous signals
   await supabaseAdmin

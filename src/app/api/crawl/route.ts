@@ -5,6 +5,7 @@ import type { Database } from '@/types/database';
 import { cookies } from 'next/headers';
 import { inngest } from '@/inngest/client';
 import { supabaseAdmin } from '@/lib/supabase/server';
+import { logger } from '@/lib/logger';
 
 // Simple in-memory rate limiter: max 10 POST requests per IP per minute
 // NOTE: resets per cold start and not shared across instances in serverless deployments
@@ -56,7 +57,7 @@ const postBodySchema = z.object({
 export async function GET(req: NextRequest) {
   const userId = await getAuthUserId();
   if (!userId) {
-    console.warn('[crawl-api] GET unauthorized - no session');
+    logger.warn('crawl-api', 'GET unauthorized - no session');
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
@@ -64,7 +65,7 @@ export async function GET(req: NextRequest) {
     projectId: req.nextUrl.searchParams.get('projectId'),
   });
   if (!parsed.success) {
-    console.warn(`[crawl-api] GET invalid query userId=${userId}`);
+    logger.warn('crawl-api', 'GET invalid query', { userId });
     return NextResponse.json(
       { error: 'Invalid request', issues: parsed.error.flatten() },
       { status: 400 },
@@ -80,7 +81,7 @@ export async function GET(req: NextRequest) {
     .eq('user_id', userId)
     .maybeSingle();
   if (!project) {
-    console.warn(`[crawl-api] GET project not found projectId=${projectId} userId=${userId}`);
+    logger.warn('crawl-api', 'GET project not found', { projectId, userId });
     return NextResponse.json({ error: 'Project not found' }, { status: 404 });
   }
 
@@ -89,28 +90,30 @@ export async function GET(req: NextRequest) {
     .select('id, name, crawl_status')
     .eq('project_id', projectId);
 
-  console.log(
-    `[crawl-api] GET status poll userId=${userId} projectId=${projectId} businesses=${JSON.stringify((businesses ?? []).map((b) => ({ id: b.id, name: b.name, status: b.crawl_status })))}`,
-  );
+  logger.info('crawl-api', 'GET status poll', {
+    userId,
+    projectId,
+    businesses: (businesses ?? []).map((b) => ({ id: b.id, name: b.name, status: b.crawl_status })),
+  });
   return NextResponse.json({ businesses: businesses ?? [] });
 }
 
 export async function POST(req: NextRequest) {
   const userId = await getAuthUserId();
   if (!userId) {
-    console.warn('[crawl-api] POST unauthorized - no session');
+    logger.warn('crawl-api', 'POST unauthorized - no session');
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
   const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? 'unknown';
   if (isRateLimited(ip)) {
-    console.warn(`[crawl-api] POST rate-limited ip=${ip} userId=${userId}`);
+    logger.warn('crawl-api', 'POST rate-limited', { ip, userId });
     return NextResponse.json({ error: 'Too many requests' }, { status: 429 });
   }
 
   const parsed = postBodySchema.safeParse(await req.json().catch(() => null));
   if (!parsed.success) {
-    console.warn(`[crawl-api] POST invalid body userId=${userId}`);
+    logger.warn('crawl-api', 'POST invalid body', { userId });
     return NextResponse.json(
       { error: 'Invalid request', issues: parsed.error.flatten() },
       { status: 400 },
@@ -125,7 +128,7 @@ export async function POST(req: NextRequest) {
     .eq('id', businessId)
     .single();
   if (!biz) {
-    console.warn(`[crawl-api] POST business not found businessId=${businessId} userId=${userId}`);
+    logger.warn('crawl-api', 'POST business not found', { businessId, userId });
     return NextResponse.json({ error: 'Business not found' }, { status: 404 });
   }
 
@@ -136,15 +139,15 @@ export async function POST(req: NextRequest) {
     .eq('user_id', userId)
     .maybeSingle();
   if (!project) {
-    console.warn(
-      `[crawl-api] POST not authorized businessId=${businessId} userId=${userId} projectId=${biz.project_id}`,
-    );
+    logger.warn('crawl-api', 'POST not authorized', {
+      businessId,
+      userId,
+      projectId: biz.project_id,
+    });
     return NextResponse.json({ error: 'Not authorized for this business' }, { status: 403 });
   }
 
-  console.log(
-    `[crawl-api] POST scan triggered userId=${userId} businessId=${businessId} mode=${mode}`,
-  );
+  logger.info('crawl-api', 'POST scan triggered', { userId, businessId, mode });
   await inngest.send({
     name: 'crawl/business.scan',
     data: { businessId, mode },

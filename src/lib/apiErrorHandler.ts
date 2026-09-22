@@ -1,5 +1,6 @@
 import { AIUnavailableError } from '@/services/ai';
 import { NextResponse } from 'next/server';
+import { logger } from '@/lib/logger';
 
 export function handleAIError(e: unknown): NextResponse {
   if (e instanceof AIUnavailableError) {
@@ -12,7 +13,7 @@ export function handleAIError(e: unknown): NextResponse {
       { status: 503 },
     );
   }
-  console.error('[api] unexpected error:', e);
+  logger.error('api', 'Unexpected error', { error: e });
   return NextResponse.json(
     { status: 'error', message: 'Something went wrong on our end.' },
     { status: 500 },

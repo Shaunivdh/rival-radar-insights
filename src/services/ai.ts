@@ -22,6 +22,7 @@ import {
   changeSummarySchema,
   mentionedBusinessesSchema,
 } from './ai.schemas';
+import { logger } from '@/lib/logger';
 
 interface MentionedBusiness {
   name: string;
@@ -130,7 +131,7 @@ export async function extractPageSignals(
       durationMs: Date.now() - t0,
       errorType: (e as Error).name,
     });
-    console.warn('[extractPageSignals] failed:', e);
+    logger.warn('extractPageSignals', 'Failed', { error: e });
     throw e;
   }
 }
@@ -397,7 +398,7 @@ export async function generatePriorityActions(
   const templatesUsed = templateActions.length;
 
   if (templatesUsed >= 5) {
-    console.log('[priority] 5 templates fired, skipping LLM');
+    logger.info('priority', '5 templates fired, skipping LLM');
     logAIEvent({
       event: 'generation',
       model: AI_MODEL_FAST,
@@ -489,7 +490,7 @@ Competitors: ${JSON.stringify(competitors.map((b) => summariseBiz(b, false)))}`;
       templatesFired: firedIds,
       errorType: (e as Error).name,
     });
-    console.warn('[generatePriorityActions] failed:', e);
+    logger.warn('generatePriorityActions', 'Failed', { error: e });
     throw new AIUnavailableError(e);
   }
 }
@@ -570,9 +571,9 @@ async function generateWithDistributionCheck(
         return `${count} actions in the "${cat}" category, but this business already scores ${score} there`;
       })
       .join('; ');
-    console.log(
-      `[${label}] over-represented categories detected (${dist.overrepresented.join(', ')}), regenerating once`,
-    );
+    logger.info(label, 'Over-represented categories detected, regenerating once', {
+      categories: dist.overrepresented,
+    });
 
     const retryPrompt =
       prompt +
@@ -583,9 +584,9 @@ async function generateWithDistributionCheck(
 
     const retryDist = checkCategoryDistribution(sorted, ownScores);
     if (retryDist.shouldRegenerate) {
-      console.warn(
-        `[${label}] regeneration still has duplicate categories (${retryDist.overrepresented.join(', ')}), proceeding anyway`,
-      );
+      logger.warn(label, 'Regeneration still has duplicate categories, proceeding anyway', {
+        categories: retryDist.overrepresented,
+      });
     }
   }
 
@@ -818,7 +819,7 @@ async function validateActionsHybrid(
   const flags = deterministicChecks(actions, own, competitors);
 
   if (flags.length === 0) {
-    console.log('[validator] no issues found, skipping LLM');
+    logger.info('validator', 'No issues found, skipping LLM');
     logAIEvent({
       event: 'validation',
       model: AI_MODEL_FAST,
@@ -829,7 +830,7 @@ async function validateActionsHybrid(
     return stripSource(actions);
   }
 
-  console.log(`[validator] ${flags.length} issue(s) found, requesting LLM patches`);
+  logger.info('validator', 'Issues found, requesting LLM patches', { issues: flags.length });
 
   const flaggedIndices = Array.from(new Set(flags.map((f) => f.actionIndex)));
   const flaggedActions = flaggedIndices.map((i) => ({ index: i, action: actions[i] }));
@@ -889,22 +890,29 @@ Schema: {"patches":[{"actionIndex":0,"field":"string","newValue":"string|null"}]
 
     for (const patch of result.patches) {
       if (patch.actionIndex < 0 || patch.actionIndex >= actions.length) {
-        console.warn(`[validator] skipping patch: invalid index ${patch.actionIndex}`);
+        logger.warn('validator', 'Skipping patch: invalid index', {
+          actionIndex: patch.actionIndex,
+        });
         continue;
       }
       if (!ALLOWED_PATCH_FIELDS.has(patch.field)) {
-        console.warn(`[validator] skipping patch: disallowed field "${patch.field}"`);
+        logger.warn('validator', 'Skipping patch: disallowed field', { field: patch.field });
         continue;
       }
       const isString = typeof patch.newValue === 'string';
       const isNull = patch.newValue === null;
       if (!isString && !(isNull && NULLABLE_PATCH_FIELDS.has(patch.field))) {
-        console.warn(
-          `[validator] skipping patch: invalid newValue for field "${patch.field}" (null not allowed for this field)`,
+        logger.warn(
+          'validator',
+          'Skipping patch: invalid newValue (null not allowed for this field)',
+          { field: patch.field },
         );
         continue;
       }
-      console.log(`[validator] patching action ${patch.actionIndex}.${patch.field}`);
+      logger.info('validator', 'Patching action', {
+        actionIndex: patch.actionIndex,
+        field: patch.field,
+      });
       (patched[patch.actionIndex] as Record<string, unknown>)[patch.field] = patch.newValue;
     }
 
@@ -925,7 +933,7 @@ Schema: {"patches":[{"actionIndex":0,"field":"string","newValue":"string|null"}]
       flagsFound: flags.length,
       errorType: (e as Error).name,
     });
-    console.warn('[validator] LLM patch call failed, returning original actions:', e);
+    logger.warn('validator', 'LLM patch call failed, returning original actions', { error: e });
     return stripSource(actions);
   }
 }
@@ -949,7 +957,7 @@ export async function generatePriorityActionsWithHistory(
   const templatesUsed = templateActions.length;
 
   if (templatesUsed >= 5) {
-    console.log('[priority] 5 templates fired, skipping LLM (with-history)');
+    logger.info('priority', '5 templates fired, skipping LLM (with-history)');
     // Acknowledge up to 3 closed items from last week in the first template's whyItMatters
     if (closedFromLastWeek.length > 0) {
       const wins = closedFromLastWeek
@@ -1080,7 +1088,7 @@ Competitors: ${JSON.stringify(competitors.map((b) => summariseBiz(b, false)))}`;
       templatesFired: firedIds2,
       errorType: (e as Error).name,
     });
-    console.warn('[generatePriorityActionsWithHistory] failed:', e);
+    logger.warn('generatePriorityActionsWithHistory', 'Failed', { error: e });
     throw new AIUnavailableError(e);
   }
 }
@@ -1157,7 +1165,7 @@ After: ${JSON.stringify(changedAfter)}`;
       durationMs: Date.now() - t0,
       errorType: (e as Error).name,
     });
-    console.warn('[generateChangeSummary] failed:', e);
+    logger.warn('generateChangeSummary', 'Failed', { error: e });
     throw new AIUnavailableError(e);
   }
 }
@@ -1208,7 +1216,7 @@ async function extractMentionedBusinesses(
 
   const cached = mentionsCache.get(hash);
   if (cached) {
-    console.log('[ai-presence] mentions cache hit');
+    logger.info('ai-presence', 'Mentions cache hit');
     return { businesses: cached, cacheHit: true };
   }
 
@@ -1365,7 +1373,9 @@ export async function checkAIVisibility(
     const lastTested = new Date(existingVisibility.tested_at).getTime();
     const hoursAgo = (Date.now() - lastTested) / (1000 * 60 * 60);
     if (hoursAgo < 24) {
-      console.log(`[ai-presence] skipping — last tested ${hoursAgo.toFixed(1)}h ago`);
+      logger.info('ai-presence', 'Skipping — recently tested', {
+        hoursAgo: Number(hoursAgo.toFixed(1)),
+      });
       return null;
     }
   }
@@ -1414,9 +1424,11 @@ export async function checkAIVisibility(
         .map((c) => (c as { type: 'text'; text: string }).text)
         .join('\n');
 
-      console.log(
-        `[ai-presence] query="${query}" textLength=${aiText.length} snippet="${aiText.slice(0, 200)}"`,
-      );
+      logger.info('ai-presence', 'Query answered', {
+        query,
+        textLength: aiText.length,
+        snippet: aiText.slice(0, 200),
+      });
 
       // Quick check: if no name tokens appear in the response, skip the
       // extractMentionedBusinesses AI call entirely. This is the common case
@@ -1428,9 +1440,7 @@ export async function checkAIVisibility(
       const hasAnyNameToken = nameTokens.some((t) => textLower.includes(t));
 
       if (!hasAnyNameToken) {
-        console.log(
-          `[ai-presence] no name tokens in response, skipping extraction for query="${query}"`,
-        );
+        logger.info('ai-presence', 'No name tokens in response, skipping extraction', { query });
         continue;
       }
 
@@ -1438,9 +1448,11 @@ export async function checkAIVisibility(
       if (cacheHit) cacheHits++;
       const { confidence, match } = matchWithLocation(businessName, location, businesses, aiText);
 
-      console.log(
-        `[ai-presence] match confidence="${confidence}" name="${match?.name ?? 'none'}" position=${match?.position ?? '-'}`,
-      );
+      logger.info('ai-presence', 'Match evaluated', {
+        confidence,
+        name: match?.name ?? 'none',
+        position: match?.position ?? '-',
+      });
 
       if (CONFIDENCE_TIERS.indexOf(confidence) > CONFIDENCE_TIERS.indexOf(bestConfidence)) {
         bestConfidence = confidence;
@@ -1465,7 +1477,7 @@ export async function checkAIVisibility(
       }
     } catch (e) {
       queryFailures++;
-      console.warn('[ai-presence] query failed:', e);
+      logger.warn('ai-presence', 'Query failed', { error: e });
     }
   }
 

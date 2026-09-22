@@ -13,6 +13,7 @@ import { updateBusiness } from '@/lib/supabase/business';
 import { supabaseAdmin } from '@/lib/supabase/server';
 import { SERVICE_CATEGORIES, type ServiceCategory } from '@/lib/serviceCategories';
 import type { GoogleData, SerpData } from '@/types';
+import { logger } from '@/lib/logger';
 
 export async function fetchGoogleData(
   businessId: string,
@@ -71,7 +72,7 @@ export async function fetchGoogleData(
     recent_reviews: googleData.recentReviews,
   });
 
-  console.log(`[enrich-google] google_data saved for business ${businessId}`);
+  logger.info('enrich-google', 'google_data saved', { businessId });
 }
 
 export async function fetchSerpData(
@@ -82,13 +83,16 @@ export async function fetchSerpData(
   location: string,
   postcode?: string,
 ): Promise<void> {
-  console.log(
-    `[fetchSerpData] businessId=${businessId} name="${businessName}" ` +
-      `primaryService="${primaryService}" location="${location}" postcode="${postcode}"`,
-  );
+  logger.info('fetchSerpData', 'Starting', {
+    businessId,
+    name: businessName,
+    primaryService,
+    location,
+    postcode,
+  });
 
   if (!primaryService?.trim() || !location?.trim()) {
-    console.error(`[fetchSerpData] Skipping — primaryService or location is empty`);
+    logger.error('fetchSerpData', 'Skipping — primaryService or location is empty', { businessId });
     return;
   }
 
@@ -105,9 +109,10 @@ export async function fetchSerpData(
     }
     const canonicalLocation = await postcodeToLocation(postcode);
     if (canonicalLocation) {
-      console.log(
-        `[fetchSerpData] Overriding location "${location}" → "${canonicalLocation}" from postcode`,
-      );
+      logger.info('fetchSerpData', 'Overriding location from postcode', {
+        from: location,
+        to: canonicalLocation,
+      });
       resolvedLocation = canonicalLocation;
     }
   }
@@ -129,7 +134,7 @@ export async function fetchSerpData(
     0,
     3,
   );
-  console.log(`[fetchSerpData] candidate terms for "${businessName}":`, candidateTerms);
+  logger.info('fetchSerpData', 'Candidate terms', { businessName, candidateTerms });
 
   // Query each candidate term in parallel (they're independent) and keep the best (lowest, non-null)
   // position; the winning term is recorded in serpData.searchTerm. candidateTerms always has ≥1 entry.
@@ -157,7 +162,9 @@ export async function fetchSerpData(
     };
   }
   await updateBusiness(businessId, { serpData });
-  console.log(
-    `[enrich-serp] serp_data saved for business ${businessId} (term="${serpData.searchTerm}", pos=${serpData.localVisibilityPosition})`,
-  );
+  logger.info('enrich-serp', 'serp_data saved', {
+    businessId,
+    term: serpData.searchTerm,
+    position: serpData.localVisibilityPosition,
+  });
 }

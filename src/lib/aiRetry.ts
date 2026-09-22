@@ -1,3 +1,5 @@
+import { logger } from '@/lib/logger';
+
 interface RetryOptions {
   maxAttempts?: number;
   backoffMs?: number;
@@ -22,7 +24,7 @@ export async function withRetry<T>(fn: () => Promise<T>, options?: RetryOptions)
     } catch (e: unknown) {
       const status = (e as { status?: number }).status;
       if (status === 429 && attempt < maxAttempts - 1) {
-        console.warn(`[${label}] 429 rate limit, retry ${attempt + 1}/${maxAttempts}`);
+        logger.warn(label, '429 rate limit, retrying', { attempt: attempt + 1, maxAttempts });
         lastError = e;
         continue;
       }

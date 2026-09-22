@@ -5,6 +5,7 @@ import type { Database } from '@/types/database';
 import { cookies } from 'next/headers';
 import { supabaseAdmin } from '@/lib/supabase/server';
 import { generateAndPersistProjectActions } from '@/lib/priorityActionsGenerator';
+import { logger } from '@/lib/logger';
 
 // Simple in-memory rate limiter: max 5 POST requests per IP per minute.
 // NOTE: resets per cold start and not shared across instances in serverless deployments.
@@ -88,12 +89,15 @@ export async function POST(req: NextRequest) {
 
   try {
     const result = await generateAndPersistProjectActions(projectId);
-    console.log(
-      `[regenerate-actions] userId=${userId} projectId=${projectId} inserted=${result.inserted} reason=${result.reason ?? 'ok'}`,
-    );
+    logger.info('regenerate-actions', 'Regenerated', {
+      userId,
+      projectId,
+      inserted: result.inserted,
+      reason: result.reason ?? 'ok',
+    });
     return NextResponse.json({ ok: true, ...result });
   } catch (e) {
-    console.error(`[regenerate-actions] failed projectId=${projectId}:`, e);
+    logger.error('regenerate-actions', 'Failed', { projectId, error: e });
     return NextResponse.json({ error: 'Failed to generate recommendations' }, { status: 500 });
   }
 }

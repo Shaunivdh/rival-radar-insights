@@ -8,6 +8,7 @@ import { mapPriorityActionRow } from '@/lib/priorityActionRow';
 import { businessJson, rowToSignals } from '@/lib/supabase/mappers';
 import type { Business, ExtractedSignals, PriorityAction } from '@/types';
 import type { ServiceCategory } from '@/lib/serviceCategories';
+import { logger } from '@/lib/logger';
 
 /**
  * Generate and persist priority actions for a project from its already-persisted
@@ -167,7 +168,7 @@ export async function generateAndPersistProjectActions(
   );
 
   if (insertError) {
-    console.error('[priorityActions] insert failed:', insertError);
+    logger.error('priorityActions', 'Insert failed', { error: insertError });
     return { inserted: 0, reason: `insert failed: ${insertError.message}` };
   }
 

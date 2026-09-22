@@ -4,6 +4,7 @@
 import fs from 'fs';
 import path from 'path';
 import type { RawCrawlResult } from '@/types';
+import { logger } from '@/lib/logger';
 
 const IS_VERCEL = !!process.env.VERCEL;
 const CACHE_DIR = IS_VERCEL
@@ -22,12 +23,12 @@ export function saveToCache(url: string, data: RawCrawlResult) {
   ensureCacheDir();
   const file = path.join(CACHE_DIR, cacheKey(url));
   fs.writeFileSync(file, JSON.stringify(data, null, 2));
-  console.log(`[crawl-cache] saved: ${file}`);
+  logger.info('crawl-cache', 'Saved', { file });
 }
 
 export function loadFromCache(url: string): RawCrawlResult | null {
   const file = path.join(CACHE_DIR, cacheKey(url));
   if (!fs.existsSync(file)) return null;
-  console.log(`[crawl-cache] hit: ${file}`);
+  logger.info('crawl-cache', 'Hit', { file });
   return JSON.parse(fs.readFileSync(file, 'utf-8')) as RawCrawlResult;
 }

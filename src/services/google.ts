@@ -1,4 +1,5 @@
 import type { GoogleData } from '@/types';
+import { logger } from '@/lib/logger';
 
 const NEW_PLACES_BASE = 'https://places.googleapis.com/v1/places';
 
@@ -209,7 +210,7 @@ export async function getPlaceData(
       .split(/\s+/)
       .filter((w) => w.length > 2);
     if (nameWords.length > 0 && nameWords.every((w) => displayName.includes(w))) {
-      console.log(`[google] name fallback matched "${displayName}" for "${name}"`);
+      logger.info('google', 'name fallback matched', { displayName, name });
       return mapPlaceToGoogleData(top);
     }
   }

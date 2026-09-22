@@ -1,5 +1,6 @@
 import type { SerpData } from '@/types';
 import { SERVICE_CATEGORIES, type ServiceCategory } from '@/lib/serviceCategories';
+import { logger } from '@/lib/logger';
 
 interface SerpApiLocalResult {
   position: number;
@@ -53,7 +54,8 @@ export async function getRankingData(
   // region — at 14z the pack bled into neighbouring areas and pushed hyperlocal businesses out.
   const llParam = ll ? `&ll=@${ll.lat},${ll.lng},16z` : '';
   // Map the stored category key to a natural search phrase; fall back to the raw value for legacy data.
-  const service = SERVICE_CATEGORIES[primaryService as ServiceCategory]?.searchTerm ?? primaryService;
+  const service =
+    SERVICE_CATEGORIES[primaryService as ServiceCategory]?.searchTerm ?? primaryService;
   // When coordinates are available let `ll` define the geography and search by service alone —
   // appending a broad place name (e.g. a London borough like "Southwark") pushes hyperlocal
   // businesses out of the local pack so nobody ranks. Without coords, fall back to the place name.
@@ -63,17 +65,20 @@ export async function getRankingData(
   try {
     const localRes = await fetch(`${base}?q=${encodeURIComponent(searchTerm)}${common}${llParam}`);
     if (!localRes.ok) {
-      console.error('[serp] HTTP error:', localRes.status, localRes.statusText);
+      logger.error('serp', 'HTTP error', {
+        status: localRes.status,
+        statusText: localRes.statusText,
+      });
       return emptyResult(searchTerm);
     }
     localJson = (await localRes.json()) as SerpApiResponse;
   } catch (err) {
-    console.error('[serp] fetch failed:', err);
+    logger.error('serp', 'fetch failed', { error: err });
     return emptyResult(searchTerm);
   }
 
   if (localJson.error) {
-    console.error('[serp] API error:', localJson.error);
+    logger.error('serp', 'API error', { error: localJson.error });
     return emptyResult(searchTerm);
   }
 
@@ -82,23 +87,26 @@ export async function getRankingData(
     : [];
 
   if (localResults.length === 0) {
-    console.warn('[serp] No local results returned for:', searchTerm);
+    logger.warn('serp', 'No local results returned', { searchTerm });
     return emptyResult(searchTerm);
   }
 
   const normalizedDomain = domain ? normalizeDomain(domain) : '';
   const normalizedName = businessName.toLowerCase().trim();
 
-  console.log('[serp] normalizedDomain:', normalizedDomain, 'normalizedName:', normalizedName);
+  logger.info('serp', 'Normalized identifiers', { normalizedDomain, normalizedName });
 
   const getLocalWebsite = (r: SerpApiLocalResult) => r.website ?? r.links?.website;
 
   // Check top 20 so positions >10 are still recorded
   const top20 = localResults.filter((r) => r.position <= 20);
-  console.log(
-    '[serp] top20 results:',
-    top20.map((r) => ({ pos: r.position, title: r.title, site: r.website ?? r.links?.website })),
-  );
+  logger.info('serp', 'top20 results', {
+    results: top20.map((r) => ({
+      pos: r.position,
+      title: r.title,
+      site: r.website ?? r.links?.website,
+    })),
+  });
 
   const localMatch = top20.find((r) => {
     const site = getLocalWebsite(r);

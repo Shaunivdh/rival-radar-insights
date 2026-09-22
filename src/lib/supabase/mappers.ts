@@ -19,6 +19,7 @@ import type {
   ReviewSentiment,
   SerpData,
 } from '@/types';
+import { logger } from '@/lib/logger';
 
 type Tables = Database['public']['Tables'];
 export type BusinessRow = Tables['businesses']['Row'];
@@ -35,7 +36,7 @@ function fromJson<T>(value: Json | null | undefined): T | null {
     try {
       return JSON.parse(value) as T;
     } catch {
-      console.warn('[mappers] discarding unparseable jsonb value:', value.slice(0, 80));
+      logger.warn('mappers', 'Discarding unparseable jsonb value', { value: value.slice(0, 80) });
       return null;
     }
   }

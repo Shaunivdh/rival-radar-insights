@@ -1,4 +1,5 @@
 import { supabaseAdmin } from '@/lib/supabase/server';
+import { toJson } from '@/lib/supabase/mappers';
 
 type CrawlLogStatus = 'started' | 'success' | 'failed' | 'warning' | 'skipped';
 
@@ -22,7 +23,7 @@ export function logCrawlStep(
       step,
       status,
       message: message ?? null,
-      meta: meta ?? null,
+      meta: meta ? toJson(meta) : null,
     })
     .then(({ error }) => {
       if (error)

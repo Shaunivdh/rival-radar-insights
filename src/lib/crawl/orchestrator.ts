@@ -1,4 +1,5 @@
 import { supabaseAdmin } from '@/lib/supabase/server';
+import { toJson } from '@/lib/supabase/mappers';
 import {
   startCrawl,
   startIncrementalCrawl,
@@ -651,10 +652,10 @@ export async function extractAndPersistSignals(
   const { error: insertError } = await supabaseAdmin.from('extracted_signals').insert({
     business_id: businessId,
     is_current: true,
-    seo: signals.seo,
-    trust: signals.trust,
-    content: signals.content,
-    engagement: signals.engagement,
+    seo: toJson(signals.seo),
+    trust: toJson(signals.trust),
+    content: toJson(signals.content),
+    engagement: toJson(signals.engagement),
   });
   if (insertError) throw new Error(`Failed to insert signals: ${insertError.message}`);
 

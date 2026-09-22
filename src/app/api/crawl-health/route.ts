@@ -1,11 +1,12 @@
 import { NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
+import type { Database } from '@/types/database';
 import { cookies } from 'next/headers';
 import { supabaseAdmin } from '@/lib/supabase/server';
 
 async function getAuthUserId(): Promise<string | null> {
   const cookieStore = await cookies();
-  const supabase = createServerClient(
+  const supabase = createServerClient<Database>(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {

@@ -5,6 +5,7 @@
  * them as unauthenticated public endpoints).
  */
 import { supabaseAdmin } from '@/lib/supabase/server';
+import { toJson } from '@/lib/supabase/mappers';
 import type { Business, ChangeEvent } from '@/types';
 
 export async function updateBusiness(
@@ -51,7 +52,7 @@ export async function saveChangeEvent(businessId: string, event: ChangeEvent): P
     detected_at: new Date(event.detectedAt).toISOString(),
     severity: event.severity,
     summary: event.summary,
-    changes: event.changes,
+    changes: toJson(event.changes),
   });
   if (error) throw new Error(error.message);
 }

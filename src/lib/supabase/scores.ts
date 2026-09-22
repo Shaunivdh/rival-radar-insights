@@ -1,8 +1,8 @@
-import type { SupabaseClient } from '@supabase/supabase-js';
 import type { AIHealthScore } from '@/types';
+import type { TypedSupabaseClient } from './types';
 
 export async function saveScoreSnapshot(
-  supabase: SupabaseClient,
+  supabase: TypedSupabaseClient,
   businessId: string,
   scores: AIHealthScore,
 ): Promise<void> {
@@ -24,7 +24,7 @@ export async function saveScoreSnapshot(
  * Returns null if no such previous snapshot exists.
  */
 export async function getWeeklyDelta(
-  supabase: SupabaseClient,
+  supabase: TypedSupabaseClient,
   businessId: string,
 ): Promise<number | null> {
   const { data: latest } = await supabase

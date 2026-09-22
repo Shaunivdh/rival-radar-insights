@@ -5,13 +5,8 @@ import {
   AIUnavailableError,
 } from '@/services/ai';
 import { mapPriorityActionRow } from '@/lib/priorityActionRow';
-import type {
-  Business,
-  ExtractedSignals,
-  AIHealthScore,
-  PageSpeedData,
-  PriorityAction,
-} from '@/types';
+import { businessJson, rowToSignals } from '@/lib/supabase/mappers';
+import type { Business, ExtractedSignals, PriorityAction } from '@/types';
 import type { ServiceCategory } from '@/lib/serviceCategories';
 
 /**
@@ -45,24 +40,17 @@ export async function generateAndPersistProjectActions(
         .order('scanned_at', { ascending: false })
         .limit(1)
         .maybeSingle();
-      const signals = sig?.seo
-        ? ({
-            seo: sig.seo,
-            trust: sig.trust,
-            content: sig.content,
-            engagement: sig.engagement,
-          } as ExtractedSignals)
-        : null;
+      const json = businessJson(b);
       return {
-        id: b.id as string,
-        name: b.name as string,
-        isOwn: b.is_own_business as boolean,
-        signals,
-        aiScore: (b.ai_score as AIHealthScore) ?? null,
-        googleData: (b.google_data as Business['googleData']) ?? null,
-        pagespeedData: (b.pagespeed_data as PageSpeedData) ?? null,
-        serpData: (b.serp_data as Business['serpData']) ?? null,
-        aiVisibility: (b.ai_visibility as Business['aiVisibility']) ?? null,
+        id: b.id,
+        name: b.name,
+        isOwn: b.is_own_business,
+        signals: rowToSignals(sig),
+        aiScore: json.aiScore,
+        googleData: json.googleData,
+        pagespeedData: json.pagespeedData,
+        serpData: json.serpData,
+        aiVisibility: json.aiVisibility,
       };
     }),
   );
@@ -123,7 +111,8 @@ export async function generateAndPersistProjectActions(
             projRow?.primary_service as ServiceCategory,
           );
   } catch (e) {
-    if (e instanceof AIUnavailableError) return { inserted: 0, reason: 'AI temporarily unavailable' };
+    if (e instanceof AIUnavailableError)
+      return { inserted: 0, reason: 'AI temporarily unavailable' };
     throw e;
   }
 
@@ -214,12 +203,5 @@ async function fetchPreviousSignals(businessId: string): Promise<ExtractedSignal
     .eq('business_id', businessId)
     .order('scanned_at', { ascending: false })
     .limit(2);
-  const prev = data?.[1];
-  if (!prev?.seo) return null;
-  return {
-    seo: prev.seo,
-    trust: prev.trust,
-    content: prev.content,
-    engagement: prev.engagement,
-  } as ExtractedSignals;
+  return rowToSignals(data?.[1]);
 }

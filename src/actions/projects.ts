@@ -2,11 +2,20 @@
 
 import { cookies } from 'next/headers';
 import { createServerClient } from '@supabase/ssr';
+import type { Database } from '@/types/database';
 import { supabaseAdmin } from '@/lib/supabase/server';
 import { inngest } from '@/inngest/client';
 import { calculateScores } from '@/services/scores';
 import { mapPriorityActionRow } from '@/lib/priorityActionRow';
 import { CRAWL_INTERVAL_MS } from '@/lib/crawl/config';
+import {
+  businessJson,
+  rowToBusiness,
+  rowToChangeEvent,
+  rowToSignals,
+  toJson,
+  type BusinessRow,
+} from '@/lib/supabase/mappers';
 import type {
   Project,
   Business,
@@ -14,20 +23,17 @@ import type {
   AIHealthScore,
   PriorityAction,
   ChangeEvent,
-  AIVisibility,
-  PageSpeedData,
-  ReviewSentiment,
-  GoogleData,
-  SerpData,
 } from '@/types';
 import { normalizeUrl, extractDomain, isValidUrl } from '@/lib/url';
+
+type ProjectRow = Database['public']['Tables']['projects']['Row'];
 
 // ── Auth helper ───────────────────────────────────────────────────────────────
 
 async function getSessionUserId(): Promise<string> {
   const cookieStore = await cookies();
 
-  const supabase = createServerClient(
+  const supabase = createServerClient<Database>(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
@@ -73,61 +79,19 @@ async function requireBusinessOwnership(businessId: string): Promise<string> {
 
 // ── Row mappers ───────────────────────────────────────────────────────────────
 
-function mapBusiness(
-  b: Record<string, unknown>,
-  signals: ExtractedSignals | null = null,
-  changeEvents: ChangeEvent[] = [],
-): Business {
-  return {
-    id: b.id as string,
-    name: b.name as string,
-    url: b.url as string,
-    domain: b.domain as string,
-    lastCrawledAt: b.last_crawled_at ? new Date(b.last_crawled_at as string).getTime() : null,
-    crawlJobId: (b.crawl_job_id as string) ?? null,
-    crawlStatus: (b.crawl_status as Business['crawlStatus']) ?? 'idle',
-    signals,
-    googleData: (b.google_data as Business['googleData']) ?? null,
-    serpData: (b.serp_data as Business['serpData']) ?? null,
-    aiScore: (b.ai_score as AIHealthScore) ?? null,
-    aiVisibility: (b.ai_visibility as AIVisibility) ?? null,
-    pagespeedData: (b.pagespeed_data as PageSpeedData) ?? null,
-    reviewSentiment: (b.review_sentiment as ReviewSentiment) ?? null,
-    enrichmentErrors: (b.enrichment_errors as Business['enrichmentErrors']) ?? null,
-    previousSignals: null,
-    changeEvents,
-  };
-}
-
-function rowsToProject(p: Record<string, unknown>, businesses: Record<string, unknown>[]): Project {
+function rowsToProject(p: ProjectRow, businesses: BusinessRow[]): Project {
   const own = businesses.find((b) => b.is_own_business);
   const competitors = businesses.filter((b) => !b.is_own_business);
   return {
-    id: p.id as string,
-    name: p.name as string,
-    createdAt: new Date(p.created_at as string).getTime(),
-    ownBusiness: mapBusiness(own!),
-    competitors: competitors.map((b) => mapBusiness(b)),
-    primaryService: (p.primary_service as string | null) ?? null,
-    location: (p.location as string | null) ?? null,
-    postcode: (p.postcode as string | null) ?? null,
+    id: p.id,
+    name: p.name,
+    createdAt: new Date(p.created_at).getTime(),
+    ownBusiness: rowToBusiness(own!),
+    competitors: competitors.map((b) => rowToBusiness(b)),
+    primaryService: p.primary_service ?? null,
+    location: p.location ?? null,
+    postcode: p.postcode ?? null,
   };
-}
-
-// ── Shared helpers ───────────────────────────────────────────────────────────
-
-function parseField<T>(v: unknown): T {
-  return (typeof v === 'string' ? JSON.parse(v) : v) as T;
-}
-
-function rowToSignals(sig: Record<string, unknown> | null): ExtractedSignals | null {
-  if (!sig?.seo) return null;
-  return {
-    seo: parseField(sig.seo),
-    trust: parseField(sig.trust),
-    content: parseField(sig.content),
-    engagement: parseField(sig.engagement),
-  } as ExtractedSignals;
 }
 
 // ── Actions ───────────────────────────────────────────────────────────────────
@@ -214,7 +178,7 @@ export async function getProject(): Promise<Project | null> {
 
   if (!project) return null;
 
-  const bizRows: Record<string, unknown>[] = project.businesses ?? [];
+  const bizRows: BusinessRow[] = project.businesses ?? [];
 
   const enriched = await Promise.all(
     bizRows.map(async (b) => {
@@ -235,29 +199,27 @@ export async function getProject(): Promise<Project | null> {
       ]);
 
       const signals = rowToSignals(sig);
-      const changeEvents: ChangeEvent[] = (events ?? []).map((e) => ({
-        id: e.id as string,
-        detectedAt: new Date(e.detected_at as string).getTime(),
-        severity: e.severity as ChangeEvent['severity'],
-        summary: e.summary as string,
-        changes: e.changes as ChangeEvent['changes'],
-      }));
+      const changeEvents: ChangeEvent[] = (events ?? []).map(rowToChangeEvent);
 
-      let aiScore = (b.ai_score as AIHealthScore) ?? null;
+      const mapped = rowToBusiness(b, signals, changeEvents);
+      let aiScore = mapped.aiScore;
       if (signals && (!aiScore || !aiScore.websiteHealthScore)) {
         aiScore = calculateScores({
-          googleData: b.google_data as GoogleData | null,
-          serpData: b.serp_data as SerpData | null,
-          aiVisibility: b.ai_visibility as AIVisibility | null,
+          googleData: mapped.googleData,
+          serpData: mapped.serpData,
+          aiVisibility: mapped.aiVisibility,
           signals,
-          pagespeedData: b.pagespeed_data as PageSpeedData | null,
+          pagespeedData: mapped.pagespeedData,
         });
-        await supabaseAdmin.from('businesses').update({ ai_score: aiScore }).eq('id', b.id);
+        await supabaseAdmin
+          .from('businesses')
+          .update({ ai_score: toJson(aiScore) })
+          .eq('id', b.id);
       }
 
       return {
-        business: mapBusiness({ ...b, ai_score: aiScore }, signals, changeEvents),
-        isOwn: b.is_own_business as boolean,
+        business: { ...mapped, aiScore },
+        isOwn: b.is_own_business,
       };
     }),
   );
@@ -377,8 +339,9 @@ export async function syncProject(projectId: string): Promise<{
 
   const businesses = await Promise.all(
     rows.map(async (b) => {
+      const mapped = businessJson(b);
       let signals: ExtractedSignals | null = null;
-      let aiScore: AIHealthScore | null = (b.ai_score as AIHealthScore) ?? null;
+      let aiScore: AIHealthScore | null = mapped.aiScore;
 
       if (b.crawl_status === 'complete') {
         const { data: sig } = await supabaseAdmin
@@ -398,13 +361,16 @@ export async function syncProject(projectId: string): Promise<{
           (b.serp_data && aiScore && aiScore.localVisibilityScore === 0)
         ) {
           aiScore = calculateScores({
-            googleData: b.google_data as GoogleData | null,
-            serpData: b.serp_data as SerpData | null,
-            aiVisibility: b.ai_visibility as AIVisibility | null,
+            googleData: mapped.googleData,
+            serpData: mapped.serpData,
+            aiVisibility: mapped.aiVisibility,
             signals,
-            pagespeedData: b.pagespeed_data as PageSpeedData | null,
+            pagespeedData: mapped.pagespeedData,
           });
-          await supabaseAdmin.from('businesses').update({ ai_score: aiScore }).eq('id', b.id);
+          await supabaseAdmin
+            .from('businesses')
+            .update({ ai_score: toJson(aiScore) })
+            .eq('id', b.id);
         }
       }
 
@@ -415,22 +381,16 @@ export async function syncProject(projectId: string): Promise<{
         .order('detected_at', { ascending: false })
         .limit(50);
 
-      const changeEvents: ChangeEvent[] = (events ?? []).map((e) => ({
-        id: e.id as string,
-        detectedAt: new Date(e.detected_at as string).getTime(),
-        severity: e.severity as ChangeEvent['severity'],
-        summary: e.summary as string,
-        changes: e.changes as ChangeEvent['changes'],
-      }));
+      const changeEvents: ChangeEvent[] = (events ?? []).map(rowToChangeEvent);
 
       return {
-        id: b.id as string,
+        id: b.id,
         crawlStatus: b.crawl_status as Business['crawlStatus'],
         signals,
         aiScore,
-        enrichmentErrors: (b.enrichment_errors as Business['enrichmentErrors']) ?? null,
-        googleData: (b.google_data as Business['googleData']) ?? null,
-        serpData: (b.serp_data as Business['serpData']) ?? null,
+        enrichmentErrors: mapped.enrichmentErrors,
+        googleData: mapped.googleData,
+        serpData: mapped.serpData,
         changeEvents,
       };
     }),
@@ -514,10 +474,10 @@ export async function addCompetitor(
 
   await inngest.send({
     name: 'crawl/business.scan',
-    data: { businessId: row.id as string, mode: 'initial' as const },
+    data: { businessId: row.id, mode: 'initial' as const },
   });
 
-  return mapBusiness({ ...row, crawl_status: 'pending' });
+  return rowToBusiness({ ...row, crawl_status: 'pending' });
 }
 
 async function queryPriorityActions(projectId: string): Promise<PriorityAction[]> {

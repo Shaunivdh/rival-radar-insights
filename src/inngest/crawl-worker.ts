@@ -10,6 +10,7 @@ import {
 import { fetchPageDirect } from '@/services/crawl';
 import { checkDirectSignals } from '@/lib/crawl/direct-checks';
 import { supabaseAdmin } from '@/lib/supabase/server';
+import { jsonColumn, rowToSignals, rowToSignalsUnchecked, toJson } from '@/lib/supabase/mappers';
 import { fetchGoogleData, fetchSerpData } from '@/actions/enrichment';
 import {
   generatePriorityActions,
@@ -47,7 +48,7 @@ function toPartialBiz(b: {
   name: string;
   signals: ExtractedSignals | null;
   aiScore: AIHealthScore | null;
-  googleData: unknown;
+  googleData: GoogleData | null;
   pagespeedData: PageSpeedData | null;
 }): Business {
   return {
@@ -59,7 +60,7 @@ function toPartialBiz(b: {
     crawlJobId: null,
     crawlStatus: 'complete',
     signals: b.signals,
-    googleData: b.googleData as Business['googleData'],
+    googleData: b.googleData,
     serpData: null,
     pagespeedData: b.pagespeedData,
     aiScore: b.aiScore,
@@ -98,15 +99,6 @@ async function fetchPreviousActionBatch(projectId: string): Promise<PriorityActi
   return (rows ?? []).map((r) => mapPriorityActionRow(r as Record<string, unknown>));
 }
 
-function rowToSignals(r: Record<string, unknown>): ExtractedSignals {
-  return {
-    seo: r.seo,
-    trust: r.trust,
-    content: r.content,
-    engagement: r.engagement,
-  } as ExtractedSignals;
-}
-
 /** Fetch the previous (not most-recent) extracted_signals row for a business. */
 async function fetchPreviousSignals(businessId: string): Promise<ExtractedSignals | null> {
   const { data } = await supabaseAdmin
@@ -115,14 +107,7 @@ async function fetchPreviousSignals(businessId: string): Promise<ExtractedSignal
     .eq('business_id', businessId)
     .order('scanned_at', { ascending: false })
     .limit(2);
-  const prev = data?.[1];
-  if (!prev?.seo) return null;
-  return {
-    seo: prev.seo,
-    trust: prev.trust,
-    content: prev.content,
-    engagement: prev.engagement,
-  } as ExtractedSignals;
+  return rowToSignals(data?.[1]);
 }
 
 const MAX_POLL_ATTEMPTS = 120;
@@ -170,7 +155,7 @@ async function clearEnrichmentError(
   delete errors[key];
   await supabaseAdmin
     .from('businesses')
-    .update({ enrichment_errors: Object.keys(errors).length ? errors : null })
+    .update({ enrichment_errors: Object.keys(errors).length ? toJson(errors) : null })
     .eq('id', businessId);
 }
 
@@ -247,22 +232,15 @@ export const crawlBusinessFunction = inngest.createFunction(
                   .eq('id', b.id)
                   .single(),
               ]);
-              const signals = sig?.seo
-                ? ({
-                    seo: sig.seo,
-                    trust: sig.trust,
-                    content: sig.content,
-                    engagement: sig.engagement,
-                  } as ExtractedSignals)
-                : null;
+              const signals = rowToSignals(sig);
               return {
                 id: b.id as string,
                 name: b.name as string,
                 isOwn: b.is_own_business as boolean,
                 signals,
-                aiScore: (bizRow?.ai_score as AIHealthScore) ?? null,
-                googleData: bizRow?.google_data ?? null,
-                pagespeedData: (bizRow?.pagespeed_data as PageSpeedData) ?? null,
+                aiScore: jsonColumn<AIHealthScore>(bizRow?.ai_score),
+                googleData: jsonColumn<GoogleData>(bizRow?.google_data),
+                pagespeedData: jsonColumn<PageSpeedData>(bizRow?.pagespeed_data),
               };
             }),
           );
@@ -582,7 +560,10 @@ export const crawlBusinessFunction = inngest.createFunction(
         if (hasRobotsTxt) seo.hasRobotsTxt = true;
         if (hasSitemap) seo.hasSitemap = true;
 
-        await supabaseAdmin.from('extracted_signals').update({ seo }).eq('id', sigRow.id);
+        await supabaseAdmin
+          .from('extracted_signals')
+          .update({ seo: toJson(seo) })
+          .eq('id', sigRow.id);
       });
     } // end skipCrawlSteps
 
@@ -728,7 +709,7 @@ export const crawlBusinessFunction = inngest.createFunction(
 
         const { error } = await supabaseAdmin
           .from('businesses')
-          .update({ ai_visibility: visibility })
+          .update({ ai_visibility: toJson(visibility) })
           .eq('id', businessId);
         if (error) {
           console.error(`[check-ai-visibility] DB write failed for business ${businessId}:`, error);
@@ -819,9 +800,9 @@ export const crawlBusinessFunction = inngest.createFunction(
       if (!baseline) return null;
 
       const filtered = suppressOscillatingChanges(
-        rowToSignals(baseline),
-        rowToSignals(detection),
-        confirmedRows.slice(1, 5).map(rowToSignals),
+        rowToSignalsUnchecked(baseline),
+        rowToSignalsUnchecked(detection),
+        confirmedRows.slice(1, 5).map(rowToSignalsUnchecked),
       );
       if (filtered.suppressedPaths.length > 0) {
         logCrawlStep(
@@ -886,14 +867,7 @@ export const crawlBusinessFunction = inngest.createFunction(
 
       if (!biz) return;
 
-      const signals = sig?.seo
-        ? ({
-            seo: sig.seo,
-            trust: sig.trust,
-            content: sig.content,
-            engagement: sig.engagement,
-          } as ExtractedSignals)
-        : null;
+      const signals = rowToSignals(sig);
 
       let previousReviewCount: number | undefined;
       let daysBetween: number | undefined;
@@ -978,7 +952,7 @@ export const crawlBusinessFunction = inngest.createFunction(
         .single();
       if (!bizRow?.ai_score) return;
 
-      const aiScore = bizRow.ai_score as AIHealthScore;
+      const aiScore = jsonColumn<AIHealthScore>(bizRow.ai_score)!;
       const weeksOver30 = Math.floor((daysSinceLastReview - 30) / 7);
       // Only decay scores we actually have — unknown stays unknown.
       if (aiScore.reviewVelocityScore !== null) {
@@ -997,7 +971,7 @@ export const crawlBusinessFunction = inngest.createFunction(
         .single();
       if (!bizRow?.ai_score) return;
 
-      const aiScore = bizRow.ai_score as AIHealthScore;
+      const aiScore = jsonColumn<AIHealthScore>(bizRow.ai_score)!;
       await saveScoreSnapshot(supabaseAdmin, businessId, aiScore);
 
       const weeklyDelta = await getWeeklyDelta(supabaseAdmin, businessId);
@@ -1090,7 +1064,7 @@ export const crawlBusinessFunction = inngest.createFunction(
       for (const comp of overtakers) {
         if (alreadyRecorded.has(comp.id)) continue;
 
-        const theirPosition = (comp.serp_data as SerpData).localVisibilityPosition!;
+        const theirPosition = jsonColumn<SerpData>(comp.serp_data)!.localVisibilityPosition!;
 
         const event: ChangeEvent = {
           id: crypto.randomUUID(),
@@ -1160,22 +1134,15 @@ export const crawlBusinessFunction = inngest.createFunction(
               .eq('id', b.id)
               .single(),
           ]);
-          const signals = sig?.seo
-            ? ({
-                seo: sig.seo,
-                trust: sig.trust,
-                content: sig.content,
-                engagement: sig.engagement,
-              } as ExtractedSignals)
-            : null;
+          const signals = rowToSignals(sig);
           return {
             id: b.id as string,
             name: b.name as string,
             isOwn: b.is_own_business as boolean,
             signals,
-            aiScore: (bizRow?.ai_score as AIHealthScore) ?? null,
-            googleData: bizRow?.google_data ?? null,
-            pagespeedData: (bizRow?.pagespeed_data as PageSpeedData) ?? null,
+            aiScore: jsonColumn<AIHealthScore>(bizRow?.ai_score),
+            googleData: jsonColumn<GoogleData>(bizRow?.google_data),
+            pagespeedData: jsonColumn<PageSpeedData>(bizRow?.pagespeed_data),
           };
         }),
       );
@@ -1434,11 +1401,11 @@ export const confirmChangeFunction = inngest.createFunction(
         .order('scanned_at', { ascending: false })
         .limit(4);
 
-      const baseline = rowToSignals(baseRow);
+      const baseline = rowToSignalsUnchecked(baseRow);
       const filtered = suppressOscillatingChanges(
         baseline,
-        rowToSignals(confirmRow),
-        (historyRows ?? []).map(rowToSignals),
+        rowToSignalsUnchecked(confirmRow),
+        (historyRows ?? []).map(rowToSignalsUnchecked),
       );
 
       if (!filtered.hasChanges) {

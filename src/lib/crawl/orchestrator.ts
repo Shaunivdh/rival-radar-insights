@@ -252,7 +252,7 @@ export async function startBusinessCrawl(
             maxPages: Math.max(1, MAX_TOTAL_PAGES - MAX_PRIORITY_PAGES),
             render: true,
             jsonOptions: { prompt: EXTRACTION_PROMPT },
-            gotoOptions: { waitUntil: 'networkidle0' },
+            gotoOptions: { waitUntil: 'networkidle0', timeout: 30000 },
           },
           credentials,
         );
@@ -538,7 +538,10 @@ export async function extractAndPersistSignals(
         );
 
         if (validPages.length > 0) {
-          rawResult = { status: 'completed', pages: [...rootResult.pages, ...validPages] };
+          // Build on rawResult, not rootResult: rawResult carries the retried or
+          // popup-stripped root page, and drops an unusable root. Rebuilding from
+          // rootResult here silently discarded a successful retry.
+          rawResult = { status: 'completed', pages: [...rawResult.pages, ...validPages] };
           logger.info('crawl', 'Merged extra pages', {
             merged: validPages.length,
             total: rawResult.pages.length,

@@ -159,7 +159,7 @@ describe('§6 rendering invariants', () => {
     }
   });
 
-  it('uses a 30000ms timeout on the retry and enrichment crawls', async () => {
+  it('uses a 30000ms timeout on every crawl', async () => {
     seedBusiness();
     await runWithTimers(
       extractAndPersistSignals(BUSINESS_ID, CF_JOB_ID, rootResult(nearEmptyHtml)),
@@ -184,18 +184,14 @@ describe('§6 rendering invariants', () => {
     expect(body).not.toHaveProperty('modifiedSince');
   });
 
-  it('DEVIATION: the initial crawl omits the 30s timeout §6 requires', async () => {
-    // §6 says every crawl must send gotoOptions { waitUntil: 'networkidle0',
-    // timeout: 30000 }. startBusinessCrawl's initial branch passes waitUntil
-    // only, so the request falls back to Cloudflare's default timeout. Pinned
-    // here as current behaviour, not endorsed — fixing it means touching crawl
-    // code, which is out of scope for this test work.
+  it('sends the full §6 gotoOptions on the initial crawl', async () => {
+    // The initial crawl used to send waitUntil only, falling back to
+    // Cloudflare's default timeout while every other crawl asked for 30s.
     seedBusiness();
     await runWithTimers(startBusinessCrawl(BUSINESS_ID, 'initial'));
 
     expect(crawlStarts).toHaveLength(1);
-    expect(crawlStarts[0].gotoOptions).toEqual({ waitUntil: 'networkidle0' });
-    expect((crawlStarts[0].gotoOptions as Record<string, unknown>).timeout).toBeUndefined();
+    expect(crawlStarts[0].gotoOptions).toEqual({ waitUntil: 'networkidle0', timeout: 30000 });
   });
 
   it('incremental crawls render too, and drop modifiedSince', async () => {
@@ -330,23 +326,20 @@ describe('direct fetch fallback', () => {
 });
 
 describe('recovered retry HTML surviving enrichment', () => {
-  it('BUG: the priority-page merge discards the retried root HTML', async () => {
+  it('keeps the retried root HTML when priority pages merge', async () => {
     seedBusiness();
     await runWithTimers(
       extractAndPersistSignals(BUSINESS_ID, CF_JOB_ID, rootResult(nearEmptyHtml)),
     );
 
-    // The retry recovered a usable root page, but the merge that appends
-    // priority pages rebuilds the list from `rootResult.pages` — the original,
-    // pre-retry pages — so the recovered HTML is dropped and the near-empty
-    // root is what gets cached and parsed. Pinned as current behaviour; the fix
-    // is in crawl code and therefore out of scope here.
+    // Regression guard: the merge used to rebuild from `rootResult.pages` — the
+    // original, pre-retry pages — which threw away the page the retry had just
+    // recovered and cached the near-empty root instead.
     const [, cached] = saveToCacheMock.mock.calls[0] as [string, RawCrawlResult];
-    const root = cached.pages.find((p) => p.url === `${SITE}/`);
-    expect(root?.html).toBe(nearEmptyHtml);
-    expect(root?.html?.length).toBeLessThan(500);
+    expect(cached.pages[0].html).toBe(cfSampleHtml);
+    expect(cached.pages.some((p) => p.html === nearEmptyHtml)).toBe(false);
 
-    // The enrichment page did survive, so the run still persists mixed signals.
+    // And enrichment still merged, so this is the path that used to lose it.
     expect(cached.pages.length).toBeGreaterThan(1);
   });
 

@@ -337,6 +337,9 @@ export async function extractAndPersistSignals(
 
   // Multi-page: extract priority links from root HTML and crawl them in parallel
   let rawResult: RawCrawlResult = rootResult;
+  // Set when the unusable root is removed below, so the merge does not treat the
+  // first surviving sub-page as the root and hand it the root ordering slot.
+  let rootPageDropped = false;
   if (!cached && url && rootResult.pages.length > 0) {
     const rootHtml = rootResult.pages[0]?.html ?? '';
 
@@ -460,6 +463,7 @@ export async function extractAndPersistSignals(
           // Remove the unusable root page from results so sub-page signals aren't contaminated
           // by challenge page titles/h1s — sub-pages will provide the real data
           rawResult = { ...rawResult, pages: rawResult.pages.slice(1) };
+          rootPageDropped = true;
           logger.info('crawl', 'Removed unusable root page from results', {
             subPagesRemaining: rawResult.pages.length,
           });
@@ -525,7 +529,10 @@ export async function extractAndPersistSignals(
           // Source from rawResult, not rootResult: rawResult carries the retried or
           // popup-stripped root page. Rebuilding from rootResult silently discarded
           // a successful retry.
-          const [rootPage, ...discovered] = rawResult.pages;
+          // When the root was dropped as unusable there is no root to lead with, and
+          // every surviving page is a discovered sub-page.
+          const rootPage = rootPageDropped ? null : (rawResult.pages[0] ?? null);
+          const discovered = rootPageDropped ? rawResult.pages : rawResult.pages.slice(1);
           rawResult = {
             status: 'completed',
             pages: [...(rootPage ? [rootPage] : []), ...validPages, ...discovered],

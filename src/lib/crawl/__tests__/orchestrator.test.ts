@@ -21,7 +21,7 @@ import {
   cfSampleHtml,
   cfCompletedResponse,
 } from '@/test/fixtures/providers/cloudflare';
-import { cloudflareChallengeHtml, nearEmptyHtml } from '@/test/fixtures/html';
+import { cloudflareChallengeHtml, cookieOverlayHtml, nearEmptyHtml } from '@/test/fixtures/html';
 import type { RawCrawlResult } from '@/types';
 
 const { saveToCacheMock, loadFromCacheMock, extractPageSignalsMock, priorPages, priorMax } =
@@ -384,5 +384,68 @@ describe('recovered retry HTML surviving enrichment', () => {
     expect(cached.pages[0].html).toBe(cfSampleHtml);
     // And an enrichment crawl really was attempted — otherwise this proves nothing.
     expect(crawlStarts.filter((b) => b.url !== SITE).length).toBeGreaterThan(0);
+  });
+
+  it('does not resurrect the unusable root when priority pages merge', async () => {
+    seedBusiness();
+    // Root stays a challenge page even after the retry, so the orchestrator drops
+    // it to stop challenge titles/h1s contaminating the signals. A discovered
+    // sub-page survives and supplies the links for enrichment.
+    //
+    // Regression guard, two ways:
+    //  - rebuilding from `rootResult.pages` puts the dropped challenge page back,
+    //    undoing the removal the code just performed on purpose;
+    //  - destructuring `rawResult.pages` blind treats the surviving sub-page as
+    //    the root and hands it the lead slot ahead of the priority pages.
+    server.use(
+      http.post(`${CF_BASE}/crawl`, async ({ request }) => {
+        const body = (await request.json()) as Record<string, unknown>;
+        crawlStarts.push(body);
+        timeline.push(`crawl-start:${String(body.url)}`);
+        check('cf.start.request', C.CfCrawlStartRequest, body);
+        return HttpResponse.json({
+          ...cfStartResponse,
+          result: body.url === SITE ? 'job-root-retry' : 'job-enrichment',
+        });
+      }),
+      http.get(`${CF_BASE}/crawl/:jobId`, ({ request, params }) => {
+        const url = new URL(request.url);
+        if (url.searchParams.get('limit') === '1') {
+          return HttpResponse.json({ success: true, result: { status: 'completed' } });
+        }
+        // The retry brings back the same challenge page — recovery fails.
+        if (params.jobId === 'job-root-retry') {
+          return HttpResponse.json({
+            success: true,
+            result: {
+              status: 'completed',
+              records: [{ url: SITE, html: cloudflareChallengeHtml }],
+            },
+          });
+        }
+        return HttpResponse.json({
+          success: true,
+          result: { status: 'completed', records: [{ url: `${SITE}/about`, html: cfSampleHtml }] },
+        });
+      }),
+    );
+
+    const rootPlusSubPage: RawCrawlResult = {
+      status: 'completed',
+      pages: [
+        { url: `${SITE}/`, html: cloudflareChallengeHtml },
+        { url: `${SITE}/services`, html: cookieOverlayHtml },
+      ],
+    };
+    await runWithTimers(extractAndPersistSignals(BUSINESS_ID, CF_JOB_ID, rootPlusSubPage));
+
+    const [, cached] = saveToCacheMock.mock.calls[0] as [string, RawCrawlResult];
+    // The challenge page is gone and stays gone.
+    expect(cached.pages.some((pg) => pg.html === cloudflareChallengeHtml)).toBe(false);
+    // Priority pages lead; the surviving sub-page trails them.
+    expect(cached.pages[0].html).toBe(cfSampleHtml);
+    expect(cached.pages.some((pg) => pg.html === cookieOverlayHtml)).toBe(true);
+    // And a merge genuinely happened — otherwise this proves nothing.
+    expect(cached.pages.length).toBeGreaterThan(1);
   });
 });

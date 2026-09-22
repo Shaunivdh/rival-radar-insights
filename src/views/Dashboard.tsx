@@ -114,17 +114,21 @@ const Dashboard = () => {
     }
   }, [isSetupFlow, isDemoMode, isScanning, noneComplete, router]);
 
+  // Only the id is needed below; depending on `project` itself would restart the
+  // poll interval on every sync, since syncBusinesses replaces the project object.
+  const projectId = project?.id;
+
   useEffect(() => {
-    if (!project || isDemoMode) return;
+    if (!projectId || isDemoMode) return;
 
     // Reset scan tracking when the project changes
-    if (trackedProjectIdRef.current !== project.id) {
-      trackedProjectIdRef.current = project.id;
+    if (trackedProjectIdRef.current !== projectId) {
+      trackedProjectIdRef.current = projectId;
       wasScanningRef.current = false;
     }
 
     const poll = async () => {
-      const result = await syncProject(project.id);
+      const result = await syncProject(projectId);
       syncBusinesses(result.businesses);
       if (result.priorityActions?.length) setPriorityActions(result.priorityActions);
     };
@@ -145,7 +149,7 @@ const Dashboard = () => {
       const timer = setTimeout(poll, 5000);
       return () => clearTimeout(timer);
     }
-  }, [isScanning, project?.id, isDemoMode]);
+  }, [isScanning, projectId, isDemoMode, syncBusinesses, setPriorityActions]);
 
   if (!project) return null;
 

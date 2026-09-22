@@ -4,7 +4,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { useRivalRadarStore } from '@/store/rivalradar';
 import { ScoreChip } from '@/components/ScoreChip';
 import { StarRating } from '@/components/StarRating';
-import { SeverityBadge, ChangeEventCard } from '@/components/Badges';
+import { ChangeEventCard } from '@/components/Badges';
 import {
   ArrowLeft,
   ExternalLink,

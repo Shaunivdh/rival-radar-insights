@@ -38,13 +38,6 @@ function pickBool(pages: PageJson[], key: string, fallback = false): boolean {
   return found ? false : fallback;
 }
 
-function pickNum(pages: PageJson[], key: string, fallback: number | null = null): number | null {
-  for (const p of pages) {
-    if (typeof p[key] === 'number') return p[key] as number;
-  }
-  return fallback;
-}
-
 /** Returns the maximum numeric value across all pages — use for counts where the dedicated page has the real value. */
 function maxNum(pages: PageJson[], key: string, fallback = 0): number {
   let max = fallback;
@@ -94,15 +87,6 @@ function sanitizeServices(items: string[]): string[] {
     out.push(s);
   }
   return out;
-}
-
-function mergeObjectArrays(pages: PageJson[], key: string): unknown[] {
-  const results: unknown[] = [];
-  for (const p of pages) {
-    const arr = p[key];
-    if (Array.isArray(arr)) results.push(...arr);
-  }
-  return results;
 }
 
 /** Returns true if any page HTML contains a <form> element with inputs — deterministic fallback for hasContactForm. */

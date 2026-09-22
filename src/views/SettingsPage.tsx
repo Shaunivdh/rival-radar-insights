@@ -59,6 +59,17 @@ const SettingsPage = () => {
   const biz = project?.ownBusiness;
   const initials = user?.email?.slice(0, 2).toUpperCase() ?? 'MJ';
 
+  // Drop one field's error as the user edits it. Returning `prev` untouched when the
+  // key isn't set lets React bail out of the re-render, as the old `in` guard did.
+  const clearError = (key: keyof FieldErrors) => {
+    setErrors((prev) => {
+      if (!(key in prev)) return prev;
+      const rest = { ...prev };
+      delete rest[key];
+      return rest;
+    });
+  };
+
   useEffect(() => {
     fetch('/api/gbp/status')
       .then((r) => r.json())
@@ -239,10 +250,7 @@ const SettingsPage = () => {
                       value={form.primaryService ?? ''}
                       onChange={(e) => {
                         setForm({ ...form, primaryService: e.target.value as ServiceCategory });
-                        if ('primaryService' in errors) {
-                          const { primaryService: _, ...rest } = errors;
-                          setErrors(rest);
-                        }
+                        clearError('primaryService');
                       }}
                       className="flex h-10 w-full rounded-md border border-input bg-background pl-10 pr-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                     >
@@ -268,10 +276,7 @@ const SettingsPage = () => {
                     defaultValue={form.location ?? ''}
                     onChange={(e) => {
                       setForm({ ...form, location: e.target.value });
-                      if ('location' in errors) {
-                        const { location: _, ...rest } = errors;
-                        setErrors(rest);
-                      }
+                      clearError('location');
                     }}
                   />
                   {errors.location && <p className="text-xs text-destructive">{errors.location}</p>}
@@ -284,10 +289,7 @@ const SettingsPage = () => {
                     defaultValue={form.postcode ?? ''}
                     onChange={(e) => {
                       setForm({ ...form, postcode: e.target.value.toUpperCase() });
-                      if ('postcode' in errors) {
-                        const { postcode: _, ...rest } = errors;
-                        setErrors(rest);
-                      }
+                      clearError('postcode');
                     }}
                   />
                   {errors.postcode && <p className="text-xs text-destructive">{errors.postcode}</p>}

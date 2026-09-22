@@ -620,7 +620,6 @@ const CompetitorsList = () => {
                     </thead>
                     <tbody>
                       {allBiz.map(({ biz, label }) => {
-                        const filled = cols.filter((c) => ok(biz[c.key])).length;
                         return (
                           <tr key={biz.id} className="border-t border-border/30">
                             <td className="pr-4 py-1.5 text-yellow-400 font-semibold whitespace-nowrap">

@@ -33,7 +33,7 @@ const workspaceNavItems = [
 export const AppSidebar = () => {
   const router = useRouter();
   const pathname = usePathname();
-  const { user, isDemoMode, priorityActions, logout } = useRivalRadarStore();
+  const { user, priorityActions, logout } = useRivalRadarStore();
 
   const handleLogout = async () => {
     await logout();

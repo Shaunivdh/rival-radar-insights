@@ -131,7 +131,8 @@ export const useRivalRadarStore = create<RivalRadarState>()((set, get) => ({
             user_id: user.id,
             primary_service: settings.primaryService,
             location: settings.location,
-            postcode: settings.postcode ?? null,
+            // column is `text not null default ''` — writing null fails the upsert
+            postcode: settings.postcode ?? '',
             updated_at: new Date().toISOString(),
           },
           { onConflict: 'user_id' },

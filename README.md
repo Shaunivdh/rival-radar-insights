@@ -115,21 +115,20 @@ bun install
 cp .env.example .env.local
 ```
 
-| Variable                                    | Where to get it                                                                                              |
-| ------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
-| `NEXT_PUBLIC_SUPABASE_URL`                  | Supabase dashboard → Project Settings                                                                        |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY`             | Supabase dashboard → Project Settings                                                                        |
-| `SUPABASE_SERVICE_ROLE_KEY`                 | Supabase dashboard → Project Settings (server only)                                                          |
-| `NEXT_PUBLIC_APP_URL`                       | `http://localhost:3000` locally; your domain in production                                                   |
-| `CF_ACCOUNT_ID`                             | Cloudflare dashboard → account menu                                                                          |
-| `CF_API_TOKEN`                              | Cloudflare → My Profile → API Tokens (Browser Rendering permission)                                          |
-| `ANTHROPIC_API_KEY`                         | console.anthropic.com                                                                                        |
-| `GOOGLE_PLACES_API_KEY`                     | Google Cloud Console                                                                                         |
-| `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | Google Cloud Console → Credentials. Redirect URI: `${NEXT_PUBLIC_APP_URL}/api/auth/google-business/callback` |
-| `SERP_API_KEY`                              | serpapi.com                                                                                                  |
-| `RESEND_API_KEY` / `RESEND_FROM_EMAIL`      | resend.com/api-keys                                                                                          |
-| `INNGEST_EVENT_KEY` / `INNGEST_SIGNING_KEY` | Inngest dashboard → your app                                                                                 |
-| `SITE_PASSWORD`                             | Anything you like. Gates the app during private beta                                                         |
+| Variable                                    | Where to get it                                                     |
+| ------------------------------------------- | ------------------------------------------------------------------- |
+| `NEXT_PUBLIC_SUPABASE_URL`                  | Supabase dashboard → Project Settings                               |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY`             | Supabase dashboard → Project Settings                               |
+| `SUPABASE_SERVICE_ROLE_KEY`                 | Supabase dashboard → Project Settings (server only)                 |
+| `NEXT_PUBLIC_APP_URL`                       | `http://localhost:3000` locally; your domain in production          |
+| `CF_ACCOUNT_ID`                             | Cloudflare dashboard → account menu                                 |
+| `CF_API_TOKEN`                              | Cloudflare → My Profile → API Tokens (Browser Rendering permission) |
+| `ANTHROPIC_API_KEY`                         | console.anthropic.com                                               |
+| `GOOGLE_PLACES_API_KEY`                     | Google Cloud Console                                                |
+| `SERP_API_KEY`                              | serpapi.com                                                         |
+| `RESEND_API_KEY` / `RESEND_FROM_EMAIL`      | resend.com/api-keys                                                 |
+| `INNGEST_EVENT_KEY` / `INNGEST_SIGNING_KEY` | Inngest dashboard → your app                                        |
+| `SITE_PASSWORD`                             | Anything you like. Gates the app during private beta                |
 
 ### 3. Seed Cloudflare credentials in Supabase
 

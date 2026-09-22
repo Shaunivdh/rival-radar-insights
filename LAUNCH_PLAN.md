@@ -2,25 +2,25 @@
 
 ## What Exists Today
 
-| Area | Status | Detail |
-| --- | --- | --- |
-| Domain | `scoutly.io` configured | In layout.tsx, robots.ts, sitemap.ts |
-| Branding | Partial | "Scoutly" in public files, "RivalRadar" still in some components |
-| Auth | Working | Supabase email/password, protected routes |
-| Onboarding | Working | Signup → add business → add competitors → auto-scan |
-| Crawling | Working | Cloudflare + Inngest queue, fallback to direct fetch |
-| Scoring | Working | 6 categories, overall score, trends |
-| AI Actions | Working | 27 rule templates + LLM fallback + validation layer |
-| Competitor comparison | Working | Side-by-side scores, strengths/weaknesses |
-| GBP monitoring | Working | OAuth flow, reviews, location data |
-| AI mention tracking | Working | Multi-prompt presence scoring |
-| Email template | Built | WeeklyDigest.tsx exists, Resend configured |
-| Email sending | Not wired | No cron/scheduler triggers it |
-| Stripe/billing | Nothing | No package, no env vars, no code |
-| Landing page | Nothing | Root redirects to login |
-| Analytics | Nothing | No Sentry, PostHog, or Plausible |
-| Hosting | Not deployed | No Vercel project linked |
-| Resend FROM email | Placeholder | Still set to `noreply@yourdomain.com` |
+| Area                  | Status                  | Detail                                                                            |
+| --------------------- | ----------------------- | --------------------------------------------------------------------------------- |
+| Domain                | `scoutly.io` configured | In layout.tsx, robots.ts, sitemap.ts                                              |
+| Branding              | Partial                 | "Scoutly" in public files, "RivalRadar" still in some components                  |
+| Auth                  | Working                 | Supabase email/password, protected routes                                         |
+| Onboarding            | Working                 | Signup → add business → add competitors → auto-scan                               |
+| Crawling              | Working                 | Cloudflare + Inngest queue, fallback to direct fetch                              |
+| Scoring               | Working                 | 6 categories, overall score, trends                                               |
+| AI Actions            | Working                 | 27 rule templates + LLM fallback + validation layer                               |
+| Competitor comparison | Working                 | Side-by-side scores, strengths/weaknesses                                         |
+| GBP monitoring        | Removed                 | OAuth flow/reviews/location deleted; GBP completeness still scored via Places API |
+| AI mention tracking   | Working                 | Multi-prompt presence scoring                                                     |
+| Email template        | Built                   | WeeklyDigest.tsx exists, Resend configured                                        |
+| Email sending         | Not wired               | No cron/scheduler triggers it                                                     |
+| Stripe/billing        | Nothing                 | No package, no env vars, no code                                                  |
+| Landing page          | Nothing                 | Root redirects to login                                                           |
+| Analytics             | Nothing                 | No Sentry, PostHog, or Plausible                                                  |
+| Hosting               | Not deployed            | No Vercel project linked                                                          |
+| Resend FROM email     | Placeholder             | Still set to `noreply@yourdomain.com`                                             |
 
 ---
 
@@ -187,14 +187,14 @@
 
 ## Key Metrics
 
-| Metric | Target |
-| --- | --- |
-| Signup → first scan complete | < 5 minutes |
-| Scan success rate | > 90% |
-| Action accuracy (manual review) | > 85% |
-| Weekly email open rate | > 40% |
-| Trial → paid conversion | > 15% |
-| Week 4 retention | > 60% |
+| Metric                          | Target      |
+| ------------------------------- | ----------- |
+| Signup → first scan complete    | < 5 minutes |
+| Scan success rate               | > 90%       |
+| Action accuracy (manual review) | > 85%       |
+| Weekly email open rate          | > 40%       |
+| Trial → paid conversion         | > 15%       |
+| Week 4 retention                | > 60%       |
 
 ---
 

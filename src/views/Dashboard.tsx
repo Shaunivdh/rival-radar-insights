@@ -29,7 +29,6 @@ import type { ChangeEvent as CE } from '@/types';
 import { DashboardGreeting } from '@/components/DashboardGreeting';
 import { ScoreTrend } from '@/components/ScoreTrend';
 import DashboardLoading from '@/views/DashboardLoading';
-import DashboardConnectPrompt from '@/components/dashboard/DashboardConnectPrompt';
 
 const STATUS_ICON: Record<string, React.ReactNode> = {
   idle: <Clock className="w-3.5 h-3.5 text-muted-foreground" />,
@@ -302,9 +301,6 @@ const Dashboard = () => {
 
       {/* Greeting */}
       <DashboardGreeting />
-
-      {/* Connect Google Business Profile */}
-      <DashboardConnectPrompt />
 
       {/* Score overview + right column */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">

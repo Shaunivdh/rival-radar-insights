@@ -177,8 +177,24 @@ Every crawl uses full JavaScript rendering with `waitUntil: 'networkidle0'` and 
 | `bun run lint` / `lint:fix`       | ESLint                                              |
 | `bun run format` / `format:check` | Prettier                                            |
 | `bun run test` / `test:watch`     | Vitest unit tests                                   |
+| `bun run test:unit`               | Vitest unit tests, single run (what CI runs)        |
 | `bun run test:integration`        | AI pipeline integration test                        |
+| `bun run test:e2e`                | Playwright end-to-end tests                         |
+| `bun run typecheck`               | `tsc --noEmit`                                      |
 | `bun run email:preview`           | Preview the weekly digest email at `localhost:3001` |
+
+---
+
+## CI
+
+`.github/workflows/ci.yml` runs on every push to every branch: `lint` →
+`typecheck` → `test:unit` → `build`, then Playwright. It builds with placeholder
+Supabase keys, never real secrets — see the comments in the workflow for why.
+
+**`main` requires CI to pass before merging.** That rule is not in this repo —
+branch protection lives in GitHub settings and has to be turned on by hand:
+Settings → Branches → add a rule for `main` → "Require status checks to pass
+before merging" → select `check`.
 
 ---
 

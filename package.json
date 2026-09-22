@@ -15,6 +15,9 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:integration": "vitest run src/lib/__tests__/ai.pipeline.test.ts",
+    "test:unit": "vitest run",
+    "test:e2e": "playwright test",
+    "typecheck": "tsc --noEmit",
     "prepare": "husky"
   },
   "dependencies": {
@@ -78,6 +81,7 @@
   "devDependencies": {
     "@eslint/eslintrc": "^3.3.5",
     "@eslint/js": "^9.32.0",
+    "@playwright/test": "^1.63.0",
     "@react-email/components": "^1.0.12",
     "@tailwindcss/typography": "^0.5.16",
     "@types/node": "^22.16.5",

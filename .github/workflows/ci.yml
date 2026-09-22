@@ -1,0 +1,54 @@
+name: CI
+
+on:
+  # Every branch, so feature branches are checked before they reach main.
+  # No pull_request trigger: it would double every run, since a PR's head
+  # branch already gets a push event here and checks attach to the commit SHA.
+  push:
+    branches: ['**']
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      - run: bun install --frozen-lockfile
+      - run: bun run lint
+      - run: bun run typecheck
+      - run: bun run test:unit
+      # Placeholders only — src/lib/supabase/server.ts and client.ts both throw at
+      # module load without these, which fails the build during page collection.
+      - run: bun run build
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: http://supabase.invalid
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ci-anon-key
+          SUPABASE_SERVICE_ROLE_KEY: ci-service-role-key
+
+  e2e:
+    runs-on: ubuntu-latest
+    needs: check
+    env:
+      # Demo-mode only in CI: no Supabase secrets, so seeded tests skip themselves.
+      NEXT_PUBLIC_SUPABASE_URL: http://supabase.invalid
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ci-anon-key
+      # Placeholder only — src/lib/supabase/server.ts throws at module load
+      # without it, which 500s every route and stalls the Playwright webServer.
+      SUPABASE_SERVICE_ROLE_KEY: ci-service-role-key
+      NEXT_PUBLIC_APP_URL: http://localhost:3000
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      - run: bun install --frozen-lockfile
+      - run: bunx playwright install --with-deps chromium
+      - run: bun run test:e2e
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 7

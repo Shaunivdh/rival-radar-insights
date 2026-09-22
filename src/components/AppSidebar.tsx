@@ -6,11 +6,10 @@ import {
   LayoutDashboard,
   Users,
   Settings,
-  Zap,
   LogOut,
   Building2,
   Lightbulb,
-  HelpCircle,
+  Mail,
   Eye,
 } from 'lucide-react';
 import { Logo } from '@/components/Logo';
@@ -27,7 +26,7 @@ const mainNavItems = [
 const workspaceNavItems = [
   { label: 'Competitors', path: '/competitors', icon: Users },
   { label: 'Settings', path: '/settings', icon: Settings },
-  { label: 'Help center', path: '/help', icon: HelpCircle },
+  { label: 'Contact us', path: '/contact', icon: Mail },
 ];
 
 export const AppSidebar = () => {
@@ -119,15 +118,6 @@ export const AppSidebar = () => {
             </button>
           </div>
         )}
-        <div className="card-surface bg-primary/5 border-primary/10 flex items-start gap-3 p-3">
-          <Zap className="w-4 h-4 text-primary mt-0.5 shrink-0" />
-          <div>
-            <p className="text-xs font-medium text-foreground">Pro Tip</p>
-            <p className="text-xs text-muted-foreground mt-0.5">
-              Add API keys in Settings to enable live scanning.
-            </p>
-          </div>
-        </div>
       </div>
     </aside>
   );

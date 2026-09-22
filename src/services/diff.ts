@@ -61,8 +61,9 @@ export function suppressOscillatingChanges(
 
       const seenBefore = history.some(
         (h) =>
-          JSON.stringify((h[category] as unknown as Record<string, unknown> | undefined)?.[leaf]) ===
-          currVal,
+          JSON.stringify(
+            (h[category] as unknown as Record<string, unknown> | undefined)?.[leaf],
+          ) === currVal,
       );
       if (seenBefore) {
         suppressedPaths.push(`${category}.${leaf}`);

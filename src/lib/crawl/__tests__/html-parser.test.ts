@@ -1,10 +1,7 @@
-/**
- * parseHtmlSignals is the deterministic half of signal extraction — it runs on
- * every crawled page before the AI pass, so these cases pin the behaviour the
- * orchestrator depends on when it decides a page is usable (CLAUDE.md §6).
- */
 import { describe, it, expect } from 'vitest';
-import { parseHtmlSignals } from '@/lib/crawl/html-parser';
+import { readFileSync } from 'fs';
+import path from 'path';
+import { parseHtmlSignals, mergePageSignals, MERGE_ARRAY_KEYS } from '@/lib/crawl/html-parser';
 import { cfSampleHtml } from '@/test/fixtures/providers/cloudflare';
 import {
   cloudflareChallengeHtml,
@@ -13,6 +10,8 @@ import {
   schemaRichHtml,
 } from '@/test/fixtures/html';
 
+const SITES = path.resolve(__dirname, '../../../../scripts/fixtures/sites');
+const site = (slug: string) => readFileSync(path.join(SITES, `${slug}.html`), 'utf8');
 const ROOT = 'https://northwind-dental.test/';
 
 describe('parseHtmlSignals — head signals', () => {
@@ -38,12 +37,61 @@ describe('parseHtmlSignals — head signals', () => {
     expect(s.h1Tags).toEqual(['Bold plumbing']);
   });
 
+  it('collects @graph and array @type values, ignoring malformed json', () => {
+    const s = parseHtmlSignals(`
+      <script type="application/ld+json">{"@graph":[{"@type":"Organization"},{"@type":["WebSite","Thing"]}]}</script>
+      <script type="application/ld+json">{not json</script>`);
+    expect(s.schemaMarkupTypes).toEqual(['Organization', 'WebSite', 'Thing']);
+  });
+
   it('omits absent signals rather than emitting empties', () => {
     const s = parseHtmlSignals('<html><body><p>hi</p></body></html>');
     expect(s.title).toBeUndefined();
     expect(s.h1Tags).toBeUndefined();
     expect(s.schemaMarkupTypes).toBeUndefined();
     expect(s.canonicalTagsPresent).toBe(false);
+  });
+});
+
+describe('parseHtmlSignals — fixture sites', () => {
+  it.each([
+    'react-spa-dentist',
+    'shopify-florist',
+    'squarespace-photographer',
+    'static-accountant',
+  ])('%s parses without throwing and yields well-typed signals', (slug) => {
+    const expected = JSON.parse(readFileSync(path.join(SITES, `${slug}.expected.json`), 'utf8'));
+    const s = parseHtmlSignals(site(slug), expected._url);
+    expect(typeof s.title).toBe('string');
+    expect(typeof s.canonicalTagsPresent).toBe('boolean');
+    if (s.h1Tags !== undefined) {
+      expect(Array.isArray(s.h1Tags)).toBe(true);
+      expect((s.h1Tags as string[]).every((h) => typeof h === 'string' && h.length > 0)).toBe(true);
+    }
+  });
+});
+
+describe('mergePageSignals', () => {
+  it('lets parsed scalars win and unions array keys', () => {
+    const ai = { title: '', h1Tags: ['Home'], servicesListed: ['A'], hasBlog: true } as Record<
+      string,
+      unknown
+    >;
+    const parsed = { title: 'Parsed', h1Tags: ['Services'], servicesListed: ['B', 'A'] } as Record<
+      string,
+      unknown
+    >;
+    const merged = mergePageSignals(ai, parsed);
+    expect(merged.title).toBe('Parsed');
+    expect(merged.hasBlog).toBe(true);
+    expect(merged.h1Tags).toEqual(['Home', 'Services']);
+    expect(merged.servicesListed).toEqual(['A', 'B']);
+    expect(MERGE_ARRAY_KEYS).toContain('h1Tags');
+  });
+
+  it('does not union when only one side has the array', () => {
+    const merged = mergePageSignals({ accreditations: ['CQC'] }, {});
+    expect(merged.accreditations).toEqual(['CQC']);
   });
 });
 

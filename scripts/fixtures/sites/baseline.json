@@ -1,0 +1,5 @@
+{
+  "_note": "Floors for the deterministic (no-AI) path, measured 2026-09-18 on the 6 synthetic fixtures. Update in the same commit as any fixture or parser change that moves them, and say why.",
+  "minRecall": { "homepageH1": 1, "hasContactForm": 1, "services": 1 },
+  "minPrecision": { "services": 0.8 }
+}

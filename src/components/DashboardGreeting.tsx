@@ -1,16 +1,25 @@
 'use client';
 
 import { useRivalRadarStore } from '@/store/rivalradar';
+import { GreetingIcon, type DayPart } from '@/components/GreetingIcon';
 
-function getGreeting(): string {
+function getDayPart(): DayPart {
   const h = new Date().getHours();
-  if (h < 12) return 'Good morning';
-  if (h < 17) return 'Good afternoon';
-  return 'Good evening';
+  if (h < 12) return 'morning';
+  if (h < 17) return 'afternoon';
+  return 'evening';
 }
+
+const GREETING: Record<DayPart, string> = {
+  morning: 'Good morning',
+  afternoon: 'Good afternoon',
+  evening: 'Good evening',
+};
 
 export function DashboardGreeting() {
   const { user, project } = useRivalRadarStore();
+
+  const dayPart = getDayPart();
 
   const displayName = user?.username
     ? user.username.charAt(0).toUpperCase() + user.username.slice(1)
@@ -24,12 +33,10 @@ export function DashboardGreeting() {
   return (
     <div className="relative overflow-hidden rounded-2xl bg-gradient-greeting p-6 border border-primary/10">
       <div className="flex items-start gap-4">
-        <div className="w-12 h-12 rounded-xl bg-white/60 flex items-center justify-center shrink-0 shadow-sm">
-          <span className="text-2xl">🦉</span>
-        </div>
+        <GreetingIcon part={dayPart} className="w-12 h-12 shrink-0 drop-shadow-sm" />
         <div>
           <h1 className="text-2xl font-bold text-gray-900">
-            {getGreeting()}
+            {GREETING[dayPart]}
             {displayName ? `, ${displayName}` : ''}
           </h1>
           <p className="text-sm text-gray-600 mt-1 max-w-xl leading-relaxed">

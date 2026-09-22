@@ -85,7 +85,7 @@ setup('seed project and sign in', async ({ page }) => {
   ]);
   expect(error, 'priority_actions insert').toBeNull();
 
-  await page.goto('/');
+  await page.goto('/login');
   await page.getByPlaceholder('you@example.com').first().fill(E2E_EMAIL);
   await page.getByPlaceholder('••••••••').first().fill(E2E_PASSWORD);
   await page.getByRole('button', { name: /log in/i }).click();

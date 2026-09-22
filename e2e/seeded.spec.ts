@@ -93,3 +93,16 @@ test('changes page renders', async ({ page }) => {
   await page.goto('/changes');
   await expect(page.getByRole('heading', { level: 1 }).first()).toBeVisible();
 });
+
+test('the public pages keep the app shell for signed-in visitors', async ({ page }) => {
+  // /what-we-track and /contact are readable signed out, so their layout picks
+  // the chrome from the session. Signed in, that must still be the sidebar and
+  // never the marketing navbar.
+  for (const path of ['/what-we-track', '/contact']) {
+    await page.goto(path);
+    await expect(page).toHaveURL(new RegExp(`${path}$`));
+    const nav = page.getByRole('navigation').first();
+    await expect(nav.getByRole('link', { name: 'Dashboard' })).toBeVisible();
+    await expect(page.getByRole('link', { name: 'Get started' })).toHaveCount(0);
+  }
+});

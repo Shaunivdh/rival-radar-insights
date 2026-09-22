@@ -15,7 +15,7 @@ export const DemoBanner = () => {
       <p className="text-sm text-foreground">
         <span className="font-medium">Demo mode</span> — you're viewing sample data.{' '}
         <button
-          onClick={() => router.push('/')}
+          onClick={() => router.push('/signup')}
           className="text-primary font-medium hover:underline"
         >
           Sign up to track your own business →

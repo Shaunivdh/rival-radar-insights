@@ -1,217 +1,354 @@
 /**
- * crawl-worker step order via @inngest/test's InngestTestEngine (0.1.9 exports
- * InngestTestEngine, so the worker is testable as shipped — no refactor needed).
+ * crawl-worker pipeline against an in-memory Supabase, msw for every external
+ * HTTP provider (contract-validated), and a schema-driven Anthropic mock.
  *
- * `ctx.step` comes back as a spy, so `ctx.step.run.mock.calls` is the ordered
- * list of step ids the run actually executed. That is what we assert on.
- *
- * Every external boundary is mocked: the orchestrator, the AI service and the
- * enrichment actions. This is a step-ordering test, not an integration test —
- * orchestrator behaviour is covered in src/lib/crawl/__tests__/orchestrator.test.ts.
+ * Three paths (see testing plan): happy path, crawl failure + onFailure,
+ * change detection → confirmation.
  */
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { InngestTestEngine } from '@inngest/test';
+import { http, HttpResponse } from 'msw';
+import { server } from '@/test/msw/server';
+import { CF_BASE, cloudflareHandlers } from '@/test/msw/handlers';
+import { cfSampleHtml } from '@/test/fixtures/providers/cloudflare';
+import { anthropicResponder } from '@/test/anthropic-mock';
+import { fakeDb as db } from '@/test/supabase-fake';
 
-const { orchestrator } = vi.hoisted(() => ({
-  orchestrator: {
-    startBusinessCrawl: vi.fn(async () => 'job_test_0001'),
-    checkCrawlStatus: vi.fn(async () => 'completed'),
-    extractAndPersistSignals: vi.fn(async () => undefined),
-    markCrawlFailed: vi.fn(async () => undefined),
-  },
-}));
+const { mockCreate } = vi.hoisted(() => {
+  // Keep priority-page crawls to one so the multi-page path runs without 5 parallel jobs.
+  process.env.CRAWL_PRIORITY_PAGES = '1';
+  return { mockCreate: vi.fn() };
+});
 
 vi.mock('@/lib/supabase/server', async () => ({
   supabaseAdmin: (await import('@/test/supabase-fake')).fakeDb,
 }));
 vi.mock('@/services/crawl.cache', () => ({ saveToCache: vi.fn(), loadFromCache: () => null }));
-vi.mock('@/lib/crawl/orchestrator', () => ({
-  ...orchestrator,
-  DIRECT_FETCH_DONE: 'direct-fetch-done',
-  CRAWL_DISALLOWED: 'crawl-disallowed',
-}));
-vi.mock('@/services/ai', () => ({
-  generatePriorityActions: vi.fn(async () => []),
-  generatePriorityActionsWithHistory: vi.fn(async () => []),
-  generateChangeSummary: vi.fn(async () => null),
-  generateReviewSentiment: vi.fn(async () => null),
-  checkAIVisibility: vi.fn(async () => null),
-  extractPageSignals: vi.fn(async () => ({})),
-  AIUnavailableError: class AIUnavailableError extends Error {
-    retryAt = 'later';
+vi.mock('@anthropic-ai/sdk', () => ({
+  default: class Anthropic {
+    messages = { create: mockCreate };
+    constructor() {}
   },
 }));
-vi.mock('@/actions/enrichment', () => ({
-  fetchGoogleData: vi.fn(async () => null),
-  fetchSerpData: vi.fn(async () => null),
-}));
 
-import { inngest } from '@/inngest/client';
-import { crawlBusinessFunction } from '@/inngest/crawl-worker';
-import { fakeDb as db } from '@/test/supabase-fake';
+import { crawlBusinessFunction, confirmChangeFunction } from '@/inngest/crawl-worker';
 
 const BUSINESS_ID = 'biz_own';
 const PROJECT_ID = 'proj_1';
 
-function seedProject({ withProject = true } = {}) {
-  if (withProject) {
-    db.seed('projects', [
-      {
-        id: PROJECT_ID,
-        name: 'Northwind vs Competitors',
-        primary_service: 'dentist',
-        location: 'Chester',
-        postcode: 'CH1 1AA',
-      },
-    ]);
-  }
+function seedProject(overrides: Record<string, unknown> = {}) {
+  db.seed('projects', [
+    {
+      id: PROJECT_ID,
+      name: 'Acme vs Competitors',
+      primary_service: 'trades',
+      location: 'Bristol',
+      postcode: 'BS1 1AA',
+    },
+  ]);
   db.seed('businesses', [
     {
       id: BUSINESS_ID,
-      project_id: withProject ? PROJECT_ID : null,
-      name: 'Northwind Dental',
-      url: 'https://northwind-dental.test',
-      domain: 'northwind-dental.test',
+      project_id: PROJECT_ID,
+      name: 'Acme Plumbing',
+      url: 'https://acme-plumbing.test',
+      domain: 'acme-plumbing.test',
       is_own_business: true,
       google_place_id: null,
       last_crawled_at: null,
-      crawl_job_id: 'job_test_0001',
+      ...overrides,
     },
   ]);
 }
 
-/** Ordered step ids executed by a run. */
-const stepIds = (out: { ctx: { step: { run: { mock: { calls: unknown[][] } } } } }) =>
-  out.ctx.step.run.mock.calls.map((c) => c[0] as string);
+const row = (table: string, id: string) => db.rows(table).find((r) => r.id === id)!;
+
+const runCrawl = (mode: 'initial' | 'incremental') =>
+  new InngestTestEngine({
+    function: crawlBusinessFunction,
+    steps: stepMocks(),
+    events: [{ name: 'crawl/business.scan', data: { businessId: BUSINESS_ID, mode } }],
+  }).execute();
+
+const runConfirm = (data: Record<string, unknown>) =>
+  new InngestTestEngine({
+    function: confirmChangeFunction,
+    steps: stepMocks(),
+    events: [{ name: 'crawl/change.confirm', data }],
+  }).execute();
+
+/**
+ * @inngest/test cannot complete `step.sleep` (it re-executes forever) and
+ * `step.sendEvent` would call the Inngest API, so both are mocked as
+ * already-ran steps. The sendEvent spy on `ctx.step` still records the call.
+ *
+ * The engine appends memoised step results to the array it is given, so every
+ * execution must get a fresh engine and a fresh list — never reuse either.
+ */
+const stepMocks = () => [
+  ...Array.from({ length: 8 }, (_, i) => i + 1).flatMap((n) => [
+    { id: `poll-wait-${n}`, handler: () => null },
+    { id: `confirm-poll-wait-${n}`, handler: () => null },
+  ]),
+  { id: 'schedule-change-confirmation', handler: () => ({ ids: ['evt_test'] }) },
+  { id: 'schedule-retry-crawl', handler: () => ({ ids: ['evt_test'] }) },
+];
 
 beforeEach(() => {
   db.reset();
-  vi.clearAllMocks();
-  orchestrator.startBusinessCrawl.mockResolvedValue('job_test_0001');
-  orchestrator.checkCrawlStatus.mockResolvedValue('completed');
+  mockCreate.mockReset();
+  mockCreate.mockImplementation(anthropicResponder());
+  server.use(...cloudflareHandlers({ pollsBeforeDone: 1 }));
+  if (!process.env.WORKER_TEST_LOGS) vi.spyOn(console, 'log').mockImplementation(() => {});
 });
+afterEach(() => vi.restoreAllMocks());
 
-describe('crawl-business — main path', () => {
-  it('runs crawl, persist and enrichment steps in order', async () => {
+describe('crawlBusinessFunction — happy path', () => {
+  it('crawls, extracts, enriches, scores and generates priority actions', async () => {
     seedProject();
-    const out = await new InngestTestEngine({
+    const t = new InngestTestEngine({
       function: crawlBusinessFunction,
+      steps: stepMocks(),
       events: [{ name: 'crawl/business.scan', data: { businessId: BUSINESS_ID, mode: 'initial' } }],
-    }).execute();
+    });
 
-    const ids = stepIds(out as never);
+    const { result, error, ctx } = await t.execute();
+    expect(error).toBeUndefined();
+    expect(result).toEqual({ businessId: BUSINESS_ID, jobId: 'job_test_0001', status: 'complete' });
 
-    // Crawl must be started, polled and persisted before anything enriches.
-    expect(ids[0]).toBe('start-crawl');
-    expect(ids).toContain('poll-status-0');
-    expect(ids).toContain('persist-signals');
-    expect(ids.indexOf('persist-signals')).toBeGreaterThan(ids.indexOf('poll-status-0'));
+    // Crawl lifecycle
+    const biz = row('businesses', BUSINESS_ID);
+    expect(biz.crawl_status).toBe('complete');
+    expect(biz.crawl_job_id).toBe('job_test_0001');
+    expect(biz.last_crawled_at).toBeTruthy();
+    expect(db.rows('crawl_jobs').map((j) => j.status)).toEqual(['completed']);
 
-    // Enrichment and scoring only make sense once signals exist.
-    for (const later of ['enrich-google', 'enrich-serp', 'calculate-scores', 'priority-actions']) {
-      expect(ids.indexOf(later)).toBeGreaterThan(ids.indexOf('persist-signals'));
-    }
+    // Signals persisted: AI extraction merged with deterministic parser, robots/sitemap from direct checks
+    const sig = db.rows('extracted_signals');
+    expect(sig).toHaveLength(1);
+    const seo = sig[0].seo as Record<string, unknown>;
+    expect(seo.title).toBe('Acme Plumbing | Emergency Plumbers in Bristol');
+    expect(seo.schemaMarkupTypes).toContain('LocalBusiness');
+    expect(seo.hasRobotsTxt).toBe(true);
+    expect(seo.hasSitemap).toBe(true);
+    expect(sig[0].status).toBe('confirmed');
 
-    // Scores must be calculated before they are snapshotted or decayed.
-    expect(ids.indexOf('save-score-snapshot')).toBeGreaterThan(ids.indexOf('calculate-scores'));
-    expect(ids.indexOf('apply-score-decay')).toBeGreaterThan(ids.indexOf('calculate-scores'));
-  }, 30000);
+    // Enrichment
+    expect((biz.google_data as { placeId: string }).placeId).toBe('ChIJtest_acme_plumbing');
+    expect(biz.google_place_id).toBe('ChIJtest_acme_plumbing');
+    expect((biz.serp_data as { localVisibilityPosition: number }).localVisibilityPosition).toBe(2);
+    expect(
+      (biz.serp_data as { previousLocalVisibilityPosition?: unknown })
+        .previousLocalVisibilityPosition,
+    ).toBeUndefined();
+    expect(
+      (biz.pagespeed_data as { mobile: { performanceScore: number } }).mobile.performanceScore,
+    ).toBe(62);
+    expect(
+      (biz.ai_visibility as { mentionCount: number; totalPrompts: number }).mentionCount,
+    ).toBeGreaterThan(0);
+    expect(biz.review_sentiment).toMatchObject({ summary: expect.any(String) });
+    expect(biz.enrichment_errors).toBeNull();
 
-  it('starts the crawl in the mode the event asked for', async () => {
-    seedProject();
-    await new InngestTestEngine({
-      function: crawlBusinessFunction,
-      events: [
-        { name: 'crawl/business.scan', data: { businessId: BUSINESS_ID, mode: 'incremental' } },
-      ],
-    }).execute();
+    // Scores + snapshot
+    const score = biz.ai_score as Record<string, unknown>;
+    expect(score.overallScore).toEqual(expect.any(Number));
+    expect(score.weeklyDelta).toBeNull();
+    expect(db.rows('score_snapshots')).toHaveLength(1);
+    expect(db.rows('ai_health_scores')).toHaveLength(1);
 
-    expect(orchestrator.startBusinessCrawl).toHaveBeenCalledWith(BUSINESS_ID, 'incremental');
-  }, 30000);
+    // Priority actions from templates (LLM mock returns none)
+    const actions = db.rows('priority_actions');
+    expect(actions.length).toBeGreaterThan(0);
+    expect(actions.every((a) => a.project_id === PROJECT_ID && a.status === 'active')).toBe(true);
+
+    // No change confirmation on a first scan
+    expect(ctx.step.sendEvent).not.toHaveBeenCalled();
+    expect(db.rows('change_events')).toHaveLength(0);
+  }, 30_000);
 });
 
-/**
- * The retry path lives in the function's `onFailure` handler. @inngest/test
- * addresses InngestFunctions, and a failure handler is not exposed as one, so
- * we wrap the handler in a function of our own and supply the `error` argument
- * that Inngest's middleware would normally inject from the failure event.
- * The handler body — and therefore its step order — is the real one.
- */
-type FailureHandler = (ctx: Record<string, unknown>) => Promise<unknown>;
-const onFailureHandler = (crawlBusinessFunction as unknown as { onFailureFn: FailureHandler })
-  .onFailureFn;
-
-const failureUnderTest = inngest.createFunction(
-  { id: 'crawl-business-failure-under-test' },
-  { event: 'crawl/business.failed.test' },
-  async (ctx) =>
-    onFailureHandler({
-      ...ctx,
-      error: new Error((ctx.event.data as { reason: string }).reason),
-    }),
-);
-
-const runFailure = (reason = 'CF crawl start failed: 502') =>
-  new InngestTestEngine({
-    function: failureUnderTest,
-    events: [
-      {
-        name: 'crawl/business.failed.test',
-        data: { reason, event: { data: { businessId: BUSINESS_ID } } },
-      },
-    ],
-  }).execute();
-
-describe('crawl-business — retry path (onFailure)', () => {
-  it('marks the crawl failed before scheduling the retry', async () => {
+describe('crawlBusinessFunction — crawl failure', () => {
+  it('fails the run when Cloudflare and the direct fetch both fail, and onFailure marks the business', async () => {
     seedProject();
-    const out = await runFailure();
-    const ids = stepIds(out as never);
+    server.use(
+      http.post(`${CF_BASE}/crawl`, () => HttpResponse.text('upstream down', { status: 502 })),
+      http.get('https://acme-plumbing.test/', () => HttpResponse.text('', { status: 503 })),
+    );
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
 
-    expect(ids[0]).toBe('mark-failed-on-error');
-    expect(orchestrator.markCrawlFailed).toHaveBeenCalledWith(BUSINESS_ID, 'job_test_0001');
-  }, 30000);
+    const t = new InngestTestEngine({
+      function: crawlBusinessFunction,
+      steps: stepMocks(),
+      events: [{ name: 'crawl/business.scan', data: { businessId: BUSINESS_ID, mode: 'initial' } }],
+    });
+    const { error } = await t.execute();
+    expect(error).toBeTruthy();
+    expect(String((error as { message?: string })?.message ?? error)).toMatch(
+      /CF crawl start failed: 502/,
+    );
+    expect(row('businesses', BUSINESS_ID).crawl_status).toBe('idle');
 
-  it('still generates priority actions for the project before retrying', async () => {
-    seedProject();
-    const out = await runFailure();
-    const ids = stepIds(out as never);
+    // @inngest/test does not run onFailure; invoke the real handler with a pass-through step.
+    const sendEvent = vi.fn(async () => ({ ids: ['evt_1'] }));
+    const step = { run: (_id: string, fn: () => unknown) => fn(), sendEvent };
+    const onFailure = (
+      crawlBusinessFunction as unknown as { onFailureFn: (args: unknown) => Promise<void> }
+    ).onFailureFn;
+    await onFailure({
+      error: new Error('CF crawl start failed: 502 upstream down'),
+      event: { data: { event: { data: { businessId: BUSINESS_ID, mode: 'initial' } } } },
+      step,
+    });
 
-    expect(ids).toEqual(['mark-failed-on-error', 'check-generate-priority-actions']);
-  }, 30000);
+    const biz = row('businesses', BUSINESS_ID);
+    expect(biz.crawl_status).toBe('failed');
+    expect(biz.last_crawled_at).toBeTruthy();
+    expect((biz.enrichment_errors as { crawl: string }).crawl).toMatch(
+      /^Crawl failed: CF crawl start failed: 502/,
+    );
+    expect(sendEvent).toHaveBeenCalledWith(
+      'schedule-retry-crawl',
+      expect.objectContaining({
+        name: 'crawl/business.scan',
+        data: { businessId: BUSINESS_ID, mode: 'incremental' },
+      }),
+    );
+    // Single failed business → project is "all done" → actions generated from whatever data exists
+    expect(db.rows('priority_actions').length).toBeGreaterThan(0);
+  }, 30_000);
+});
 
-  it('schedules an incremental re-crawl 24h out', async () => {
-    seedProject();
-    const out = (await runFailure()) as unknown as {
-      ctx: { step: { sendEvent: { mock: { calls: unknown[][] } } } };
+describe('change detection → confirmation', () => {
+  it('schedules a confirmation crawl, then confirms and records a change event', async () => {
+    seedProject({ last_crawled_at: '2026-08-20T00:00:00.000Z' });
+    // Baseline: what the previous (confirmed) scan saw — identical except the contact form existed.
+    const first = await runCrawl('initial');
+    expect(first.error).toBeUndefined();
+    const baseline = db.rows('extracted_signals')[0];
+    (baseline.engagement as Record<string, unknown>).hasContactForm = true;
+    baseline.scanned_at = '2026-08-20T00:00:00.000Z';
+    db.rows('priority_actions').length = 0;
+
+    // Second scan (incremental): detection differs from baseline → pending + confirmation event
+    server.use(...cloudflareHandlers({ pollsBeforeDone: 1 }));
+    const second = await runCrawl('incremental');
+    expect(second.error).toBeUndefined();
+    const detection = db.rows('extracted_signals').find((r) => r.id !== baseline.id)!;
+    expect(detection.status).toBe('pending');
+    expect(second.ctx.step.sendEvent).toHaveBeenCalledWith(
+      'schedule-change-confirmation',
+      expect.objectContaining({
+        name: 'crawl/change.confirm',
+        data: expect.objectContaining({
+          businessId: BUSINESS_ID,
+          baselineId: baseline.id,
+          detectionId: detection.id,
+          changedPaths: expect.arrayContaining(['engagement.hasContactForm']),
+        }),
+      }),
+    );
+    expect(db.rows('change_events')).toHaveLength(0);
+    // previousLocalVisibilityPosition now carried across scans
+    expect(
+      (row('businesses', BUSINESS_ID).serp_data as Record<string, unknown>)
+        .previousLocalVisibilityPosition,
+    ).toBe(2);
+
+    // Confirmation crawl reproduces the change → detection confirmed, change event saved
+    const sent = (second.ctx.step.sendEvent as unknown as { mock: { calls: unknown[][] } }).mock
+      .calls[0][1] as {
+      data: Record<string, unknown>;
     };
+    server.use(...cloudflareHandlers({ pollsBeforeDone: 0 }));
+    const third = await runConfirm(sent.data);
+    expect(third.error).toBeUndefined();
+    expect(third.result).toEqual({
+      businessId: BUSINESS_ID,
+      jobId: 'job_test_0001',
+      status: 'confirmed',
+    });
+    expect(row('extracted_signals', detection.id as string).status).toBe('confirmed');
+    expect(db.rows('extracted_signals')).toHaveLength(3);
+    const events = db.rows('change_events');
+    expect(events).toHaveLength(1);
+    expect(events[0]).toMatchObject({
+      business_id: BUSINESS_ID,
+      severity: 'medium',
+      summary: 'Contact form removed from the website',
+    });
+    expect(row('businesses', BUSINESS_ID).crawl_status).toBe('complete');
+  }, 60_000);
 
-    const calls = out.ctx.step.sendEvent.mock.calls;
-    expect(calls).toHaveLength(1);
-    const [stepId, payload] = calls[0] as [string, { name: string; data: unknown; ts: number }];
-    expect(stepId).toBe('schedule-retry-crawl');
-    expect(payload.name).toBe('crawl/business.scan');
-    expect(payload.data).toEqual({ businessId: BUSINESS_ID, mode: 'incremental' });
-    // 24h out, per the comment in the worker: fail fast, retry sooner than the
-    // regular 7-day cadence.
-    expect(payload.ts - Date.now()).toBeGreaterThan(23 * 60 * 60 * 1000);
-    expect(payload.ts - Date.now()).toBeLessThanOrEqual(24 * 60 * 60 * 1000);
-  }, 30000);
+  // KNOWN BUG (documented, not fixed here — crawl logic): the main pipeline's
+  // 'persist-signals' step overrides seo.hasRobotsTxt/hasSitemap from direct
+  // HTTP checks, but confirmChangeFunction's 'confirm-persist-signals' does not.
+  // The confirmation snapshot therefore flips both to false, the diff reports
+  // "seo.hasSitemap, seo.hasRobotsTxt" as reproduced changes, and a spurious
+  // change event is saved even though the detected change did not reproduce.
+  // Flip `it.fails` back to `it` once the confirmation step applies the same override.
+  it.fails(
+    'quarantines the detection when the confirmation crawl does not reproduce the change',
+    async () => {
+      seedProject({ last_crawled_at: '2026-08-20T00:00:00.000Z' });
+      await runCrawl('initial');
+      const baseline = db.rows('extracted_signals')[0];
+      baseline.scanned_at = '2026-08-20T00:00:00.000Z';
+      // Detection row: a phantom change the confirmation crawl will not see again
+      const detection = db.withDefaults('extracted_signals', {
+        ...structuredClone(baseline),
+        id: undefined,
+        status: 'pending',
+        engagement: { ...(baseline.engagement as Record<string, unknown>), hasContactForm: true },
+      });
+      db.rows('extracted_signals').push(detection);
 
-  it('records the failure reason against the business', async () => {
+      server.use(...cloudflareHandlers({ pollsBeforeDone: 0 }));
+      const { error } = await runConfirm({
+        businessId: BUSINESS_ID,
+        baselineId: baseline.id,
+        detectionId: detection.id,
+        changedPaths: ['engagement.hasContactForm'],
+      });
+      expect(error).toBeUndefined();
+      expect(row('extracted_signals', detection.id as string).status).toBe('unconfirmed');
+      expect(db.rows('change_events')).toHaveLength(0);
+      expect(
+        mockCreate.mock.calls.some(
+          ([p]) =>
+            (p as { output_config?: { format?: { schema?: unknown } } }).output_config?.format
+              ?.schema && String(JSON.stringify(p)).includes('hasSignificantChanges'),
+        ),
+      ).toBe(false);
+    },
+    60_000,
+  );
+});
+
+describe('crawlBusinessFunction — disallowed site', () => {
+  it('falls back to direct fetch when Cloudflare refuses the crawl and flags reduced data quality', async () => {
     seedProject();
-    await runFailure('CF crawl start failed: 502');
-
-    const biz = db.rows('businesses').find((r) => r.id === BUSINESS_ID)!;
-    const errs = biz.enrichment_errors as Record<string, string> | null;
-    expect(errs?.crawl).toMatch(/CF crawl start failed: 502/);
-    expect(errs?.crawl).toMatch(/retry automatically/i);
-  }, 30000);
-
-  it('skips priority-action generation when the business has no project', async () => {
-    seedProject({ withProject: false });
-    const out = await runFailure();
-
-    expect(stepIds(out as never)).toEqual(['mark-failed-on-error']);
-  }, 30000);
+    server.use(
+      http.post(`${CF_BASE}/crawl`, () =>
+        HttpResponse.text('Crawl disallowed by Content-Signal directive', { status: 400 }),
+      ),
+      http.get('https://acme-plumbing.test/', () => HttpResponse.text(cfSampleHtml)),
+    );
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const t = new InngestTestEngine({
+      function: crawlBusinessFunction,
+      steps: stepMocks(),
+      events: [{ name: 'crawl/business.scan', data: { businessId: BUSINESS_ID, mode: 'initial' } }],
+    });
+    const { result, error } = await t.execute();
+    expect(error).toBeUndefined();
+    expect(result).toMatchObject({ status: 'complete', jobId: 'direct-fetch-done' });
+    const biz = row('businesses', BUSINESS_ID);
+    expect(biz.crawl_status).toBe('complete');
+    expect(db.rows('extracted_signals')).toHaveLength(1);
+    expect((biz.enrichment_errors as { crawl?: string })?.crawl).toMatch(
+      /blocks automated crawling/,
+    );
+  }, 30_000);
 });

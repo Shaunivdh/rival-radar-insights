@@ -13,15 +13,16 @@ import type { ServiceCategory } from '@/lib/serviceCategories';
 import { withRetry } from '@/lib/aiRetry';
 import { logAIEvent } from '@/lib/aiTelemetry';
 import { applyTemplates, applyTemplatesWithHistory } from '@/lib/priorityTemplates';
-import type { z } from 'zod';
 import {
-  reviewSentimentSchema,
-  priorityActionsSchema,
-  priorityActionsWithContinuitySchema,
-  validationPatchesSchema,
-  changeSummarySchema,
-  mentionedBusinessesSchema,
-} from './ai.schemas';
+  EXTRACTION_SCHEMA,
+  SENTIMENT_SCHEMA,
+  PRIORITY_ACTIONS_SCHEMA,
+  PRIORITY_ACTIONS_WITH_CONTINUITY_SCHEMA,
+  VALIDATION_PATCHES_SCHEMA,
+  CHANGE_SUMMARY_SCHEMA,
+  MENTIONED_BUSINESSES_SCHEMA,
+  type JsonSchema,
+} from './aiSchemas';
 import { logger } from '@/lib/logger';
 
 interface MentionedBusiness {
@@ -41,6 +42,27 @@ export class AIUnavailableError extends Error {
   }
 }
 
+/** The model hit `max_tokens` before finishing — output is unparseable by construction. */
+export class TruncatedOutputError extends Error {
+  constructor(label: string, maxTokens: number) {
+    super(`${label}: model output truncated at max_tokens=${maxTokens}`);
+    this.name = 'TruncatedOutputError';
+  }
+}
+
+/** Telemetry error label: `truncated` is counted separately from parse/API errors. */
+function errorTypeOf(e: unknown): string {
+  if (e instanceof TruncatedOutputError) return 'truncated';
+  return (e as Error)?.name ?? 'Error';
+}
+
+/** Structured-output text block → parsed JSON. Throws on truncation instead of parsing a partial. */
+function parseStructured<T>(msg: Anthropic.Message, label: string, maxTokens: number): T {
+  if (msg.stop_reason === 'max_tokens') throw new TruncatedOutputError(label, maxTokens);
+  const block = msg.content.find((c) => c.type === 'text') as { text: string } | undefined;
+  return JSON.parse((block?.text ?? '').trim()) as T;
+}
+
 // ── In-memory cache for extractMentionedBusinesses ───────────────────
 // NOTE: resets per cold start and not shared across instances in serverless deployments.
 // Effective within a single scan run (multiple queries for one business).
@@ -57,12 +79,46 @@ export function clearMentionsCache(): void {
 
 const SKIP_AI = process.env.SKIP_AI_CALLS === 'true';
 
-// Model defaults verified 2026-05-03 against:
+// Model defaults verified 2026-09-18 against:
 // https://platform.claude.com/docs/en/about-claude/models/overview
 // Model strings change over time. Re-verify against docs if you see
 // 404 or invalid_model errors at runtime.
+// FAST: extraction, sentiment, mention extraction, change summaries.
+// SMART: advice generation + validation (accuracy plan §4.4) and AI-visibility queries.
 const AI_MODEL_FAST = process.env.AI_MODEL_FAST?.trim() || 'claude-haiku-4-5-20251001';
-const AI_MODEL_SMART = process.env.AI_MODEL_SMART?.trim() || 'claude-sonnet-4-6';
+const AI_MODEL_SMART = process.env.AI_MODEL_SMART?.trim() || 'claude-sonnet-5';
+
+/** Character budget for HTML sent to the extraction model (~15k tokens). */
+const EXTRACT_HTML_BUDGET = 60_000;
+const EXTRACT_HEAD_CHARS = 40_000;
+const EXTRACT_TAIL_CHARS = 20_000;
+const EXTRACT_MAX_TOKENS = 4096;
+
+/**
+ * Strip everything the extractor never needs (scripts except ld+json, styles,
+ * svg, noscript, comments, presentational attributes, inline images) and, if
+ * still over budget, keep the head + first 40k + last 20k so the footer —
+ * where accreditations, review links, social links and service areas live —
+ * survives. Exported for the extraction eval.
+ */
+export function prepareHtmlForExtraction(html: string): string {
+  const stripped = html
+    .replace(/<script\b(?![^>]*type=["']application\/ld\+json["'])[^>]*>[\s\S]*?<\/script>/gi, '')
+    .replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi, '')
+    .replace(/<svg\b[^>]*>[\s\S]*?<\/svg>/gi, '')
+    .replace(/<noscript\b[^>]*>[\s\S]*?<\/noscript>/gi, '')
+    .replace(/<!--[\s\S]*?-->/g, '')
+    .replace(/\s(?:style|class|data-[\w-]+)=(?:"[^"]*"|'[^']*'|[^\s>]+)/gi, '')
+    .replace(/(?:src|href|srcset)=["']data:image\/[^"']*["']/gi, '')
+    .replace(/[ \t]+\n/g, '\n')
+    .replace(/\n{3,}/g, '\n\n');
+  if (stripped.length <= EXTRACT_HTML_BUDGET) return stripped;
+  return (
+    stripped.slice(0, EXTRACT_HEAD_CHARS) +
+    '\n<!-- truncated -->\n' +
+    stripped.slice(stripped.length - EXTRACT_TAIL_CHARS)
+  );
+}
 
 let _client: Anthropic | null = null;
 function getClient(): Anthropic {
@@ -94,28 +150,27 @@ export async function extractPageSignals(
 ): Promise<Record<string, unknown>> {
   if (SKIP_AI) return {};
   const t0 = Date.now();
-  const stripped = html
-    .replace(/<script\b(?![^>]*type=["']application\/ld\+json["'])[^>]*>[\s\S]*?<\/script>/gi, '')
-    .replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi, '')
-    .replace(/<svg\b[^>]*>[\s\S]*?<\/svg>/gi, '')
-    .slice(0, 24000);
+  const stripped = prepareHtmlForExtraction(html);
   try {
     const msg = await callLLMRaw(
       {
         model: AI_MODEL_FAST,
-        max_tokens: 1024,
+        max_tokens: EXTRACT_MAX_TOKENS,
+        output_config: { format: { type: 'json_schema', schema: EXTRACTION_SCHEMA } },
         messages: [
           {
             role: 'user',
-            content: `${prompt}\n\nHTML:\n${stripped}\n\nReturn JSON only, no markdown.`,
+            content: `${prompt}\n\nHTML:\n${stripped}`,
           },
         ],
       },
       { label: 'extractPageSignals' },
     );
-    const text = (msg.content[0] as { type: string; text: string }).text.trim();
-    const json = text.replace(/^```(?:json)?\n?/, '').replace(/\n?```$/, '');
-    const result = JSON.parse(json) as Record<string, unknown>;
+    const result = parseStructured<Record<string, unknown>>(
+      msg,
+      'extractPageSignals',
+      EXTRACT_MAX_TOKENS,
+    );
     logAIEvent({
       event: 'extract_signals',
       model: AI_MODEL_FAST,
@@ -129,7 +184,7 @@ export async function extractPageSignals(
       model: AI_MODEL_FAST,
       success: false,
       durationMs: Date.now() - t0,
-      errorType: (e as Error).name,
+      errorType: errorTypeOf(e),
     });
     logger.warn('extractPageSignals', 'Failed', { error: e });
     throw e;
@@ -137,50 +192,29 @@ export async function extractPageSignals(
 }
 
 /**
- * `shadow` opts LLM output into schema validation. SHADOW MODE: a mismatch is
- * logged as a `schema_shadow` telemetry event and the unvalidated data is
- * returned unchanged, exactly as before. Nothing is rejected.
- *
- * TODO: flip to enforcing after a week of clean schema_mismatch telemetry.
+ * Structured JSON call. `schema` is sent as `output_config.format`, so the
+ * response is schema-valid JSON and is parsed directly. Truncated output
+ * (`stop_reason === 'max_tokens'`) throws `TruncatedOutputError` rather than
+ * being parsed.
  */
 async function askClaude<T>(
   prompt: string,
-  maxTokens = 512,
-  system?: string,
-  shadow?: { schema: z.ZodTypeAny; label: string },
+  schema: JsonSchema,
+  opts: { maxTokens?: number; system?: string; model?: string } = {},
 ): Promise<T> {
-  const t0 = Date.now();
+  const maxTokens = opts.maxTokens ?? 512;
+  const model = opts.model ?? AI_MODEL_FAST;
   const msg = await callLLMRaw(
     {
-      model: AI_MODEL_FAST,
+      model,
       max_tokens: maxTokens,
-      ...(system ? { system } : {}),
+      output_config: { format: { type: 'json_schema', schema } },
+      ...(opts.system ? { system: opts.system } : {}),
       messages: [{ role: 'user', content: prompt }],
     },
     { label: 'askClaude' },
   );
-  const text = (msg.content[0] as { type: string; text: string }).text.trim();
-  const json = text.replace(/^```(?:json)?\n?/, '').replace(/\n?```$/, '');
-  // Extract the outermost JSON array or object to strip trailing prose
-  const match = json.match(/^(\s*[\[{][\s\S]*[\]}])/);
-  const data = JSON.parse(match ? match[1] : json) as T;
-
-  if (shadow) {
-    const result = shadow.schema.safeParse(data);
-    if (!result.success) {
-      logAIEvent({
-        event: 'schema_shadow',
-        model: AI_MODEL_FAST,
-        success: false,
-        durationMs: Date.now() - t0,
-        errorType: 'schema_mismatch',
-        label: shadow.label,
-        issues: JSON.stringify(result.error.flatten()),
-      });
-    }
-  }
-
-  return data;
+  return parseStructured<T>(msg, 'askClaude', maxTokens);
 }
 
 // ── Shared prompt scaffolding ───────────────────────────────────────
@@ -193,9 +227,11 @@ Hard rules you never break:
 2. Every factual claim must be directly verifiable in the data provided. Do not invent averages, rankings, trends, traffic, or competitor behaviours.
 3. Do not recommend adding something the business's own signals already show they have.
 4. Never contradict yourself within a single field or between fields.
-5. Plain English. Speak to the owner directly. No SEO jargon.`;
+5. Plain English. Speak to the owner directly. No SEO jargon.
+6. UK English spelling and phrasing throughout (organise, colour, personalise, enquiry).
+7. Never use dash punctuation in any text you output: no em dashes, no en dashes, no hyphen used as a dash, and no dashes in number ranges (write "2 to 3 hours", not "2-3 hours"). Use a comma, colon, semicolon, or a new sentence instead. Hyphens inside ordinary compound words ("plain-English", "top-rated") are fine.`;
 
-const SCOUTLY_FACT_CHECKER_SYSTEM = `You are Scoutly's fact-checker. Your only job is to fix flagged issues in already-generated priority actions with the smallest possible text change. You never invent new facts, you never rewrite well-formed sentences, and you never patch unflagged fields. Output valid JSON matching the schema in the user prompt — nothing else.`;
+const SCOUTLY_FACT_CHECKER_SYSTEM = `You are Scoutly's fact-checker. Your only job is to fix flagged issues in already-generated priority actions with the smallest possible text change. You never invent new facts, you never rewrite well-formed sentences, and you never patch unflagged fields. Output valid JSON matching the schema in the user prompt and nothing else. Never use dash punctuation (em dash, en dash, or hyphen as a dash) in patched text; if a flagged sentence contains one, replace it with a comma, colon, or full stop.`;
 
 /** Action category → relevant signal buckets, used to scope competitor signals sent to the validator. */
 const CATEGORY_SIGNAL_BUCKETS: Record<string, Array<keyof ExtractedSignals>> = {
@@ -211,7 +247,9 @@ const TONE_RULES = `TONE RULES:
 - Plain English only. No SEO jargon (no "schema markup", "structured data", "alt tags", "SERP", "CTR"). If you must reference something technical, describe what it does in plain words.
 - Speak directly to the owner. "You" not "the business."
 - No editorialising in parentheses like "(good)" or "(nice work)".
-- No filler phrases like "this gap compounds over time" or "category-wide gap" — say what to do and why.`;
+- No filler phrases like "this gap compounds over time" or "category-wide gap". Say what to do and why.
+- UK English spelling and phrasing (organise, colour, personalise, enquiry).
+- No dash punctuation anywhere in the output: no em dashes, no en dashes, no hyphen standing in for a dash, and no dashes in ranges (write "2 to 3 hours", "15 to 20 reviews"). Use commas, colons, semicolons, or separate sentences.`;
 
 const DATA_INTEGRITY_RULES = `DATA INTEGRITY RULES (violations break user trust):
 - Every claim about a competitor MUST be directly verifiable in the data provided. Do not invent averages, trends, or competitor behaviours.
@@ -224,17 +262,18 @@ const DATA_INTEGRITY_RULES = `DATA INTEGRITY RULES (violations break user trust)
 const FIELD_RULES = `Field rules:
 - action: conversational headline describing the gap in plain English, max 10 words
 - reason: ≤15-word plain-English summary of the gap
-- whyItMatters: 2–3 sentences. Reference actual score values from the data. Name specific competitors when citing them — never "competitors average X" unless you show the math.
-- steps: 3–5 specific, doable action items the owner can start this week. Each step is plain English. Be concrete (specific platform names, specific pages).
-- outcome: 4–8 word goal statement
+- whyItMatters: 2 to 3 sentences. Reference actual score values from the data. Name specific competitors when citing them, and never say "competitors average X" unless you show the maths.
+- steps: 3 to 5 specific, doable action items the owner can start this week. Each step is plain English. Be concrete (specific platform names, specific pages).
+- outcome: 4 to 8 word goal statement
 - effort: 'low' (< 1 hour), 'medium' (1 day), or 'high' (1+ week)
 - category: one of "AI Visibility" | "Reviews" | "Local SEO" | "Website" | "Trust" | "Conversion"
-- timeframe: realistic time-to-result
-- competitorReference: plain-English note naming a specific competitor and what they have that this business lacks, or null. Must be consistent with whyItMatters.`;
+- timeframe: realistic time-to-result, written without a dash (e.g. "2 to 3 weeks")
+- competitorReference: plain-English note naming a specific competitor and what they have that this business lacks, or null. Must be consistent with whyItMatters.
+- evidence: 1 to 4 data paths you relied on, each written as path=value exactly as it appears in the JSON below. Paths start with "own." or "competitor.<name>." and walk the object keys, e.g. "own.signals.engagement.hasContactForm=false", "own.scores.reputation=70", "competitor.Acme Ltd.reviewCount=140". Every path must exist in the data. Actions whose evidence does not resolve are discarded.`;
 
-const PRIORITY_SCHEMA_BASE = `[{"priority":1,"category":"string","effort":"low"|"medium"|"high","action":"string","reason":"string","whyItMatters":"string","steps":["string"],"outcome":"string","competitorReference":"string|null","estimatedImpact":"high"|"medium","timeframe":"string"}]`;
+const PRIORITY_SCHEMA_BASE = `{"actions":[{"priority":1,"category":"string","effort":"low"|"medium"|"high","action":"string","reason":"string","whyItMatters":"string","steps":["string"],"outcome":"string","competitorReference":"string|null","estimatedImpact":"high"|"medium","timeframe":"string","evidence":["string"]}]}`;
 
-const PRIORITY_SCHEMA_WITH_CONTINUITY = `[{"priority":1,"category":"string","effort":"low"|"medium"|"high","action":"string","reason":"string","whyItMatters":"string","steps":["string"],"outcome":"string","competitorReference":"string|null","estimatedImpact":"high"|"medium","timeframe":"string","continuityNote":"string|null"}]`;
+const PRIORITY_SCHEMA_WITH_CONTINUITY = `{"actions":[{"priority":1,"category":"string","effort":"low"|"medium"|"high","action":"string","reason":"string","whyItMatters":"string","steps":["string"],"outcome":"string","competitorReference":"string|null","estimatedImpact":"high"|"medium","timeframe":"string","evidence":["string"],"continuityNote":"string|null"}]}`;
 
 /** Single canonical business summariser used by both first-run and history prompts. */
 function summariseBiz(b: Business, isOwn = false) {
@@ -354,10 +393,7 @@ Schema: {"positiveThemes":["string","string","string"],"negativeThemes":["string
 Rules: positiveThemes = top 3 praised topics (2-4 words each), negativeThemes = top 3 complaint topics (2-4 words each, empty array if none), summary = ≤15 words.
 Reviews:\n${texts}`;
   try {
-    const result = await askClaude<Omit<ReviewSentiment, 'generatedAt'>>(prompt, 512, undefined, {
-      schema: reviewSentimentSchema,
-      label: 'generateReviewSentiment',
-    });
+    const result = await askClaude<Omit<ReviewSentiment, 'generatedAt'>>(prompt, SENTIMENT_SCHEMA);
     logAIEvent({
       event: 'sentiment',
       model: AI_MODEL_FAST,
@@ -371,7 +407,7 @@ Reviews:\n${texts}`;
       model: AI_MODEL_FAST,
       success: false,
       durationMs: Date.now() - t0,
-      errorType: (e as Error).name,
+      errorType: errorTypeOf(e),
     });
     return null;
   }
@@ -401,7 +437,7 @@ export async function generatePriorityActions(
     logger.info('priority', '5 templates fired, skipping LLM');
     logAIEvent({
       event: 'generation',
-      model: AI_MODEL_FAST,
+      model: AI_MODEL_SMART,
       success: true,
       durationMs: 0,
       serviceCategory,
@@ -436,29 +472,34 @@ PRIORITISATION RULES:
 - Return exactly ${remainingSlots} action${remainingSlots > 1 ? 's' : ''}, not more. ${remainingSlots < 5 ? `(${templatesUsed} slot${templatesUsed > 1 ? 's are' : ' is'} already filled by automatic checks.)` : 'Five forces real prioritisation.'}
 - Only include an action if it reflects a genuine gap. If the business is already strong in a category (score ≥ 85 and no specific deficit in the data), do not invent a problem there.
 - Every action must have estimatedImpact of "high" or "medium". No "low impact" actions.
-- Each action must address a genuinely different gap — no two from the same root cause unless the gaps are clearly distinct.
+- Each action must address a genuinely different gap. No two from the same root cause unless the gaps are clearly distinct.
 - ${effortNote}
 
 ${FIELD_RULES}
 
-Priority numbering: Unique integers 1–${remainingSlots} ordered by impact. No gaps, no duplicates.
+Priority numbering: Unique integers 1 to ${remainingSlots} ordered by impact. No gaps, no duplicates.
 
-Schema (JSON array only, no markdown):
+Schema (JSON object only, no markdown):
 ${PRIORITY_SCHEMA_BASE}
 
 Own business: ${JSON.stringify(summariseBiz(own, true))}
 Competitors: ${JSON.stringify(competitors.map((b) => summariseBiz(b, false)))}`;
 
-  const tokensPerSlot = 833;
+  const tokensPerSlot = 900;
   const maxTokens = remainingSlots * tokensPerSlot;
 
   const t0 = Date.now();
   try {
-    const llmActions = await generateWithDistributionCheck(
-      prompt,
-      own.aiScore,
-      'generatePriorityActions',
-      maxTokens,
+    const llmActions = dropUngroundedActions(
+      await generateWithDistributionCheck(
+        prompt,
+        own.aiScore,
+        'generatePriorityActions',
+        maxTokens,
+        PRIORITY_ACTIONS_SCHEMA,
+      ),
+      own,
+      competitors,
     );
 
     // Combine: templates first, then LLM actions, renumber 1–5
@@ -471,7 +512,7 @@ Competitors: ${JSON.stringify(competitors.map((b) => summariseBiz(b, false)))}`;
 
     logAIEvent({
       event: 'generation',
-      model: AI_MODEL_FAST,
+      model: AI_MODEL_SMART,
       success: true,
       durationMs: Date.now() - t0,
       serviceCategory,
@@ -482,13 +523,13 @@ Competitors: ${JSON.stringify(competitors.map((b) => summariseBiz(b, false)))}`;
   } catch (e) {
     logAIEvent({
       event: 'generation',
-      model: AI_MODEL_FAST,
+      model: AI_MODEL_SMART,
       success: false,
       durationMs: Date.now() - t0,
       serviceCategory,
       templatesUsed,
       templatesFired: firedIds,
-      errorType: (e as Error).name,
+      errorType: errorTypeOf(e),
     });
     logger.warn('generatePriorityActions', 'Failed', { error: e });
     throw new AIUnavailableError(e);
@@ -553,13 +594,17 @@ async function generateWithDistributionCheck(
   prompt: string,
   ownScores: NonNullable<Business['aiScore']> | null,
   label: string,
-  maxTokens = 2500,
-  schema: z.ZodTypeAny = priorityActionsSchema,
+  maxTokens: number,
+  schema: JsonSchema,
 ): Promise<PriorityAction[]> {
-  const shadow = { schema, label };
-  let sorted = sortTop5(
-    await askClaude<PriorityAction[]>(prompt, maxTokens, SCOUTLY_SYSTEM, shadow),
-  );
+  const ask = (p: string) =>
+    askClaude<{ actions: PriorityAction[] }>(p, schema, {
+      maxTokens,
+      system: SCOUTLY_SYSTEM,
+      model: AI_MODEL_SMART,
+    }).then((r) => (Array.isArray(r.actions) ? r.actions : []));
+
+  let sorted = sortTop5(await ask(prompt));
 
   const dist = checkCategoryDistribution(sorted, ownScores);
   if (dist.shouldRegenerate) {
@@ -572,20 +617,18 @@ async function generateWithDistributionCheck(
       })
       .join('; ');
     logger.info(label, 'Over-represented categories detected, regenerating once', {
-      categories: dist.overrepresented,
+      overrepresented: dist.overrepresented,
     });
 
     const retryPrompt =
       prompt +
       `\n\nPREVIOUS ATTEMPT DUPLICATE: Your last attempt returned ${dupeNote}. Spread your actions across at least 2 different categories.`;
-    sorted = sortTop5(
-      await askClaude<PriorityAction[]>(retryPrompt, maxTokens, SCOUTLY_SYSTEM, shadow),
-    );
+    sorted = sortTop5(await ask(retryPrompt));
 
     const retryDist = checkCategoryDistribution(sorted, ownScores);
     if (retryDist.shouldRegenerate) {
       logger.warn(label, 'Regeneration still has duplicate categories, proceeding anyway', {
-        categories: retryDist.overrepresented,
+        overrepresented: retryDist.overrepresented,
       });
     }
   }
@@ -595,9 +638,190 @@ async function generateWithDistributionCheck(
 
 interface ValidationFlag {
   actionIndex: number;
-  type: 'unverified_average' | 'recommends_existing' | 'score_contradiction' | 'self_contradiction';
+  type:
+    | 'unverified_average'
+    | 'recommends_existing'
+    | 'score_contradiction'
+    | 'self_contradiction'
+    | 'evidence_mismatch';
   detail: string;
 }
+
+// ── Evidence grounding ───────────────────────────────────────────────
+// Every LLM action must cite the data it used ("own.signals.engagement.hasContactForm=false").
+// The code resolves each path against the real objects: a path that does not exist
+// drops the action; a value that does not match is flagged for the fact-checker.
+
+type EvidenceResolution =
+  | { ok: true; path: string }
+  | { ok: false; path: string; reason: 'missing_path' | 'value_mismatch'; actual?: unknown };
+
+function walkPath(root: unknown, segments: string[]): { found: boolean; value: unknown } {
+  let cur: unknown = root;
+  for (const seg of segments) {
+    if (cur == null || typeof cur !== 'object') return { found: false, value: undefined };
+    if (!(seg in (cur as object))) return { found: false, value: undefined };
+    cur = (cur as Record<string, unknown>)[seg];
+  }
+  return { found: true, value: cur };
+}
+
+function evidenceValueMatches(actual: unknown, expected: string): boolean {
+  const exp = expected.trim();
+  if (exp === '') return true;
+  if (exp === 'null') return actual == null;
+  if (exp === 'true' || exp === 'false') return actual === (exp === 'true');
+  if (typeof actual === 'number') {
+    const n = Number(exp);
+    return Number.isFinite(n) && Math.abs(n - actual) < 0.051;
+  }
+  if (Array.isArray(actual)) {
+    if (exp === '[]') return actual.length === 0;
+    try {
+      const parsed = JSON.parse(exp);
+      if (Array.isArray(parsed)) {
+        return parsed.every((p) =>
+          actual.some((a) => String(a).toLowerCase() === String(p).toLowerCase()),
+        );
+      }
+    } catch {
+      /* not JSON — fall through to single-item check */
+    }
+    const item = exp.replace(/^["']|["']$/g, '').toLowerCase();
+    return actual.some((a) => String(a).toLowerCase() === item);
+  }
+  if (actual == null) return false;
+  const a = String(actual).toLowerCase();
+  const e = exp.replace(/^["']|["']$/g, '').toLowerCase();
+  return a === e || a.includes(e);
+}
+
+/**
+ * Resolve one evidence string against the real data. Paths are tried against
+ * the summarised view the model was shown (`summariseBiz`) and the raw
+ * `Business` object, so both "own.scores.reputation=70" and
+ * "own.aiScore.reputationScore=70" resolve. Exported for unit tests.
+ */
+export function resolveEvidence(
+  evidence: string,
+  own: Business,
+  competitors: Business[],
+): EvidenceResolution {
+  const eqIdx = evidence.indexOf('=');
+  const path = (eqIdx === -1 ? evidence : evidence.slice(0, eqIdx)).trim();
+  const expected = eqIdx === -1 ? '' : evidence.slice(eqIdx + 1);
+  const segments = path.split('.').filter(Boolean);
+  if (segments.length < 2) return { ok: false, path, reason: 'missing_path' };
+
+  let roots: unknown[] = [];
+  let rest: string[] = [];
+  const head = segments[0].toLowerCase();
+  if (head === 'own') {
+    roots = [summariseBiz(own, true), own];
+    rest = segments.slice(1);
+  } else if (head === 'competitor' || head === 'competitors') {
+    // Competitor names may contain dots — try progressively longer name joins.
+    for (let n = 1; n < segments.length && roots.length === 0; n++) {
+      const name = segments
+        .slice(1, 1 + n)
+        .join('.')
+        .toLowerCase();
+      const comp = competitors.find((c) => c.name.toLowerCase() === name);
+      if (comp) {
+        roots = [summariseBiz(comp, false), comp];
+        rest = segments.slice(1 + n);
+      }
+    }
+    if (roots.length === 0) return { ok: false, path, reason: 'missing_path' };
+  } else {
+    return { ok: false, path, reason: 'missing_path' };
+  }
+  if (rest.length === 0) return { ok: false, path, reason: 'missing_path' };
+
+  let lastActual: unknown;
+  let found = false;
+  for (const root of roots) {
+    const r = walkPath(root, rest);
+    if (!r.found) continue;
+    found = true;
+    lastActual = r.value;
+    if (evidenceValueMatches(r.value, expected)) return { ok: true, path };
+  }
+  if (!found) return { ok: false, path, reason: 'missing_path' };
+  return { ok: false, path, reason: 'value_mismatch', actual: lastActual };
+}
+
+/**
+ * Drop LLM actions whose evidence cites a path that does not exist in the data.
+ * Value mismatches are kept and flagged later by `deterministicChecks`.
+ */
+export function dropUngroundedActions(
+  actions: PriorityAction[],
+  own: Business,
+  competitors: Business[],
+): PriorityAction[] {
+  return actions.filter((a) => {
+    const evidence = Array.isArray(a.evidence) ? a.evidence : [];
+    for (const ev of evidence) {
+      const r = resolveEvidence(ev, own, competitors);
+      if (!r.ok && r.reason === 'missing_path') {
+        logger.warn('evidence', 'Dropping action — path not in data', {
+          action: a.action,
+          path: r.path,
+        });
+        return false;
+      }
+    }
+    return true;
+  });
+}
+
+// ── Existence checks (generated from the signal shape) ───────────────
+// Every boolean `hasX` / `xExists` / `xMentioned` maps to "add/set up/create X"
+// phrases; every non-empty array maps to "add/list/get" + item. Replaces the
+// four hand-written entries so contact form, FAQ, blog, schema, social links,
+// newsletter and team page are all covered.
+
+const FLAG_SIGNAL_LABELS: Record<string, string[]> = {
+  'engagement.hasContactForm': ['contact form', 'enquiry form', 'inquiry form', 'web form'],
+  'engagement.hasBookingSystem': ['booking system', 'online booking', 'booking'],
+  'engagement.hasPhoneNumberProminent': ['phone number', 'your phone'],
+  'engagement.hasCallToAction': ['call to action', 'call-to-action', 'cta'],
+  'engagement.hasNewsletterSignup': ['newsletter', 'mailing list', 'email signup', 'email sign-up'],
+  'content.hasBlog': ['blog', 'news section', 'articles section'],
+  'content.hasFAQ': ['faq', 'faqs', 'frequently asked questions'],
+  'content.hasPortfolio': ['portfolio', 'gallery', 'case studies'],
+  'trust.teamPageExists': ['team page', 'meet the team page', 'about page', 'about us page'],
+  'trust.insuranceMentioned': ['insurance details', 'insurance information', 'insurance'],
+  'seo.hasSitemap': ['sitemap'],
+  'seo.hasRobotsTxt': ['robots.txt'],
+  'seo.canonicalTagsPresent': ['canonical tag', 'canonical tags'],
+};
+
+const ARRAY_SIGNAL_LABELS: Record<string, string> = {
+  'trust.accreditations': 'accreditation',
+  'trust.certifications': 'certification',
+  'trust.awardsAndMemberships': 'award or membership',
+  'trust.reviewPlatformsLinked': 'review platform',
+  'trust.guaranteesMentioned': 'guarantee',
+  'content.servicesListed': 'service',
+  'content.serviceAreasMentioned': 'service area',
+  'engagement.socialLinksPresent': 'social link',
+  'seo.schemaMarkupTypes': 'schema markup',
+};
+
+const ADD_VERBS = [
+  'add',
+  'set up',
+  'setup',
+  'create',
+  'install',
+  'enable',
+  'build',
+  'launch',
+  'start',
+];
+const LIST_VERBS = ['add', 'get', 'obtain', 'pursue', 'list', 'offer', 'link', 'join', 'display'];
 
 // These match weakness/strength language only when it appears near competitor
 // references, to reduce false positives on neutral phrases like "maintain your rating".
@@ -659,34 +883,43 @@ type ExistenceCheck =
       keywords: string[];
       label: string;
     }
-  | { kind: 'flag'; signalPath: (b: Business) => boolean; phrases: string[]; label: string };
+  | { kind: 'flag'; signalPath: (b: Business) => boolean; pattern: RegExp; label: string };
 
-const EXISTENCE_CHECKS: ExistenceCheck[] = [
-  {
-    kind: 'list',
-    signalPath: (b) => b.signals?.trust?.accreditations,
-    keywords: ['add', 'get', 'obtain', 'pursue'],
-    label: 'accreditation',
-  },
-  {
-    kind: 'list',
-    signalPath: (b) => b.signals?.content?.servicesListed,
-    keywords: ['add', 'offer', 'list'],
-    label: 'service',
-  },
-  {
-    kind: 'flag',
-    signalPath: (b) => Boolean(b.signals?.engagement?.hasBookingSystem),
-    phrases: ['add online booking', 'set up booking', 'enable booking'],
-    label: 'booking system',
-  },
-  {
-    kind: 'flag',
-    signalPath: (b) => Boolean(b.signals?.engagement?.hasPhoneNumberProminent),
-    phrases: ['add a phone number', 'add your phone', 'display a phone'],
-    label: 'phone number',
-  },
-];
+function signalAt(b: Business, dotted: string): unknown {
+  const [bucket, key] = dotted.split('.');
+  const sig = b.signals as Record<string, Record<string, unknown>> | null | undefined;
+  return sig?.[bucket]?.[key];
+}
+
+function escapeRe(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function buildExistenceChecks(): ExistenceCheck[] {
+  const checks: ExistenceCheck[] = [];
+  for (const [dotted, label] of Object.entries(ARRAY_SIGNAL_LABELS)) {
+    checks.push({
+      kind: 'list',
+      signalPath: (b) => signalAt(b, dotted) as string[] | null | undefined,
+      keywords: LIST_VERBS,
+      label,
+    });
+  }
+  for (const [dotted, labels] of Object.entries(FLAG_SIGNAL_LABELS)) {
+    const verbs = ADD_VERBS.map(escapeRe).join('|');
+    const nouns = labels.map(escapeRe).join('|');
+    checks.push({
+      kind: 'flag',
+      signalPath: (b) => signalAt(b, dotted) === true,
+      // "add a contact form", "set up an online booking system", "create your FAQ page"
+      pattern: new RegExp(`\\b(?:${verbs})\\b(?:\\s+\\w+){0,3}?\\s+(?:${nouns})\\b`, 'i'),
+      label: labels[0],
+    });
+  }
+  return checks;
+}
+
+const EXISTENCE_CHECKS: ExistenceCheck[] = buildExistenceChecks();
 
 /**
  * Run fast, deterministic checks against priority actions to catch common
@@ -743,17 +976,27 @@ function deterministicChecks(
         } else {
           // flag check: skip if business doesn't have this feature
           if (!check.signalPath(own)) continue;
-          for (const phrase of check.phrases) {
-            if (text.includes(phrase.toLowerCase())) {
-              flags.push({
-                actionIndex: i,
-                type: 'recommends_existing',
-                detail: `Recommends adding "${phrase}" but business already has it (signal: ${check.label})`,
-              });
-              existenceFlags++;
-              break; // one flag per check — avoid duplicates from multi-phrase matches
-            }
+          const m = check.pattern.exec(text);
+          if (m) {
+            flags.push({
+              actionIndex: i,
+              type: 'recommends_existing',
+              detail: `Recommends "${m[0]}" but business already has it (signal: ${check.label})`,
+            });
+            existenceFlags++;
           }
+        }
+      }
+
+      // (b2) evidence_mismatch — cited path exists but the value differs from the data
+      for (const ev of Array.isArray(a.evidence) ? a.evidence : []) {
+        const r = resolveEvidence(ev, own, competitors);
+        if (!r.ok && r.reason === 'value_mismatch') {
+          flags.push({
+            actionIndex: i,
+            type: 'evidence_mismatch',
+            detail: `Cites "${ev}" but the data shows ${r.path}=${JSON.stringify(r.actual)}`,
+          });
         }
       }
     }
@@ -797,9 +1040,9 @@ function deterministicChecks(
   return flags;
 }
 
-// Internal field — never sent to clients.
+// Internal fields — never persisted or sent to clients.
 function stripSource(actions: PriorityAction[]): PriorityAction[] {
-  return actions.map(({ _source, ...rest }) => rest);
+  return actions.map(({ _source, evidence: _evidence, ...rest }) => rest);
 }
 
 /**
@@ -822,7 +1065,7 @@ async function validateActionsHybrid(
     logger.info('validator', 'No issues found, skipping LLM');
     logAIEvent({
       event: 'validation',
-      model: AI_MODEL_FAST,
+      model: AI_MODEL_SMART,
       success: true,
       durationMs: Date.now() - t0,
       flagsFound: 0,
@@ -830,7 +1073,7 @@ async function validateActionsHybrid(
     return stripSource(actions);
   }
 
-  logger.info('validator', 'Issues found, requesting LLM patches', { issues: flags.length });
+  logger.info('validator', 'Issues found, requesting LLM patches', { flags: flags.length });
 
   const flaggedIndices = Array.from(new Set(flags.map((f) => f.actionIndex)));
   const flaggedActions = flaggedIndices.map((i) => ({ index: i, action: actions[i] }));
@@ -882,9 +1125,10 @@ Schema: {"patches":[{"actionIndex":0,"field":"string","newValue":"string|null"}]
   try {
     const result = await askClaude<{
       patches: Array<{ actionIndex: number; field: string; newValue: string | null }>;
-    }>(prompt, 1500, SCOUTLY_FACT_CHECKER_SYSTEM, {
-      schema: validationPatchesSchema,
-      label: 'validateActionsHybrid',
+    }>(prompt, VALIDATION_PATCHES_SCHEMA, {
+      maxTokens: 1500,
+      system: SCOUTLY_FACT_CHECKER_SYSTEM,
+      model: AI_MODEL_SMART,
     });
     const patched = actions.map((a) => ({ ...a }));
 
@@ -902,11 +1146,9 @@ Schema: {"patches":[{"actionIndex":0,"field":"string","newValue":"string|null"}]
       const isString = typeof patch.newValue === 'string';
       const isNull = patch.newValue === null;
       if (!isString && !(isNull && NULLABLE_PATCH_FIELDS.has(patch.field))) {
-        logger.warn(
-          'validator',
-          'Skipping patch: invalid newValue (null not allowed for this field)',
-          { field: patch.field },
-        );
+        logger.warn('validator', 'Skipping patch: null newValue not allowed for this field', {
+          field: patch.field,
+        });
         continue;
       }
       logger.info('validator', 'Patching action', {
@@ -918,7 +1160,7 @@ Schema: {"patches":[{"actionIndex":0,"field":"string","newValue":"string|null"}]
 
     logAIEvent({
       event: 'validation',
-      model: AI_MODEL_FAST,
+      model: AI_MODEL_SMART,
       success: true,
       durationMs: Date.now() - t0,
       flagsFound: flags.length,
@@ -927,11 +1169,11 @@ Schema: {"patches":[{"actionIndex":0,"field":"string","newValue":"string|null"}]
   } catch (e) {
     logAIEvent({
       event: 'validation',
-      model: AI_MODEL_FAST,
+      model: AI_MODEL_SMART,
       success: false,
       durationMs: Date.now() - t0,
       flagsFound: flags.length,
-      errorType: (e as Error).name,
+      errorType: errorTypeOf(e),
     });
     logger.warn('validator', 'LLM patch call failed, returning original actions', { error: e });
     return stripSource(actions);
@@ -967,12 +1209,12 @@ export async function generatePriorityActionsWithHistory(
       const verb = closedFromLastWeek.length === 1 ? 'that gap is gone' : 'those gaps are gone';
       templateActions[0] = {
         ...templateActions[0],
-        whyItMatters: `Last week you closed ${wins} — ${verb}. ${templateActions[0].whyItMatters}`,
+        whyItMatters: `Last week you closed ${wins}, so ${verb}. ${templateActions[0].whyItMatters}`,
       };
     }
     logAIEvent({
       event: 'generation',
-      model: AI_MODEL_FAST,
+      model: AI_MODEL_SMART,
       success: true,
       durationMs: 0,
       serviceCategory,
@@ -1017,10 +1259,10 @@ ${TONE_RULES}
 
 CONTINUITY RULES (this is what makes the product feel alive):
 - Acknowledge what changed since last week. If a previous action was completed (signal improved), celebrate it in the first line of the first action.
-- If a previous action was NOT completed (signal unchanged), you may repeat it — but reframe as "still worth doing" with updated context, not as a fresh discovery.
+- If a previous action was NOT completed (signal unchanged), you may repeat it, but reframe it as "still worth doing" with updated context, not as a fresh discovery.
 - If nothing changed at all, say so honestly and keep actions steady rather than reshuffling for the sake of it.
 - Never contradict last week's baseline. If last week said "you have no accreditations" and this week's data shows three, acknowledge that.
-- If a category appeared in last week's actions but is absent this week, the FIRST action's continuityNote (or whyItMatters) must briefly acknowledge what the user fixed. Example: "Last week you added a booking system — that gap is closed. Here's the next priority." Do not silently drop a previous action without naming the win.
+- If a category appeared in last week's actions but is absent this week, the FIRST action's continuityNote (or whyItMatters) must briefly acknowledge what the user fixed. Example: "Last week you added a booking system, so that gap is closed. Here is the next priority." Do not silently drop a previous action without naming the win.
 
 ${DATA_INTEGRITY_RULES}
 
@@ -1030,7 +1272,7 @@ INTERNAL COHERENCE CHECK (do this before returning):
 PRIORITISATION RULES:
 - Return exactly ${remainingSlots} action${remainingSlots > 1 ? 's' : ''}. ${templatesUsed > 0 ? `(${templatesUsed} slot${templatesUsed > 1 ? 's are' : ' is'} already filled by automatic checks.)` : ''}
 - Every action must have estimatedImpact "high" or "medium".
-- Each action must address a genuinely different gap — no two from the same root cause unless the gaps are clearly distinct.
+- Each action must address a genuinely different gap. No two from the same root cause unless the gaps are clearly distinct.
 - ${effortNote}
 
 ${FIELD_RULES}
@@ -1040,23 +1282,27 @@ Previous week's actions: ${JSON.stringify(previousActions.map((a) => ({ action: 
 
 What changed in this business's signals since last week: ${Object.keys(changedSignals).length ? JSON.stringify(changedSignals) : '(nothing changed)'}
 
-Schema (JSON array only, no markdown):
+Schema (JSON object only, no markdown):
 ${PRIORITY_SCHEMA_WITH_CONTINUITY}
 
 Own business: ${JSON.stringify(summariseBiz(own, true))}
 Competitors: ${JSON.stringify(competitors.map((b) => summariseBiz(b, false)))}`;
 
-  const tokensPerSlot = 833;
+  const tokensPerSlot = 900;
   const maxTokens = remainingSlots * tokensPerSlot;
 
   const t0 = Date.now();
   try {
-    const sorted = await generateWithDistributionCheck(
-      prompt,
-      own.aiScore,
-      'generatePriorityActionsWithHistory',
-      maxTokens,
-      priorityActionsWithContinuitySchema,
+    const sorted = dropUngroundedActions(
+      await generateWithDistributionCheck(
+        prompt,
+        own.aiScore,
+        'generatePriorityActionsWithHistory',
+        maxTokens,
+        PRIORITY_ACTIONS_WITH_CONTINUITY_SCHEMA,
+      ),
+      own,
+      competitors,
     );
 
     // Combine: templates first, then LLM actions, renumber 1–5
@@ -1069,7 +1315,7 @@ Competitors: ${JSON.stringify(competitors.map((b) => summariseBiz(b, false)))}`;
 
     logAIEvent({
       event: 'generation',
-      model: AI_MODEL_FAST,
+      model: AI_MODEL_SMART,
       success: true,
       durationMs: Date.now() - t0,
       serviceCategory,
@@ -1080,13 +1326,13 @@ Competitors: ${JSON.stringify(competitors.map((b) => summariseBiz(b, false)))}`;
   } catch (e) {
     logAIEvent({
       event: 'generation',
-      model: AI_MODEL_FAST,
+      model: AI_MODEL_SMART,
       success: false,
       durationMs: Date.now() - t0,
       serviceCategory,
       templatesUsed,
       templatesFired: firedIds2,
-      errorType: (e as Error).name,
+      errorType: errorTypeOf(e),
     });
     logger.warn('generatePriorityActionsWithHistory', 'Failed', { error: e });
     throw new AIUnavailableError(e);
@@ -1123,12 +1369,12 @@ export async function generateChangeSummary(
   }
 
   const framing = isCompetitor
-    ? `A competitor called "${name}" has made changes to their website. Tell the owner what changed and why it matters to them — frame it as an opportunity or a threat. Be direct and advisory.`
+    ? `A competitor called "${name}" has made changes to their website. Tell the owner what changed and why it matters to them, framed as an opportunity or a threat. Be direct and advisory.`
     : `The owner's own website ("${name}") has changed since the last scan. Clearly describe what changed and flag anything that could help or hurt their online presence. Be concise and helpful.`;
 
   const prompt = `${framing}
 
-DATA INTEGRITY: Every claim you make must be directly supported by the Before/After JSON below. Do not invent rankings, traffic numbers, competitor activity, search positions, or anything else not visible in the data. Do not state outcomes as fact ("they're capturing more traffic", "they're winning customers") — the data shows what changed on the site, never its results; phrase impact as possibility ("this could help them rank for..."). If you cannot describe a change concretely from the data, drop it.
+DATA INTEGRITY: Every claim you make must be directly supported by the Before/After JSON below. Do not invent rankings, traffic numbers, competitor activity, search positions, or anything else not visible in the data. Do not state outcomes as fact ("they're capturing more traffic", "they're winning customers"). The data shows what changed on the site, never its results; phrase impact as possibility ("this could help them rank for..."). If you cannot describe a change concretely from the data, drop it.
 
 Return JSON only.
 Schema: {"hasSignificantChanges":boolean,"severity":"high"|"medium"|"low","summary":"string","changes":[{"category":"string","description":"string","significance":"string","actionItem":"string|null"}]}
@@ -1146,9 +1392,9 @@ Before: ${JSON.stringify(changedBefore)}
 After: ${JSON.stringify(changedAfter)}`;
 
   try {
-    const result = await askClaude<ChangeSummary>(prompt, 512, SCOUTLY_SYSTEM, {
-      schema: changeSummarySchema,
-      label: 'generateChangeSummary',
+    const result = await askClaude<ChangeSummary>(prompt, CHANGE_SUMMARY_SCHEMA, {
+      maxTokens: 1024,
+      system: SCOUTLY_SYSTEM,
     });
     logAIEvent({
       event: 'change_summary',
@@ -1163,7 +1409,7 @@ After: ${JSON.stringify(changedAfter)}`;
       model: AI_MODEL_FAST,
       success: false,
       durationMs: Date.now() - t0,
-      errorType: (e as Error).name,
+      errorType: errorTypeOf(e),
     });
     logger.warn('generateChangeSummary', 'Failed', { error: e });
     throw new AIUnavailableError(e);
@@ -1221,21 +1467,23 @@ async function extractMentionedBusinesses(
   }
 
   const prompt = `Extract every business mentioned in the text below. Return JSON only.
-Schema: [{"name":"string","position":1,"context":"recommended"|"mentioned"|"compared"|"dismissed"}]
+Schema: {"businesses":[{"name":"string","position":1,"context":"recommended"|"mentioned"|"compared"|"dismissed"}]}
 Rules:
 - position: 1 = first mentioned, 2 = second, etc.
 - context: "recommended" if the text endorses it, "mentioned" if neutral, "compared" if listed alongside others, "dismissed" if the text warns against it.
 - Include only real LOCAL service businesses (salons, clinics, shops, providers).
-- EXCLUDE product, cosmetic, and retail brands, manufacturers, and national chains (e.g. Elemis, OPI, Essie, Lycon, Clarins, Medik8) — these are products a business uses, not local competitors.
+- EXCLUDE product, cosmetic, and retail brands, manufacturers, and national chains (e.g. Elemis, OPI, Essie, Lycon, Clarins, Medik8), which are products a business uses, not local competitors.
 - Exclude generic descriptions.
 
 Text:\n${capped}`;
 
   try {
-    const result = await askClaude<MentionedBusiness[]>(prompt, 512, undefined, {
-      schema: mentionedBusinessesSchema,
-      label: 'extractMentionedBusinesses',
-    });
+    const { businesses } = await askClaude<{ businesses: MentionedBusiness[] }>(
+      prompt,
+      MENTIONED_BUSINESSES_SCHEMA,
+      { maxTokens: 1024 },
+    );
+    const result = Array.isArray(businesses) ? businesses : [];
     // Only cache successful extractions — don't cache empty fallbacks
     if (result.length > 0) {
       if (mentionsCache.size >= MENTIONS_CACHE_MAX) {
@@ -1373,9 +1621,7 @@ export async function checkAIVisibility(
     const lastTested = new Date(existingVisibility.tested_at).getTime();
     const hoursAgo = (Date.now() - lastTested) / (1000 * 60 * 60);
     if (hoursAgo < 24) {
-      logger.info('ai-presence', 'Skipping — recently tested', {
-        hoursAgo: Number(hoursAgo.toFixed(1)),
-      });
+      logger.info('ai-presence', 'Skipping — recently tested', { hoursAgo: hoursAgo.toFixed(1) });
       return null;
     }
   }
@@ -1411,9 +1657,8 @@ export async function checkAIVisibility(
           max_tokens: 1000,
           system:
             'You are a helpful local business recommendation assistant. When asked about businesses in a specific area, provide specific real business names and brief descriptions. Always include specific names.',
-          tools: [
-            { type: 'web_search_20250305', name: 'web_search' },
-          ] as unknown as Anthropic.MessageCreateParamsNonStreaming['tools'],
+          // Current web-search tool (dynamic filtering); requires Sonnet 4.6+ / Sonnet 5.
+          tools: [{ type: 'web_search_20260209', name: 'web_search' }],
           messages: [{ role: 'user', content: query }],
         },
         { backoffMs: 10000, label: 'ai-presence' },
@@ -1424,7 +1669,7 @@ export async function checkAIVisibility(
         .map((c) => (c as { type: 'text'; text: string }).text)
         .join('\n');
 
-      logger.info('ai-presence', 'Query answered', {
+      logger.info('ai-presence', 'Query response', {
         query,
         textLength: aiText.length,
         snippet: aiText.slice(0, 200),
@@ -1448,7 +1693,7 @@ export async function checkAIVisibility(
       if (cacheHit) cacheHits++;
       const { confidence, match } = matchWithLocation(businessName, location, businesses, aiText);
 
-      logger.info('ai-presence', 'Match evaluated', {
+      logger.info('ai-presence', 'Match', {
         confidence,
         name: match?.name ?? 'none',
         position: match?.position ?? '-',
@@ -1483,7 +1728,13 @@ export async function checkAIVisibility(
 
   const total = queries.length;
   const allFailed = queryFailures === total;
-  const aiPresenceScore = total > 0 ? Math.round((mentionCount / total) * 100) : 0;
+  const rawPresenceScore = total > 0 ? Math.round((mentionCount / total) * 100) : 0;
+  // Smooth sampling noise: the reported score is the mean of the last three runs.
+  const runScores = [
+    ...(existingVisibility?.runScores ?? []).slice(-(AI_PRESENCE_WINDOW - 1)),
+    rawPresenceScore,
+  ];
+  const aiPresenceScore = Math.round(runScores.reduce((s, v) => s + v, 0) / runScores.length);
   const averagePosition =
     positions.length > 0
       ? Math.round((positions.reduce((sum, p) => sum + p, 0) / positions.length) * 10) / 10
@@ -1500,6 +1751,8 @@ export async function checkAIVisibility(
 
   return {
     aiPresenceScore,
+    rawPresenceScore,
+    runScores,
     mentionCount,
     totalPrompts: total,
     tested_at: new Date().toISOString(),
@@ -1508,3 +1761,6 @@ export async function checkAIVisibility(
     competitorsAhead: Array.from(competitorsAheadSet),
   };
 }
+
+/** Number of runs averaged into the reported AI presence score. */
+export const AI_PRESENCE_WINDOW = 3;

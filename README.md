@@ -1,6 +1,13 @@
-# Scoutly
+<p align="center">
+  <img src="docs/images/scoutly-fox.svg" width="112" height="112" alt="Scoutly, a small orange fox" />
+</p>
 
-**Local SEO for small businesses, minus the jargon.**
+<h1 align="center">Scoutly</h1>
+
+<p align="center">
+  <strong>Local SEO for small businesses, minus the jargon.</strong><br />
+  <em>Sniffs out what the competition is up to. Never asks for a treat.</em>
+</p>
 
 Scoutly keeps an eye on your business and up to five local rivals, scores everyone on the stuff that actually gets you found on Google, and hands you a short weekly to-do list. Think of it as a friend who works in SEO and checks in every Monday with "here's how you did, here's what to fix, go get 'em."
 
@@ -204,3 +211,10 @@ before merging" → select `check`.
 - Keyword tracking per project with rank history
 - AI visibility checks across more assistants
 - A shareable scorecard link you can send to your web developer with "can you do these three things?"
+
+---
+
+<p align="center">
+  <img src="docs/images/scoutly-fox.svg" width="56" height="56" alt="" /><br />
+  <sub>Built by a fox with a clipboard.</sub>
+</p>

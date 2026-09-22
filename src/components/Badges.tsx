@@ -13,8 +13,8 @@ export const SeverityBadge = ({ severity }: { severity: 'high' | 'medium' | 'low
 
 export const TransparencyBadge = ({ level }: { level: 'high' | 'medium' | 'low' | 'none' }) => {
   const styles: Record<string, string> = {
-    high: 'bg-success/10 text-[hsl(142,71%,35%)]',
-    medium: 'bg-warning/10 text-[hsl(38,92%,40%)]',
+    high: 'bg-success/10 text-success-strong',
+    medium: 'bg-warning/10 text-warning-strong',
     low: 'bg-destructive/10 text-destructive',
     none: 'bg-muted text-muted-foreground',
   };

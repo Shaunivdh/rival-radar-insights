@@ -1,13 +1,20 @@
 import type { Metadata } from 'next';
-import { Inter } from 'next/font/google';
+import { DM_Sans, Montserrat } from 'next/font/google';
 import './globals.css';
 import Providers from '@/components/Providers';
 import { JsonLd } from '@/components/JsonLd';
 
-const inter = Inter({
+const dmSans = DM_Sans({
   subsets: ['latin'],
   display: 'swap',
-  variable: '--font-inter',
+  variable: '--font-dm-sans',
+});
+
+const montserrat = Montserrat({
+  subsets: ['latin'],
+  weight: ['800', '900'],
+  display: 'swap',
+  variable: '--font-montserrat',
 });
 
 export const metadata: Metadata = {
@@ -70,7 +77,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={inter.variable}>
+    <html lang="en" className={`${dmSans.variable} ${montserrat.variable} scroll-smooth`}>
       <body>
         <JsonLd />
         <Providers>{children}</Providers>

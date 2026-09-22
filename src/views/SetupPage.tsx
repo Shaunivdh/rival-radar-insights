@@ -18,6 +18,8 @@ import {
   Users,
   Mail,
   Lock,
+  Eye,
+  EyeOff,
 } from 'lucide-react';
 import { resetPasswordForEmail } from '@/lib/supabase/auth';
 import { SERVICE_CATEGORY_OPTIONS, type ServiceCategory } from '@/lib/serviceCategories';
@@ -92,6 +94,7 @@ const SetupPage = () => {
   const [forgotSent, setForgotSent] = useState(false);
   const [loginEmail, setLoginEmail] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
+  const [showLoginPassword, setShowLoginPassword] = useState(false);
 
   // Signup wizard state
   const [step, setStep] = useState(1);
@@ -161,7 +164,8 @@ const SetupPage = () => {
     setLoading(false);
   };
 
-  const handleLogin = async () => {
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
     setError('');
     if (!loginEmail.trim() || !loginPassword.trim()) return;
     setLoading(true);
@@ -340,33 +344,48 @@ const SetupPage = () => {
                   </>
                 )
               ) : (
-                <>
+                // A real form lets the browser recognise this as a sign in, so
+                // password managers fill the right entry and offer to save new ones.
+                <form onSubmit={handleLogin} className="space-y-4">
                   <Field label="Email">
                     <input
                       type="email"
+                      name="email"
+                      autoComplete="username"
                       value={loginEmail}
                       onChange={(e) => setLoginEmail(e.target.value)}
-                      onKeyDown={(e) => e.key === 'Enter' && handleLogin()}
                       className={inputCls}
                       placeholder="you@example.com"
                       autoFocus
                     />
                   </Field>
                   <Field label="Password">
-                    <input
-                      type="password"
-                      value={loginPassword}
-                      onChange={(e) => setLoginPassword(e.target.value)}
-                      onKeyDown={(e) => e.key === 'Enter' && handleLogin()}
-                      className={inputCls}
-                      placeholder="••••••••"
-                    />
+                    <div className="relative">
+                      <input
+                        type={showLoginPassword ? 'text' : 'password'}
+                        name="password"
+                        autoComplete="current-password"
+                        value={loginPassword}
+                        onChange={(e) => setLoginPassword(e.target.value)}
+                        className={`${inputCls} pr-10`}
+                        placeholder="••••••••"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowLoginPassword((v) => !v)}
+                        aria-label={showLoginPassword ? 'Hide password' : 'Show password'}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                      >
+                        {showLoginPassword ? (
+                          <EyeOff className="w-4 h-4" />
+                        ) : (
+                          <Eye className="w-4 h-4" />
+                        )}
+                      </button>
+                    </div>
                   </Field>
                   {error && <p className="text-xs text-destructive">{error}</p>}
-                  <PrimaryButton
-                    onClick={handleLogin}
-                    disabled={!loginEmail || !loginPassword || loading}
-                  >
+                  <PrimaryButton type="submit" disabled={!loginEmail || !loginPassword || loading}>
                     {loading ? (
                       'Please wait…'
                     ) : (
@@ -384,7 +403,7 @@ const SetupPage = () => {
                   >
                     Forgot password?
                   </GhostButton>
-                </>
+                </form>
               )}
             </div>
 
@@ -475,6 +494,7 @@ const SetupPage = () => {
                           <Field label="Work email">
                             <input
                               type="email"
+                              autoComplete="email"
                               placeholder="you@yourbusiness.co.uk"
                               value={data.email}
                               onChange={(e) => update('email', e.target.value)}
@@ -486,6 +506,7 @@ const SetupPage = () => {
                               <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                               <input
                                 type="password"
+                                autoComplete="new-password"
                                 placeholder="••••••••"
                                 value={data.password}
                                 onChange={(e) => update('password', e.target.value)}
@@ -776,12 +797,15 @@ const PrimaryButton = ({
   onClick,
   disabled,
   children,
+  type = 'button',
 }: {
-  onClick: () => void;
+  onClick?: () => void;
   disabled?: boolean;
   children: React.ReactNode;
+  type?: 'button' | 'submit';
 }) => (
   <button
+    type={type}
     onClick={onClick}
     disabled={disabled}
     className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 disabled:opacity-50 transition-opacity"
@@ -792,6 +816,7 @@ const PrimaryButton = ({
 
 const GhostButton = ({ onClick, children }: { onClick: () => void; children: React.ReactNode }) => (
   <button
+    type="button"
     onClick={onClick}
     className="w-full text-xs text-muted-foreground hover:text-foreground text-center transition-colors"
   >

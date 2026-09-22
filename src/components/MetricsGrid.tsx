@@ -194,8 +194,9 @@ export function MetricsGrid({ business }: MetricsGridProps) {
         title="AI Search Presence"
         score={aiScore.aiPresenceScore}
         subtitle={aiLabel}
-        detail="Simulated ChatGPT / Perplexity queries"
+        detail={`Claude with web search, ${aiVisibility?.totalPrompts ?? 5} local queries`}
         source="Claude API"
+        sourceTooltip="We ask an AI assistant (Claude with web search) to recommend your service in your location and check whether you are named. The score is the average of the last three runs. Nothing here queries ChatGPT or Perplexity."
         noData={!aiVisibility ? 'Not yet tested' : undefined}
       />
       <MetricCard

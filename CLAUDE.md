@@ -48,18 +48,43 @@ Your priority is **correctness, minimal token usage, and small safe diffs**.
 
 ## 5. AI Usage (Anthropic)
 
-Claude is used only for:
+All calls live in `src/services/ai.ts` and go through `callLLMRaw`. Models come from
+`AI_MODEL_FAST` (default Haiku 4.5) and `AI_MODEL_SMART` (default Sonnet 5).
 
-- generateHealthScore
-- generatePriorityActions
-- generateChangeSummary
+| Function                                       | Model | max_tokens       | Output                                   |
+| ---------------------------------------------- | ----- | ---------------- | ---------------------------------------- |
+| `extractPageSignals` (per page)                | FAST  | 4096             | `EXTRACTION_SCHEMA`                      |
+| `generateReviewSentiment`                      | FAST  | 512              | `SENTIMENT_SCHEMA`                       |
+| `checkAIVisibility` (5 queries + web search)   | SMART | 1000 per query   | free text, then mention extraction       |
+| `extractMentionedBusinesses`                   | FAST  | 1024             | `MENTIONED_BUSINESSES_SCHEMA`            |
+| `generatePriorityActions` / `…WithHistory`     | SMART | 900 × open slots | `PRIORITY_ACTIONS_*_SCHEMA` (+ evidence) |
+| `validateActionsHybrid` (fact-checker patches) | SMART | 1500             | `VALIDATION_PATCHES_SCHEMA`              |
+| `generateChangeSummary`                        | FAST  | 1024             | `CHANGE_SUMMARY_SCHEMA`                  |
+
+Health scores are deterministic (`src/services/scores.ts`) — no AI.
 
 ### Requirements:
 
-- Output must be valid JSON only
-- Keep responses under 200 tokens
-- Prefer deterministic logic when possible
+- Every call passes a JSON schema via `output_config.format` (`src/services/aiSchemas.ts`); parse the text block directly, never strip fences or regex for brackets
+- `stop_reason === 'max_tokens'` throws `TruncatedOutputError` and is logged as `errorType: 'truncated'` — never parse a truncated body
+- LLM priority actions must cite `evidence` paths; unresolvable paths drop the action, mismatched values are flagged to the fact-checker
+- Prefer deterministic logic (templates, regex parsers) over AI whenever possible
 - No explanations in AI outputs
+
+### Copy Style (NON-NEGOTIABLE)
+
+Applies to every string a user can read: LLM output (priority actions, change summaries,
+fact-checker patches), the deterministic templates in `src/lib/priorityTemplates.ts`, the
+mock plan in `src/lib/mockActionPlan.ts`, and UI copy.
+
+- **NO DASHES IN AI-GENERATED RECOMMENDATIONS.** No em dashes (—), no en dashes (–), no
+  hyphen used as a dash, no arrows (→). Use a comma, colon, semicolon, or a new sentence.
+- No dashes in ranges either: write "2 to 3 hours", "15 to 20 reviews", not "2–3 hours".
+- Hyphens inside ordinary compound words are fine ("plain-English", "top-rated", "time-to-result").
+- **UK English** spelling and phrasing: organise, colour, personalise, enquiry, maths.
+- Prompt text counts too: never write a dash into a prompt string or an in-prompt example,
+  the model copies the punctuation it is shown. Enforced in `SCOUTLY_SYSTEM`, `TONE_RULES`
+  and `SCOUTLY_FACT_CHECKER_SYSTEM` (`src/services/ai.ts`).
 
 ---
 
@@ -104,7 +129,7 @@ Do NOT optimize crawl performance at the expense of data quality. A 2-3 second i
 ## 7. UI Rules
 
 - Tailwind only
-- Fonts: **Inter** for body, **Space Grotesk** for headings (`h1`–`h6`)
+- Fonts: **DM Sans** for body (`font-sans`), **Montserrat** for headings (`h1`–`h6`, `font-display`, loaded at weights 800 and 900 only)
 - Primary brand color: violet `hsl(262 60% 58%)` (~`#8354D4`); accent: orange `hsl(32 95% 55%)` (~`#F9941F`)
 - Theme is **token-driven** — all colors/gradients/shadows live in `src/app/globals.css` `:root`. Change tokens, not per-component hex. Tailwind color utilities resolve from these tokens.
 - Surfaces are **neumorphic**: `.card-surface` / `.neu` use the soft `--neu-shadow`, `rounded-2xl` (`--radius: 1rem`), sitting on the `--gradient-canvas` app background
@@ -132,7 +157,7 @@ Avoid: `industrial-brutalist-ui` (wrong tone for trust-oriented B2B), `gpt-taste
 Constraints when applying these skills — they OVERRIDE any skill output:
 
 - Tailwind only; **no new UI libraries or dependencies**
-- Keep the `globals.css` theme tokens (Inter body / Space Grotesk headings, violet `hsl(262 60% 58%)` primary, orange accent, neumorphic surfaces) — don't reintroduce ad-hoc fonts or colors
+- Keep the `globals.css` theme tokens (DM Sans body / Montserrat headings, violet `hsl(262 60% 58%)` primary, orange accent, neumorphic surfaces) — don't reintroduce ad-hoc fonts or colors
 - Design/layout changes must NOT touch crawl logic (see §6) — flag if a change appears to require it
 - Small, safe diffs; changed sections only
 

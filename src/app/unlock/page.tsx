@@ -38,13 +38,13 @@ export default function UnlockPage() {
             setError(false);
           }}
           placeholder="Password"
-          className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#5B4EE8]"
+          className="w-full border border-input rounded-lg px-3 py-2 text-sm outline-none focus:border-primary"
           autoFocus
         />
         {error && <p className="text-sm text-red-500">Incorrect password.</p>}
         <button
           type="submit"
-          className="w-full bg-[#5B4EE8] text-white rounded-lg py-2 text-sm font-medium hover:bg-[#4a3ed0] transition-colors"
+          className="w-full bg-primary text-primary-foreground rounded-lg py-2 text-sm font-medium hover:bg-primary/90 transition-colors"
         >
           Unlock
         </button>

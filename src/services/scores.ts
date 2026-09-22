@@ -154,9 +154,7 @@ export function recomputeOverallScore(score: AIHealthScore): number {
   const available = components.filter((c) => c.score !== null);
   const totalWeight = available.reduce((sum, c) => sum + c.weight, 0);
   if (totalWeight === 0) return 0;
-  return Math.round(
-    available.reduce((sum, c) => sum + c.score! * c.weight, 0) / totalWeight,
-  );
+  return Math.round(available.reduce((sum, c) => sum + c.score! * c.weight, 0) / totalWeight);
 }
 
 /**

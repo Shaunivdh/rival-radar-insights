@@ -9,7 +9,7 @@ import {
   Lightbulb,
   Building2,
   Eye,
-  HelpCircle,
+  Mail,
   Zap,
 } from 'lucide-react';
 import { Logo } from '@/components/Logo';
@@ -38,7 +38,7 @@ const mainNavItems = [
 const workspaceNavItems = [
   { label: 'Competitors', path: '/competitors', icon: Users },
   { label: 'Settings', path: '/settings', icon: Settings },
-  { label: 'Help center', path: '/help', icon: HelpCircle },
+  { label: 'Contact us', path: '/contact', icon: Mail },
 ];
 
 const DashboardSidebar = () => {

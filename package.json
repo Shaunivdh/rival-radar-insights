@@ -17,7 +17,9 @@
     "test": "vitest run",
     "test:contract": "RUN_REAL_API=1 vitest run",
     "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
     "test:integration": "vitest run src/lib/__tests__/ai.pipeline.test.ts",
+    "test:seed": "bun run scripts/create-test-user.ts && bun run scripts/seed-test-project.ts",
     "test:unit": "vitest run",
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit"

@@ -1,0 +1,19 @@
+{
+  "_builder": "wordpress-elementor",
+  "_url": "https://rapidflowplumbing.co.uk/",
+  "homepageH1": "Emergency plumbers & heating engineers in Manchester",
+  "services": [
+    "Boiler Installation",
+    "Boiler Repair",
+    "Annual Boiler Service",
+    "Emergency Plumbing",
+    "Bathroom Installation",
+    "Radiator Replacement"
+  ],
+  "hasContactForm": true,
+  "bookingProvider": null,
+  "socialLinks": ["Facebook", "YouTube"],
+  "accreditations": ["Gas Safe", "Checkatrade Approved"],
+  "reviewPlatforms": ["Checkatrade"],
+  "sitemap": true
+}

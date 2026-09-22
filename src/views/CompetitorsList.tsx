@@ -8,7 +8,6 @@ import { addCompetitor, triggerSingleScan } from '@/actions/projects';
 import type { Business } from '@/types';
 import {
   Plus,
-  Search,
   TrendingUp,
   TrendingDown,
   Minus,
@@ -45,11 +44,11 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 
 const getScoreColor = (s: number) =>
   s >= 80
-    ? 'text-[hsl(142,71%,35%)]'
+    ? 'text-success-strong'
     : s >= 60
       ? 'text-primary'
       : s >= 40
-        ? 'text-[hsl(38,92%,40%)]'
+        ? 'text-warning-strong'
         : 'text-destructive';
 
 const TrendIcon = ({ delta }: { delta: number | null }) => {
@@ -61,7 +60,7 @@ const TrendIcon = ({ delta }: { delta: number | null }) => {
     );
   if (delta > 0)
     return (
-      <span className="inline-flex items-center gap-1 text-[hsl(142,71%,35%)] text-xs font-semibold">
+      <span className="inline-flex items-center gap-1 text-success-strong text-xs font-semibold">
         <TrendingUp className="w-3.5 h-3.5" />+{delta}
       </span>
     );
@@ -114,7 +113,6 @@ const CompetitorsList = () => {
   const { project, addCompetitorToStore, syncBusinesses } = useRivalRadarStore();
   const searchParams = useSearchParams();
   const debugMode = isDev && searchParams.get('debug') === 'true';
-  const [search, setSearch] = useState('');
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState({ name: '', url: '' });
   const [formError, setFormError] = useState('');
@@ -139,12 +137,6 @@ const CompetitorsList = () => {
   const archivedIds = new Set(archived.map((a) => a.biz.id));
   const active = project.competitors.filter((c) => !archivedIds.has(c.id));
   const slotsLeft = Math.max(0, 5 - active.length);
-
-  const filtered = active.filter(
-    (c) =>
-      c.name.toLowerCase().includes(search.toLowerCase()) ||
-      c.domain.toLowerCase().includes(search.toLowerCase()),
-  );
 
   const archiveCompetitor = (biz: Business) => {
     const archivedAt = new Date().toLocaleDateString('en-GB', {
@@ -198,7 +190,7 @@ const CompetitorsList = () => {
         <div>
           <h1 className="text-3xl lg:text-4xl font-bold mb-2">Competitors</h1>
           <p className="text-muted-foreground">
-            Track up to 5 local rivals. Spot what they do better — and where you can overtake them.
+            Track up to 5 local rivals. Spot what they do better, and where you can overtake them.
           </p>
         </div>
         <Dialog open={open} onOpenChange={setOpen}>
@@ -260,13 +252,13 @@ const CompetitorsList = () => {
             label: 'Above you',
             value: active.filter((c) => (c.aiScore?.overallScore ?? 0) > ownScore).length,
             icon: Trophy,
-            color: 'text-[hsl(142,71%,35%)]',
+            color: 'text-success-strong',
           },
           {
             label: 'Below you',
             value: active.filter((c) => (c.aiScore?.overallScore ?? 0) <= ownScore).length,
             icon: Target,
-            color: 'text-[hsl(38,92%,40%)]',
+            color: 'text-warning-strong',
           },
           { label: 'Slots left', value: slotsLeft, icon: Plus, color: 'text-muted-foreground' },
         ].map((s) => (
@@ -284,17 +276,6 @@ const CompetitorsList = () => {
         ))}
       </div>
 
-      {/* Search */}
-      <div className="relative mb-6 max-w-md">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-        <Input
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder="Search competitors…"
-          className="pl-10"
-        />
-      </div>
-
       {/* Your row */}
       <div className="card-surface mb-4 bg-primary/5 flex items-center gap-6 flex-wrap">
         <Badge className="bg-primary text-primary-foreground">YOU</Badge>
@@ -308,7 +289,7 @@ const CompetitorsList = () => {
         </div>
         {own.googleData && (
           <div className="hidden md:flex items-center gap-1 text-sm">
-            <Star className="w-4 h-4 fill-[hsl(38,92%,50%)] text-[hsl(38,92%,50%)]" />
+            <Star className="w-4 h-4 fill-warning text-warning" />
             {own.googleData.googleRating}
           </div>
         )}
@@ -319,7 +300,7 @@ const CompetitorsList = () => {
 
       {/* Competitor cards */}
       <div className="space-y-3">
-        {filtered.map((c, i) => {
+        {active.map((c, i) => {
           const score = c.aiScore?.overallScore ?? null;
           const delta = c.aiScore?.weeklyDelta ?? null;
           const strengths = getStrengths(c);
@@ -360,7 +341,7 @@ const CompetitorsList = () => {
                   {/* Rating */}
                   {c.googleData ? (
                     <div className="flex items-center gap-1 text-sm w-24">
-                      <Star className="w-4 h-4 fill-[hsl(38,92%,50%)] text-[hsl(38,92%,50%)]" />
+                      <Star className="w-4 h-4 fill-warning text-warning" />
                       {c.googleData.googleRating}
                       <span className="text-xs text-muted-foreground">
                         ({c.googleData.reviewCount})
@@ -413,7 +394,7 @@ const CompetitorsList = () => {
                           <Archive className="w-4 h-4" />
                         </Button>
                       </TooltipTrigger>
-                      <TooltipContent>Archive — keeps history, frees a slot</TooltipContent>
+                      <TooltipContent>Archive, keeps history and frees a slot</TooltipContent>
                     </Tooltip>
                   </TooltipProvider>
                 </div>
@@ -425,7 +406,7 @@ const CompetitorsList = () => {
                       <Badge
                         key={s}
                         variant="secondary"
-                        className="bg-[hsl(142,71%,35%)]/10 text-[hsl(142,71%,35%)] border-0"
+                        className="bg-success-strong/10 text-success-strong border-0"
                       >
                         ↑ {s}
                       </Badge>
@@ -445,13 +426,6 @@ const CompetitorsList = () => {
             </motion.div>
           );
         })}
-
-        {filtered.length === 0 && active.length > 0 && (
-          <div className="card-surface p-10 text-center">
-            <AlertCircle className="w-10 h-10 text-muted-foreground mx-auto mb-3" />
-            <p className="text-muted-foreground">No competitors match "{search}".</p>
-          </div>
-        )}
 
         {active.length === 0 && archived.length === 0 && (
           <div className="card-surface p-10 text-center">
@@ -552,7 +526,7 @@ const CompetitorsList = () => {
                             </TooltipTrigger>
                             <TooltipContent>
                               {slotsLeft === 0
-                                ? 'No slots free — archive an active competitor first'
+                                ? 'No slots free, archive an active competitor first'
                                 : 'Restore to active tracking'}
                             </TooltipContent>
                           </Tooltip>

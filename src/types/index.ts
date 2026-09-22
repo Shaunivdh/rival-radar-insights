@@ -10,7 +10,12 @@ export interface Project {
 }
 
 export interface AIVisibility {
+  /** Reported score: mean of the last three runs (see `runScores`) to damp sampling noise. */
   aiPresenceScore: number;
+  /** This run's unsmoothed score (mentions / prompts × 100). Absent on rows from before smoothing. */
+  rawPresenceScore?: number;
+  /** Raw scores of the most recent runs, oldest first, at most AI_PRESENCE_WINDOW entries. */
+  runScores?: number[];
   mentionCount: number;
   totalPrompts: number;
   tested_at: string;
@@ -60,7 +65,14 @@ export interface ExtractedSignals {
 export interface SEOSignals {
   title: string;
   metaDescription: string;
+  /** Site-wide union of h1 text across crawled pages — used for scoring. */
   h1Tags: string[];
+  /**
+   * Number of h1 tags on the root (home) page only. null when the root page was
+   * unusable (empty HTML / challenge page). Absent on rows written before this
+   * field existed — readers must fall back to `h1Tags`.
+   */
+  homepageH1Count?: number | null;
   hasSitemap: boolean;
   hasRobotsTxt: boolean;
   internalLinkCount: number;
@@ -182,6 +194,8 @@ export interface PriorityAction {
   continuityNote?: string | null; // e.g. "Still outstanding from last week" or "You completed this"
   /** Internal: source of this action for deterministic-check skip logic. Stripped before serving to clients. */
   _source?: 'template' | 'llm';
+  /** Internal: data paths the LLM cited ("own.signals.engagement.hasContactForm=false"). Verified then stripped. */
+  evidence?: string[];
 }
 
 export interface ChangeEvent {

@@ -260,7 +260,7 @@ const CompetitorDetail = () => {
               <div className="flex flex-wrap gap-1">
                 {s.trust.awardsAndMemberships.length ? (
                   s.trust.awardsAndMemberships.map((a) => (
-                    <span key={a} className="score-chip bg-warning/10 text-[hsl(38,92%,40%)]">
+                    <span key={a} className="score-chip bg-warning/10 text-warning-strong">
                       {a}
                     </span>
                   ))

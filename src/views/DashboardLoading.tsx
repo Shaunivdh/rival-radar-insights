@@ -35,10 +35,10 @@ export default function DashboardLoading() {
       <motion.div
         initial={{ opacity: 0, y: 16 }}
         animate={{ opacity: 1, y: 0 }}
-        className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-[#EEF2FF] via-[#F5F3FF] to-[#FFF7ED] p-8 md:p-12 text-center border border-[#E8E4FF]"
+        className="relative overflow-hidden rounded-3xl bg-gradient-greeting p-8 md:p-12 text-center border border-primary/15"
       >
-        <div className="absolute -top-20 -right-20 w-64 h-64 rounded-full bg-[#5B4EE8]/20 blur-3xl pointer-events-none" />
-        <div className="absolute -bottom-20 -left-20 w-64 h-64 rounded-full bg-[#5B4EE8]/15 blur-3xl pointer-events-none" />
+        <div className="absolute -top-20 -right-20 w-64 h-64 rounded-full bg-primary/20 blur-3xl pointer-events-none" />
+        <div className="absolute -bottom-20 -left-20 w-64 h-64 rounded-full bg-primary/15 blur-3xl pointer-events-none" />
 
         <div className="relative">
           {/* Owl with pulsing rings */}
@@ -46,12 +46,12 @@ export default function DashboardLoading() {
             <motion.div
               animate={{ scale: [1, 1.4, 1], opacity: [0.4, 0, 0.4] }}
               transition={{ duration: 2.5, repeat: Infinity }}
-              className="absolute inset-0 rounded-full bg-[#5B4EE8]/30"
+              className="absolute inset-0 rounded-full bg-primary/30"
             />
             <motion.div
               animate={{ scale: [1, 1.6, 1], opacity: [0.3, 0, 0.3] }}
               transition={{ duration: 2.5, repeat: Infinity, delay: 0.5 }}
-              className="absolute inset-0 rounded-full bg-[#5B4EE8]/20"
+              className="absolute inset-0 rounded-full bg-primary/20"
             />
             <div className="relative w-full h-full rounded-full bg-white shadow-md flex items-center justify-center">
               <span className="text-5xl" role="img" aria-label="owl">
@@ -60,7 +60,7 @@ export default function DashboardLoading() {
             </div>
           </div>
 
-          <div className="inline-flex items-center gap-2 rounded-full bg-white/70 backdrop-blur px-4 py-1.5 text-xs font-medium text-[#5B4EE8] border border-[#5B4EE8]/15 mb-4">
+          <div className="inline-flex items-center gap-2 rounded-full bg-white/70 backdrop-blur px-4 py-1.5 text-xs font-medium text-primary border border-primary/15 mb-4">
             <Sparkles className="w-3.5 h-3.5" />
             Setting things up
           </div>
@@ -70,18 +70,18 @@ export default function DashboardLoading() {
           </h1>
           <p className="text-foreground/70 max-w-xl mx-auto leading-relaxed">
             Your first scan takes{' '}
-            <span className="font-semibold text-foreground">10–15 minutes</span>. We'll send you an
-            email the moment your dashboard is ready — no need to wait around.
+            <span className="font-semibold text-foreground">10 to 15 minutes</span>. We'll send you
+            an email the moment your dashboard is ready, no need to wait around.
           </p>
 
           <div className="flex flex-wrap items-center justify-center gap-3 mt-6">
             <div className="inline-flex items-center gap-2 rounded-full bg-white/80 backdrop-blur px-4 py-2 text-sm border border-border/40">
-              <Mail className="w-4 h-4 text-[#5B4EE8]" />
+              <Mail className="w-4 h-4 text-primary" />
               <span className="text-foreground/80">You'll be emailed when ready</span>
             </div>
             <div className="inline-flex items-center gap-2 rounded-full bg-white/80 backdrop-blur px-4 py-2 text-sm border border-border/40">
-              <Clock className="w-4 h-4 text-[#5B4EE8]" />
-              <span className="text-foreground/80">~10–15 minutes</span>
+              <Clock className="w-4 h-4 text-primary" />
+              <span className="text-foreground/80">~10 to 15 minutes</span>
             </div>
           </div>
         </div>
@@ -162,7 +162,7 @@ export default function DashboardLoading() {
         transition={{ delay: 0.5 }}
         className="text-center text-xs text-muted-foreground"
       >
-        You can safely close this tab — we'll email you the moment your dashboard is ready.
+        You can safely close this tab, we'll email you the moment your dashboard is ready.
       </motion.p>
     </div>
   );

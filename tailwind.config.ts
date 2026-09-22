@@ -14,8 +14,8 @@ export default {
     },
     extend: {
       fontFamily: {
-        sans: ['var(--font-inter)', 'system-ui', 'sans-serif'],
-        display: ['"Space Grotesk"', 'var(--font-inter)', 'system-ui', 'sans-serif'],
+        sans: ['var(--font-dm-sans)', 'system-ui', 'sans-serif'],
+        display: ['var(--font-montserrat)', '"Arial Black"', 'system-ui', 'sans-serif'],
       },
       colors: {
         border: 'hsl(var(--border))',
@@ -38,10 +38,12 @@ export default {
         success: {
           DEFAULT: 'hsl(var(--success))',
           foreground: 'hsl(var(--success-foreground))',
+          strong: 'hsl(var(--success-strong))',
         },
         warning: {
           DEFAULT: 'hsl(var(--warning))',
           foreground: 'hsl(var(--warning-foreground))',
+          strong: 'hsl(var(--warning-strong))',
         },
         muted: {
           DEFAULT: 'hsl(var(--muted))',
@@ -50,6 +52,7 @@ export default {
         accent: {
           DEFAULT: 'hsl(var(--accent))',
           foreground: 'hsl(var(--accent-foreground))',
+          strong: 'hsl(var(--accent-strong))',
         },
         popover: {
           DEFAULT: 'hsl(var(--popover))',
@@ -60,7 +63,10 @@ export default {
           foreground: 'hsl(var(--card-foreground))',
         },
         score: {
-          excellent: 'hsl(var(--success))',
+          excellent: 'hsl(var(--score-excellent))',
+          good: 'hsl(var(--score-good))',
+          average: 'hsl(var(--score-average))',
+          poor: 'hsl(var(--score-poor))',
         },
         sidebar: {
           DEFAULT: 'hsl(var(--sidebar-background))',

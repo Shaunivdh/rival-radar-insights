@@ -1,5 +1,5 @@
-import SetupPage from '@/views/SetupPage';
+import LandingPage from '@/views/LandingPage';
 
 export default function Page() {
-  return <SetupPage />;
+  return <LandingPage />;
 }

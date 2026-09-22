@@ -61,12 +61,20 @@ const METRICS: {
     | 'reviewVelocityScore';
   color: string;
 }[] = [
-  { label: 'Online Reputation', key: 'reputationScore', color: '#7C3AED' },
-  { label: 'Local Search Visibility', key: 'localVisibilityScore', color: '#EAB308' },
-  { label: 'Website Performance', key: 'websiteHealthScore', color: '#22C55E' },
-  { label: 'Google Business Profile', key: 'gbpCompletenessScore', color: '#F59E0B' },
-  { label: 'AI Visibility', key: 'aiPresenceScore', color: '#EF4444' },
-  { label: 'Review Momentum', key: 'reviewVelocityScore', color: '#8B5CF6' },
+  { label: 'Online Reputation', key: 'reputationScore', color: 'hsl(var(--metric-reputation))' },
+  {
+    label: 'Local Search Visibility',
+    key: 'localVisibilityScore',
+    color: 'hsl(var(--metric-visibility))',
+  },
+  { label: 'Website Performance', key: 'websiteHealthScore', color: 'hsl(var(--metric-website))' },
+  {
+    label: 'Google Business Profile',
+    key: 'gbpCompletenessScore',
+    color: 'hsl(var(--metric-gbp))',
+  },
+  { label: 'AI Visibility', key: 'aiPresenceScore', color: 'hsl(var(--metric-ai))' },
+  { label: 'Review Momentum', key: 'reviewVelocityScore', color: 'hsl(var(--metric-reviews))' },
 ];
 
 function MetricRow({
@@ -252,7 +260,7 @@ export function BusinessScoreCard({ own, competitors }: Props) {
       {score && (
         <div className="flex items-center gap-4 pt-1">
           <div className="flex items-center gap-1.5">
-            <div className="w-4 h-2 rounded-full bg-[#7C3AED]" />
+            <div className="w-4 h-2 rounded-full bg-[hsl(var(--metric-reputation))]" />
             <span className="text-xs text-muted-foreground">You</span>
           </div>
           <span className="text-border text-sm">|</span>

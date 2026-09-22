@@ -1,7 +1,16 @@
 import { createServerClient } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
 
-const PROTECTED = ['/dashboard', '/competitors', '/changes', '/settings', '/setup'];
+const PROTECTED = [
+  '/dashboard',
+  '/competitors',
+  '/changes',
+  '/settings',
+  '/setup',
+  '/action-plan',
+  '/my-business',
+  '/google-business',
+];
 
 function hexToBytes(hex: string): Uint8Array | null {
   if (hex.length === 0 || hex.length % 2 !== 0 || /[^0-9a-f]/i.test(hex)) return null;
@@ -43,6 +52,16 @@ export async function middleware(request: NextRequest) {
     }
   }
 
+  const isProtected = PROTECTED.some((p) => pathname.startsWith(p));
+
+  // supabase.auth.getUser() is a network round trip, so only make it where the
+  // answer is used: a protected path, or '/' where signed in visitors get
+  // redirected. Prefetches only warm the router cache and the real navigation
+  // runs this middleware again, so they can skip it too.
+  if ((!isProtected && pathname !== '/') || request.headers.has('next-router-prefetch')) {
+    return NextResponse.next({ request: { headers: request.headers } });
+  }
+
   let response = NextResponse.next({ request: { headers: request.headers } });
 
   const supabase = createServerClient(
@@ -73,7 +92,6 @@ export async function middleware(request: NextRequest) {
     console.error(`[middleware] supabase.auth.getUser error path=${pathname}:`, authError.message);
   }
 
-  const isProtected = PROTECTED.some((p) => pathname.startsWith(p));
   const isDemo = request.cookies.get('rr-demo')?.value === '1';
   const isServerAction = request.headers.has('next-action');
 

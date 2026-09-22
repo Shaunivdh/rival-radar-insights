@@ -539,7 +539,7 @@ const SignUpPage = () => {
         {/* Footer */}
         <p className="text-center text-sm text-muted-foreground mt-8">
           Already have an account?{' '}
-          <Link href="/" className="text-primary font-medium hover:underline">
+          <Link href="/login" className="text-primary font-medium hover:underline">
             Sign in
           </Link>
         </p>

@@ -226,9 +226,11 @@ Hard rules you never break:
 2. Every factual claim must be directly verifiable in the data provided. Do not invent averages, rankings, trends, traffic, or competitor behaviours.
 3. Do not recommend adding something the business's own signals already show they have.
 4. Never contradict yourself within a single field or between fields.
-5. Plain English. Speak to the owner directly. No SEO jargon.`;
+5. Plain English. Speak to the owner directly. No SEO jargon.
+6. UK English spelling and phrasing throughout (organise, colour, personalise, enquiry).
+7. Never use dash punctuation in any text you output: no em dashes, no en dashes, no hyphen used as a dash, and no dashes in number ranges (write "2 to 3 hours", not "2-3 hours"). Use a comma, colon, semicolon, or a new sentence instead. Hyphens inside ordinary compound words ("plain-English", "top-rated") are fine.`;
 
-const SCOUTLY_FACT_CHECKER_SYSTEM = `You are Scoutly's fact-checker. Your only job is to fix flagged issues in already-generated priority actions with the smallest possible text change. You never invent new facts, you never rewrite well-formed sentences, and you never patch unflagged fields. Output valid JSON matching the schema in the user prompt — nothing else.`;
+const SCOUTLY_FACT_CHECKER_SYSTEM = `You are Scoutly's fact-checker. Your only job is to fix flagged issues in already-generated priority actions with the smallest possible text change. You never invent new facts, you never rewrite well-formed sentences, and you never patch unflagged fields. Output valid JSON matching the schema in the user prompt and nothing else. Never use dash punctuation (em dash, en dash, or hyphen as a dash) in patched text; if a flagged sentence contains one, replace it with a comma, colon, or full stop.`;
 
 /** Action category → relevant signal buckets, used to scope competitor signals sent to the validator. */
 const CATEGORY_SIGNAL_BUCKETS: Record<string, Array<keyof ExtractedSignals>> = {
@@ -244,7 +246,9 @@ const TONE_RULES = `TONE RULES:
 - Plain English only. No SEO jargon (no "schema markup", "structured data", "alt tags", "SERP", "CTR"). If you must reference something technical, describe what it does in plain words.
 - Speak directly to the owner. "You" not "the business."
 - No editorialising in parentheses like "(good)" or "(nice work)".
-- No filler phrases like "this gap compounds over time" or "category-wide gap" — say what to do and why.`;
+- No filler phrases like "this gap compounds over time" or "category-wide gap". Say what to do and why.
+- UK English spelling and phrasing (organise, colour, personalise, enquiry).
+- No dash punctuation anywhere in the output: no em dashes, no en dashes, no hyphen standing in for a dash, and no dashes in ranges (write "2 to 3 hours", "15 to 20 reviews"). Use commas, colons, semicolons, or separate sentences.`;
 
 const DATA_INTEGRITY_RULES = `DATA INTEGRITY RULES (violations break user trust):
 - Every claim about a competitor MUST be directly verifiable in the data provided. Do not invent averages, trends, or competitor behaviours.
@@ -257,14 +261,14 @@ const DATA_INTEGRITY_RULES = `DATA INTEGRITY RULES (violations break user trust)
 const FIELD_RULES = `Field rules:
 - action: conversational headline describing the gap in plain English, max 10 words
 - reason: ≤15-word plain-English summary of the gap
-- whyItMatters: 2–3 sentences. Reference actual score values from the data. Name specific competitors when citing them — never "competitors average X" unless you show the math.
-- steps: 3–5 specific, doable action items the owner can start this week. Each step is plain English. Be concrete (specific platform names, specific pages).
-- outcome: 4–8 word goal statement
+- whyItMatters: 2 to 3 sentences. Reference actual score values from the data. Name specific competitors when citing them, and never say "competitors average X" unless you show the maths.
+- steps: 3 to 5 specific, doable action items the owner can start this week. Each step is plain English. Be concrete (specific platform names, specific pages).
+- outcome: 4 to 8 word goal statement
 - effort: 'low' (< 1 hour), 'medium' (1 day), or 'high' (1+ week)
 - category: one of "AI Visibility" | "Reviews" | "Local SEO" | "Website" | "Trust" | "Conversion"
-- timeframe: realistic time-to-result
+- timeframe: realistic time-to-result, written without a dash (e.g. "2 to 3 weeks")
 - competitorReference: plain-English note naming a specific competitor and what they have that this business lacks, or null. Must be consistent with whyItMatters.
-- evidence: 1–4 data paths you relied on, each written as path=value exactly as it appears in the JSON below. Paths start with "own." or "competitor.<name>." and walk the object keys, e.g. "own.signals.engagement.hasContactForm=false", "own.scores.reputation=70", "competitor.Acme Ltd.reviewCount=140". Every path must exist in the data. Actions whose evidence does not resolve are discarded.`;
+- evidence: 1 to 4 data paths you relied on, each written as path=value exactly as it appears in the JSON below. Paths start with "own." or "competitor.<name>." and walk the object keys, e.g. "own.signals.engagement.hasContactForm=false", "own.scores.reputation=70", "competitor.Acme Ltd.reviewCount=140". Every path must exist in the data. Actions whose evidence does not resolve are discarded.`;
 
 const PRIORITY_SCHEMA_BASE = `{"actions":[{"priority":1,"category":"string","effort":"low"|"medium"|"high","action":"string","reason":"string","whyItMatters":"string","steps":["string"],"outcome":"string","competitorReference":"string|null","estimatedImpact":"high"|"medium","timeframe":"string","evidence":["string"]}]}`;
 
@@ -467,12 +471,12 @@ PRIORITISATION RULES:
 - Return exactly ${remainingSlots} action${remainingSlots > 1 ? 's' : ''}, not more. ${remainingSlots < 5 ? `(${templatesUsed} slot${templatesUsed > 1 ? 's are' : ' is'} already filled by automatic checks.)` : 'Five forces real prioritisation.'}
 - Only include an action if it reflects a genuine gap. If the business is already strong in a category (score ≥ 85 and no specific deficit in the data), do not invent a problem there.
 - Every action must have estimatedImpact of "high" or "medium". No "low impact" actions.
-- Each action must address a genuinely different gap — no two from the same root cause unless the gaps are clearly distinct.
+- Each action must address a genuinely different gap. No two from the same root cause unless the gaps are clearly distinct.
 - ${effortNote}
 
 ${FIELD_RULES}
 
-Priority numbering: Unique integers 1–${remainingSlots} ordered by impact. No gaps, no duplicates.
+Priority numbering: Unique integers 1 to ${remainingSlots} ordered by impact. No gaps, no duplicates.
 
 Schema (JSON object only, no markdown):
 ${PRIORITY_SCHEMA_BASE}
@@ -1196,7 +1200,7 @@ export async function generatePriorityActionsWithHistory(
       const verb = closedFromLastWeek.length === 1 ? 'that gap is gone' : 'those gaps are gone';
       templateActions[0] = {
         ...templateActions[0],
-        whyItMatters: `Last week you closed ${wins} — ${verb}. ${templateActions[0].whyItMatters}`,
+        whyItMatters: `Last week you closed ${wins}, so ${verb}. ${templateActions[0].whyItMatters}`,
       };
     }
     logAIEvent({
@@ -1246,10 +1250,10 @@ ${TONE_RULES}
 
 CONTINUITY RULES (this is what makes the product feel alive):
 - Acknowledge what changed since last week. If a previous action was completed (signal improved), celebrate it in the first line of the first action.
-- If a previous action was NOT completed (signal unchanged), you may repeat it — but reframe as "still worth doing" with updated context, not as a fresh discovery.
+- If a previous action was NOT completed (signal unchanged), you may repeat it, but reframe it as "still worth doing" with updated context, not as a fresh discovery.
 - If nothing changed at all, say so honestly and keep actions steady rather than reshuffling for the sake of it.
 - Never contradict last week's baseline. If last week said "you have no accreditations" and this week's data shows three, acknowledge that.
-- If a category appeared in last week's actions but is absent this week, the FIRST action's continuityNote (or whyItMatters) must briefly acknowledge what the user fixed. Example: "Last week you added a booking system — that gap is closed. Here's the next priority." Do not silently drop a previous action without naming the win.
+- If a category appeared in last week's actions but is absent this week, the FIRST action's continuityNote (or whyItMatters) must briefly acknowledge what the user fixed. Example: "Last week you added a booking system, so that gap is closed. Here is the next priority." Do not silently drop a previous action without naming the win.
 
 ${DATA_INTEGRITY_RULES}
 
@@ -1259,7 +1263,7 @@ INTERNAL COHERENCE CHECK (do this before returning):
 PRIORITISATION RULES:
 - Return exactly ${remainingSlots} action${remainingSlots > 1 ? 's' : ''}. ${templatesUsed > 0 ? `(${templatesUsed} slot${templatesUsed > 1 ? 's are' : ' is'} already filled by automatic checks.)` : ''}
 - Every action must have estimatedImpact "high" or "medium".
-- Each action must address a genuinely different gap — no two from the same root cause unless the gaps are clearly distinct.
+- Each action must address a genuinely different gap. No two from the same root cause unless the gaps are clearly distinct.
 - ${effortNote}
 
 ${FIELD_RULES}
@@ -1356,12 +1360,12 @@ export async function generateChangeSummary(
   }
 
   const framing = isCompetitor
-    ? `A competitor called "${name}" has made changes to their website. Tell the owner what changed and why it matters to them — frame it as an opportunity or a threat. Be direct and advisory.`
+    ? `A competitor called "${name}" has made changes to their website. Tell the owner what changed and why it matters to them, framed as an opportunity or a threat. Be direct and advisory.`
     : `The owner's own website ("${name}") has changed since the last scan. Clearly describe what changed and flag anything that could help or hurt their online presence. Be concise and helpful.`;
 
   const prompt = `${framing}
 
-DATA INTEGRITY: Every claim you make must be directly supported by the Before/After JSON below. Do not invent rankings, traffic numbers, competitor activity, search positions, or anything else not visible in the data. Do not state outcomes as fact ("they're capturing more traffic", "they're winning customers") — the data shows what changed on the site, never its results; phrase impact as possibility ("this could help them rank for..."). If you cannot describe a change concretely from the data, drop it.
+DATA INTEGRITY: Every claim you make must be directly supported by the Before/After JSON below. Do not invent rankings, traffic numbers, competitor activity, search positions, or anything else not visible in the data. Do not state outcomes as fact ("they're capturing more traffic", "they're winning customers"). The data shows what changed on the site, never its results; phrase impact as possibility ("this could help them rank for..."). If you cannot describe a change concretely from the data, drop it.
 
 Return JSON only.
 Schema: {"hasSignificantChanges":boolean,"severity":"high"|"medium"|"low","summary":"string","changes":[{"category":"string","description":"string","significance":"string","actionItem":"string|null"}]}
@@ -1459,7 +1463,7 @@ Rules:
 - position: 1 = first mentioned, 2 = second, etc.
 - context: "recommended" if the text endorses it, "mentioned" if neutral, "compared" if listed alongside others, "dismissed" if the text warns against it.
 - Include only real LOCAL service businesses (salons, clinics, shops, providers).
-- EXCLUDE product, cosmetic, and retail brands, manufacturers, and national chains (e.g. Elemis, OPI, Essie, Lycon, Clarins, Medik8) — these are products a business uses, not local competitors.
+- EXCLUDE product, cosmetic, and retail brands, manufacturers, and national chains (e.g. Elemis, OPI, Essie, Lycon, Clarins, Medik8), which are products a business uses, not local competitors.
 - Exclude generic descriptions.
 
 Text:\n${capped}`;

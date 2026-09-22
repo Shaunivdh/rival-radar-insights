@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { z } from 'zod';
 import { createServerClient } from '@supabase/ssr';
 import type { Database } from '@/types/database';
 import { cookies } from 'next/headers';
@@ -41,6 +42,11 @@ async function getAuthUserId(): Promise<string | null> {
   return user?.id ?? null;
 }
 
+/** Recovery route with no frontend caller — invoked manually with { projectId }. */
+const postBodySchema = z.object({
+  projectId: z.string().uuid(),
+});
+
 /**
  * POST /api/regenerate-actions  { projectId }
  *
@@ -60,10 +66,14 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Too many requests' }, { status: 429 });
   }
 
-  const { projectId } = (await req.json().catch(() => ({}))) as { projectId?: string };
-  if (!projectId) {
-    return NextResponse.json({ error: 'Missing projectId' }, { status: 400 });
+  const parsed = postBodySchema.safeParse(await req.json().catch(() => null));
+  if (!parsed.success) {
+    return NextResponse.json(
+      { error: 'Invalid request', issues: parsed.error.flatten() },
+      { status: 400 },
+    );
   }
+  const { projectId } = parsed.data;
 
   // Verify the caller owns this project.
   const { data: project } = await supabaseAdmin

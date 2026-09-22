@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { z } from 'zod';
 import { createServerClient } from '@supabase/ssr';
 import type { Database } from '@/types/database';
 import { cookies } from 'next/headers';
@@ -41,7 +42,16 @@ async function getAuthUserId(): Promise<string | null> {
   return user?.id ?? null;
 }
 
-const VALID_MODES = new Set(['initial', 'incremental']);
+/** GET /api/crawl?projectId — sent by SetupPage / BusinessSetupPage status polling. */
+const getQuerySchema = z.object({
+  projectId: z.string().uuid(),
+});
+
+/** POST /api/crawl — sent by CompetitorDetail's "scan" button. */
+const postBodySchema = z.object({
+  businessId: z.string().uuid(),
+  mode: z.enum(['initial', 'incremental']),
+});
 
 export async function GET(req: NextRequest) {
   const userId = await getAuthUserId();
@@ -50,8 +60,17 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  const projectId = req.nextUrl.searchParams.get('projectId');
-  if (!projectId) return NextResponse.json({ error: 'Missing projectId' }, { status: 400 });
+  const parsed = getQuerySchema.safeParse({
+    projectId: req.nextUrl.searchParams.get('projectId'),
+  });
+  if (!parsed.success) {
+    console.warn(`[crawl-api] GET invalid query userId=${userId}`);
+    return NextResponse.json(
+      { error: 'Invalid request', issues: parsed.error.flatten() },
+      { status: 400 },
+    );
+  }
+  const { projectId } = parsed.data;
 
   // Verify user owns this project
   const { data: project } = await supabaseAdmin
@@ -89,27 +108,15 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Too many requests' }, { status: 429 });
   }
 
-  const { businessId, mode } = (await req.json()) as {
-    businessId: string;
-    mode: string;
-  };
-
-  if (!businessId || !mode) {
-    console.warn(
-      `[crawl-api] POST missing params businessId=${businessId} mode=${mode} userId=${userId}`,
-    );
-    return NextResponse.json({ error: 'Missing businessId or mode' }, { status: 400 });
-  }
-
-  if (!VALID_MODES.has(mode)) {
-    console.warn(
-      `[crawl-api] POST invalid mode="${mode}" businessId=${businessId} userId=${userId}`,
-    );
+  const parsed = postBodySchema.safeParse(await req.json().catch(() => null));
+  if (!parsed.success) {
+    console.warn(`[crawl-api] POST invalid body userId=${userId}`);
     return NextResponse.json(
-      { error: 'Invalid mode, must be "initial" or "incremental"' },
+      { error: 'Invalid request', issues: parsed.error.flatten() },
       { status: 400 },
     );
   }
+  const { businessId, mode } = parsed.data;
 
   // Verify user owns this business via its project
   const { data: biz } = await supabaseAdmin
@@ -140,7 +147,7 @@ export async function POST(req: NextRequest) {
   );
   await inngest.send({
     name: 'crawl/business.scan',
-    data: { businessId, mode: mode as 'initial' | 'incremental' },
+    data: { businessId, mode },
   });
 
   return NextResponse.json({ ok: true });

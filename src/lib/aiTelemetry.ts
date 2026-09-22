@@ -6,7 +6,8 @@ export interface AIEvent {
     | 'sentiment'
     | 'change_summary'
     | 'change_summary_skipped'
-    | 'extract_signals';
+    | 'extract_signals'
+    | 'schema_shadow';
   model: string;
   success: boolean;
   durationMs: number;
@@ -14,6 +15,10 @@ export interface AIEvent {
   flagsFound?: number;
   mentionConfidence?: 'exact' | 'high' | 'medium' | 'low' | 'none';
   errorType?: string;
+  /** schema_shadow only: which askClaude call site produced the mismatch. */
+  label?: string;
+  /** schema_shadow only: JSON-stringified zod `error.flatten()`. */
+  issues?: string;
   cacheHits?: number;
   templatesUsed?: number;
   templatesFired?: string[];

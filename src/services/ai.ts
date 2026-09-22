@@ -13,6 +13,15 @@ import type { ServiceCategory } from '@/lib/serviceCategories';
 import { withRetry } from '@/lib/aiRetry';
 import { logAIEvent } from '@/lib/aiTelemetry';
 import { applyTemplates, applyTemplatesWithHistory } from '@/lib/priorityTemplates';
+import type { z } from 'zod';
+import {
+  reviewSentimentSchema,
+  priorityActionsSchema,
+  priorityActionsWithContinuitySchema,
+  validationPatchesSchema,
+  changeSummarySchema,
+  mentionedBusinessesSchema,
+} from './ai.schemas';
 
 interface MentionedBusiness {
   name: string;
@@ -126,7 +135,20 @@ export async function extractPageSignals(
   }
 }
 
-async function askClaude<T>(prompt: string, maxTokens = 512, system?: string): Promise<T> {
+/**
+ * `shadow` opts LLM output into schema validation. SHADOW MODE: a mismatch is
+ * logged as a `schema_shadow` telemetry event and the unvalidated data is
+ * returned unchanged, exactly as before. Nothing is rejected.
+ *
+ * TODO: flip to enforcing after a week of clean schema_mismatch telemetry.
+ */
+async function askClaude<T>(
+  prompt: string,
+  maxTokens = 512,
+  system?: string,
+  shadow?: { schema: z.ZodTypeAny; label: string },
+): Promise<T> {
+  const t0 = Date.now();
   const msg = await callLLMRaw(
     {
       model: AI_MODEL_FAST,
@@ -140,7 +162,24 @@ async function askClaude<T>(prompt: string, maxTokens = 512, system?: string): P
   const json = text.replace(/^```(?:json)?\n?/, '').replace(/\n?```$/, '');
   // Extract the outermost JSON array or object to strip trailing prose
   const match = json.match(/^(\s*[\[{][\s\S]*[\]}])/);
-  return JSON.parse(match ? match[1] : json) as T;
+  const data = JSON.parse(match ? match[1] : json) as T;
+
+  if (shadow) {
+    const result = shadow.schema.safeParse(data);
+    if (!result.success) {
+      logAIEvent({
+        event: 'schema_shadow',
+        model: AI_MODEL_FAST,
+        success: false,
+        durationMs: Date.now() - t0,
+        errorType: 'schema_mismatch',
+        label: shadow.label,
+        issues: JSON.stringify(result.error.flatten()),
+      });
+    }
+  }
+
+  return data;
 }
 
 // ── Shared prompt scaffolding ───────────────────────────────────────
@@ -222,7 +261,9 @@ function summariseBiz(b: Business, isOwn = false) {
 function ownDataWarnings(own: Business): string {
   const lines: string[] = [];
   if (own.enrichmentErrors?.crawl) {
-    lines.push("There were issues crawling this business's website, so website-related data may be incomplete.");
+    lines.push(
+      "There were issues crawling this business's website, so website-related data may be incomplete.",
+    );
   }
   if (own.enrichmentErrors?.extract) {
     lines.push(
@@ -312,7 +353,10 @@ Schema: {"positiveThemes":["string","string","string"],"negativeThemes":["string
 Rules: positiveThemes = top 3 praised topics (2-4 words each), negativeThemes = top 3 complaint topics (2-4 words each, empty array if none), summary = ≤15 words.
 Reviews:\n${texts}`;
   try {
-    const result = await askClaude<Omit<ReviewSentiment, 'generatedAt'>>(prompt);
+    const result = await askClaude<Omit<ReviewSentiment, 'generatedAt'>>(prompt, 512, undefined, {
+      schema: reviewSentimentSchema,
+      label: 'generateReviewSentiment',
+    });
     logAIEvent({
       event: 'sentiment',
       model: AI_MODEL_FAST,
@@ -509,8 +553,12 @@ async function generateWithDistributionCheck(
   ownScores: NonNullable<Business['aiScore']> | null,
   label: string,
   maxTokens = 2500,
+  schema: z.ZodTypeAny = priorityActionsSchema,
 ): Promise<PriorityAction[]> {
-  let sorted = sortTop5(await askClaude<PriorityAction[]>(prompt, maxTokens, SCOUTLY_SYSTEM));
+  const shadow = { schema, label };
+  let sorted = sortTop5(
+    await askClaude<PriorityAction[]>(prompt, maxTokens, SCOUTLY_SYSTEM, shadow),
+  );
 
   const dist = checkCategoryDistribution(sorted, ownScores);
   if (dist.shouldRegenerate) {
@@ -529,7 +577,9 @@ async function generateWithDistributionCheck(
     const retryPrompt =
       prompt +
       `\n\nPREVIOUS ATTEMPT DUPLICATE: Your last attempt returned ${dupeNote}. Spread your actions across at least 2 different categories.`;
-    sorted = sortTop5(await askClaude<PriorityAction[]>(retryPrompt, maxTokens, SCOUTLY_SYSTEM));
+    sorted = sortTop5(
+      await askClaude<PriorityAction[]>(retryPrompt, maxTokens, SCOUTLY_SYSTEM, shadow),
+    );
 
     const retryDist = checkCategoryDistribution(sorted, ownScores);
     if (retryDist.shouldRegenerate) {
@@ -574,7 +624,7 @@ function matchesNearCompetitor(
 
   for (const anchor of anchors) {
     let searchFrom = 0;
-     
+
     while (true) {
       const pos = lower.indexOf(anchor, searchFrom);
       if (pos === -1) break;
@@ -831,7 +881,10 @@ Schema: {"patches":[{"actionIndex":0,"field":"string","newValue":"string|null"}]
   try {
     const result = await askClaude<{
       patches: Array<{ actionIndex: number; field: string; newValue: string | null }>;
-    }>(prompt, 1500, SCOUTLY_FACT_CHECKER_SYSTEM);
+    }>(prompt, 1500, SCOUTLY_FACT_CHECKER_SYSTEM, {
+      schema: validationPatchesSchema,
+      label: 'validateActionsHybrid',
+    });
     const patched = actions.map((a) => ({ ...a }));
 
     for (const patch of result.patches) {
@@ -995,6 +1048,7 @@ Competitors: ${JSON.stringify(competitors.map((b) => summariseBiz(b, false)))}`;
       own.aiScore,
       'generatePriorityActionsWithHistory',
       maxTokens,
+      priorityActionsWithContinuitySchema,
     );
 
     // Combine: templates first, then LLM actions, renumber 1–5
@@ -1084,7 +1138,10 @@ Before: ${JSON.stringify(changedBefore)}
 After: ${JSON.stringify(changedAfter)}`;
 
   try {
-    const result = await askClaude<ChangeSummary>(prompt, 512, SCOUTLY_SYSTEM);
+    const result = await askClaude<ChangeSummary>(prompt, 512, SCOUTLY_SYSTEM, {
+      schema: changeSummarySchema,
+      label: 'generateChangeSummary',
+    });
     logAIEvent({
       event: 'change_summary',
       model: AI_MODEL_FAST,
@@ -1167,7 +1224,10 @@ Rules:
 Text:\n${capped}`;
 
   try {
-    const result = await askClaude<MentionedBusiness[]>(prompt, 512);
+    const result = await askClaude<MentionedBusiness[]>(prompt, 512, undefined, {
+      schema: mentionedBusinessesSchema,
+      label: 'extractMentionedBusinesses',
+    });
     // Only cache successful extractions — don't cache empty fallbacks
     if (result.length > 0) {
       if (mentionsCache.size >= MENTIONS_CACHE_MAX) {

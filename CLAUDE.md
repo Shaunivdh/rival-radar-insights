@@ -48,8 +48,10 @@ Your priority is **correctness, minimal token usage, and small safe diffs**.
 
 ## 5. AI Usage (Anthropic)
 
-All calls live in `src/services/ai.ts` and go through `callLLMRaw`. Models come from
-`AI_MODEL_FAST` (default Haiku 4.5) and `AI_MODEL_SMART` (default Sonnet 5).
+All calls live in `src/services/ai/` (barrel: `src/services/ai.ts`) and go through `callLLMRaw`
+in `src/services/ai/client.ts`. Modules: `client`, `shared`, `extraction`, `actions`, `evidence`,
+`validation`, `summary`, `visibility`. Import from `@/services/ai`, never a submodule. Models come
+from `AI_MODEL_FAST` (default Haiku 4.5) and `AI_MODEL_SMART` (default Sonnet 5).
 
 | Function                                       | Model | max_tokens       | Output                                   |
 | ---------------------------------------------- | ----- | ---------------- | ---------------------------------------- |
@@ -83,8 +85,9 @@ mock plan in `src/lib/mockActionPlan.ts`, and UI copy.
 - Hyphens inside ordinary compound words are fine ("plain-English", "top-rated", "time-to-result").
 - **UK English** spelling and phrasing: organise, colour, personalise, enquiry, maths.
 - Prompt text counts too: never write a dash into a prompt string or an in-prompt example,
-  the model copies the punctuation it is shown. Enforced in `SCOUTLY_SYSTEM`, `TONE_RULES`
-  and `SCOUTLY_FACT_CHECKER_SYSTEM` (`src/services/ai.ts`).
+  the model copies the punctuation it is shown. Enforced in `SCOUTLY_SYSTEM`
+  (`src/services/ai/shared.ts`), `TONE_RULES` (`src/services/ai/actions.ts`) and
+  `SCOUTLY_FACT_CHECKER_SYSTEM` (`src/services/ai/validation.ts`).
 
 ---
 

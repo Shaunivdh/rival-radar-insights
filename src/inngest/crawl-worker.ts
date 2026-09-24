@@ -8,7 +8,6 @@ import {
   CRAWL_DISALLOWED,
 } from '@/lib/crawl/orchestrator';
 import { fetchPageDirect } from '@/services/crawl';
-import { checkDirectSignals } from '@/lib/crawl/direct-checks';
 import { supabaseAdmin } from '@/lib/supabase/server';
 import { jsonColumn, rowToSignals, rowToSignalsUnchecked, toJson } from '@/lib/supabase/mappers';
 import { fetchGoogleData, fetchSerpData } from '@/actions/enrichment';
@@ -423,42 +422,6 @@ export const crawlBusinessFunction = inngest.createFunction(
           'success',
           'Signals extracted and persisted',
         );
-
-        const { data: urlRow } = await supabaseAdmin
-          .from('businesses')
-          .select('url')
-          .eq('id', businessId)
-          .single();
-        if (!urlRow?.url) return;
-        const { hasRobotsTxt, hasSitemap } = await checkDirectSignals(
-          normalizeUrl(urlRow.url as string),
-        );
-        logger.info('direct-checks', 'robots/sitemap probe', {
-          url: urlRow.url,
-          robots: hasRobotsTxt,
-          sitemap: hasSitemap,
-        });
-
-        // Only override if direct check found something the crawl missed
-        if (!hasRobotsTxt && !hasSitemap) return;
-
-        const { data: sigRow } = await supabaseAdmin
-          .from('extracted_signals')
-          .select('id, seo')
-          .eq('business_id', businessId)
-          .order('scanned_at', { ascending: false })
-          .limit(1)
-          .maybeSingle();
-        if (!sigRow) return;
-
-        const seo = { ...(sigRow.seo as Record<string, unknown>) };
-        if (hasRobotsTxt) seo.hasRobotsTxt = true;
-        if (hasSitemap) seo.hasSitemap = true;
-
-        await supabaseAdmin
-          .from('extracted_signals')
-          .update({ seo: toJson(seo) })
-          .eq('id', sigRow.id);
       });
     } // end skipCrawlSteps
 

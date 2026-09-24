@@ -9,7 +9,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { InngestTestEngine } from '@inngest/test';
 import { http, HttpResponse } from 'msw';
 import { server } from '@/test/msw/server';
-import { CF_BASE, cloudflareHandlers } from '@/test/msw/handlers';
+import { CF_BASE, cloudflareHandlers, siteProbeHandlers } from '@/test/msw/handlers';
 import { cfSampleHtml } from '@/test/fixtures/providers/cloudflare';
 import { anthropicResponder } from '@/test/anthropic-mock';
 import { fakeDb as db } from '@/test/supabase-fake';
@@ -281,49 +281,43 @@ describe('change detection → confirmation', () => {
     expect(row('businesses', BUSINESS_ID).crawl_status).toBe('complete');
   }, 60_000);
 
-  // KNOWN BUG (documented, not fixed here — crawl logic): the main pipeline's
-  // 'persist-signals' step overrides seo.hasRobotsTxt/hasSitemap from direct
-  // HTTP checks, but confirmChangeFunction's 'confirm-persist-signals' does not.
-  // The confirmation snapshot therefore flips both to false, the diff reports
-  // "seo.hasSitemap, seo.hasRobotsTxt" as reproduced changes, and a spurious
-  // change event is saved even though the detected change did not reproduce.
-  // Flip `it.fails` back to `it` once the confirmation step applies the same override.
-  it.fails(
-    'quarantines the detection when the confirmation crawl does not reproduce the change',
-    async () => {
-      seedProject({ last_crawled_at: '2026-08-20T00:00:00.000Z' });
-      await runCrawl('initial');
-      const baseline = db.rows('extracted_signals')[0];
-      baseline.scanned_at = '2026-08-20T00:00:00.000Z';
-      // Detection row: a phantom change the confirmation crawl will not see again
-      const detection = db.withDefaults('extracted_signals', {
-        ...structuredClone(baseline),
-        id: undefined,
-        status: 'pending',
-        engagement: { ...(baseline.engagement as Record<string, unknown>), hasContactForm: true },
-      });
-      db.rows('extracted_signals').push(detection);
+  // Regression guard: 'confirm-persist-signals' must apply the same direct
+  // robots/sitemap override as 'persist-signals'. Without it the confirmation
+  // snapshot flips both fields to false, the diff reports a phantom
+  // "seo.hasSitemap, seo.hasRobotsTxt" change, the quarantine branch never runs
+  // and a spurious change event is saved for a change that did not reproduce.
+  it('quarantines the detection when the confirmation crawl does not reproduce the change', async () => {
+    seedProject({ last_crawled_at: '2026-08-20T00:00:00.000Z' });
+    await runCrawl('initial');
+    const baseline = db.rows('extracted_signals')[0];
+    baseline.scanned_at = '2026-08-20T00:00:00.000Z';
+    // Detection row: a phantom change the confirmation crawl will not see again
+    const detection = db.withDefaults('extracted_signals', {
+      ...structuredClone(baseline),
+      id: undefined,
+      status: 'pending',
+      engagement: { ...(baseline.engagement as Record<string, unknown>), hasContactForm: true },
+    });
+    db.rows('extracted_signals').push(detection);
 
-      server.use(...cloudflareHandlers({ pollsBeforeDone: 0 }));
-      const { error } = await runConfirm({
-        businessId: BUSINESS_ID,
-        baselineId: baseline.id,
-        detectionId: detection.id,
-        changedPaths: ['engagement.hasContactForm'],
-      });
-      expect(error).toBeUndefined();
-      expect(row('extracted_signals', detection.id as string).status).toBe('unconfirmed');
-      expect(db.rows('change_events')).toHaveLength(0);
-      expect(
-        mockCreate.mock.calls.some(
-          ([p]) =>
-            (p as { output_config?: { format?: { schema?: unknown } } }).output_config?.format
-              ?.schema && String(JSON.stringify(p)).includes('hasSignificantChanges'),
-        ),
-      ).toBe(false);
-    },
-    60_000,
-  );
+    server.use(...cloudflareHandlers({ pollsBeforeDone: 0 }));
+    const { error } = await runConfirm({
+      businessId: BUSINESS_ID,
+      baselineId: baseline.id,
+      detectionId: detection.id,
+      changedPaths: ['engagement.hasContactForm'],
+    });
+    expect(error).toBeUndefined();
+    expect(row('extracted_signals', detection.id as string).status).toBe('unconfirmed');
+    expect(db.rows('change_events')).toHaveLength(0);
+    expect(
+      mockCreate.mock.calls.some(
+        ([p]) =>
+          (p as { output_config?: { format?: { schema?: unknown } } }).output_config?.format
+            ?.schema && String(JSON.stringify(p)).includes('hasSignificantChanges'),
+      ),
+    ).toBe(false);
+  }, 60_000);
 });
 
 describe('crawlBusinessFunction — disallowed site', () => {
@@ -350,5 +344,52 @@ describe('crawlBusinessFunction — disallowed site', () => {
     expect((biz.enrichment_errors as { crawl?: string })?.crawl).toMatch(
       /blocks automated crawling/,
     );
+  }, 30_000);
+
+  // Regression guard: the direct-fetch fallback returns DIRECT_FETCH_DONE, which
+  // sets skipCrawlSteps and bypasses the whole 'persist-signals' step. While the
+  // robots/sitemap override lived in that step, these snapshots were the only
+  // ones written without it, so they disagreed with every normally-crawled
+  // snapshot by construction. The override belongs to extractAndPersistSignals
+  // precisely so a path that skips the step still gets it.
+  it('applies the robots/sitemap override on the direct-fetch path too', async () => {
+    seedProject();
+    server.use(
+      http.post(`${CF_BASE}/crawl`, () =>
+        HttpResponse.text('Crawl disallowed by Content-Signal directive', { status: 400 }),
+      ),
+      http.get('https://acme-plumbing.test/', () => HttpResponse.text(cfSampleHtml)),
+    );
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+    const { error } = await runCrawl('initial');
+    expect(error).toBeUndefined();
+
+    // cfSampleHtml carries neither file, so `true` here can only have come from
+    // the direct probe — the same values a normally-crawled snapshot records.
+    const seo = db.rows('extracted_signals')[0].seo as Record<string, unknown>;
+    expect(seo.hasRobotsTxt).toBe(true);
+    expect(seo.hasSitemap).toBe(true);
+  }, 30_000);
+
+  it('leaves robots/sitemap false when the probes find nothing', async () => {
+    seedProject();
+    server.use(
+      ...siteProbeHandlers({ robots: false, sitemap: false }),
+      http.post(`${CF_BASE}/crawl`, () =>
+        HttpResponse.text('Crawl disallowed by Content-Signal directive', { status: 400 }),
+      ),
+      http.get('https://acme-plumbing.test/', () => HttpResponse.text(cfSampleHtml)),
+    );
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+    const { error } = await runCrawl('initial');
+    expect(error).toBeUndefined();
+
+    // The override only ever flips fields upwards; a negative probe must not
+    // invent a positive.
+    const seo = db.rows('extracted_signals')[0].seo as Record<string, unknown>;
+    expect(seo.hasRobotsTxt).toBe(false);
+    expect(seo.hasSitemap).toBe(false);
   }, 30_000);
 });

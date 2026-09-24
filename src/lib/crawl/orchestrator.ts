@@ -15,6 +15,7 @@ import { saveToCache, loadFromCache } from '@/services/crawl.cache';
 import { extractSignals } from '@/services/extract';
 import { extractPageSignals } from '@/services/ai';
 import { parseHtmlSignals, mergePageSignals } from '@/lib/crawl/html-parser';
+import { checkDirectSignals } from '@/lib/crawl/direct-checks';
 import { EXTRACTION_PROMPT } from '@/lib/crawl/extraction-prompt';
 import { normalizeUrl } from '@/lib/url';
 import type { RawCrawlResult } from '@/types';
@@ -628,6 +629,25 @@ export async function extractAndPersistSignals(
     h1TagCount: signals.seo.h1Tags.length,
     schemaMarkupTypes: signals.seo.schemaMarkupTypes,
   });
+
+  // robots.txt and sitemap.xml never appear in page HTML, so the parser and the
+  // AI extractor always report them absent. Probe them directly and override
+  // before the insert, so every caller — main scan, confirmation crawl and both
+  // direct-fetch fallbacks — persists the same fields the same way. Skewing this
+  // per call site makes two snapshots disagree by construction, and the diff then
+  // reports a phantom robots/sitemap change on every comparison.
+  if (url) {
+    const { hasRobotsTxt, hasSitemap } = await checkDirectSignals(url);
+    logger.info('direct-checks', 'robots/sitemap probe', {
+      url,
+      robots: hasRobotsTxt,
+      sitemap: hasSitemap,
+    });
+    // Only override upwards: a failed probe returns false and must not erase a
+    // positive the crawl somehow found.
+    if (hasRobotsTxt) signals.seo.hasRobotsTxt = true;
+    if (hasSitemap) signals.seo.hasSitemap = true;
+  }
 
   // Archive previous signals
   await supabaseAdmin

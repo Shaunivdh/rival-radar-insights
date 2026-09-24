@@ -1,6 +1,6 @@
 import type { Business, PriorityAction } from '@/types';
 import { logger } from '@/lib/logger';
-import { summariseBiz } from './shared';
+import { summariseBiz } from './businessView';
 
 // ── Evidence grounding ───────────────────────────────────────────────
 // Every LLM action must cite the data it used ("own.signals.engagement.hasContactForm=false").

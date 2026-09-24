@@ -10,7 +10,8 @@ import {
 } from '../aiSchemas';
 import { logger } from '@/lib/logger';
 import { AIUnavailableError, AI_MODEL_SMART, SKIP_AI, askClaude, errorTypeOf } from './client';
-import { CATEGORY_SCORE_MAP_FULL, SCOUTLY_SYSTEM, summariseBiz } from './shared';
+import { CATEGORY_SCORE_MAP_FULL, summariseBiz } from './businessView';
+import { SCOUTLY_SYSTEM } from './prompts';
 import { dropUngroundedActions } from './evidence';
 import { validateActionsHybrid } from './validation';
 

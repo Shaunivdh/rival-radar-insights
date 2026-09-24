@@ -1,6 +1,6 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { withRetry } from '@/lib/aiRetry';
-import { type JsonSchema } from '../aiSchemas';
+import type { JsonSchema } from '../aiSchemas';
 
 export class AIUnavailableError extends Error {
   readonly retryAt: string;

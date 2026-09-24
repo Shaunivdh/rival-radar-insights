@@ -3,7 +3,7 @@ import { logAIEvent } from '@/lib/aiTelemetry';
 import { CHANGE_SUMMARY_SCHEMA } from '../aiSchemas';
 import { logger } from '@/lib/logger';
 import { AIUnavailableError, AI_MODEL_FAST, SKIP_AI, askClaude, errorTypeOf } from './client';
-import { SCOUTLY_SYSTEM } from './shared';
+import { SCOUTLY_SYSTEM } from './prompts';
 
 export async function generateChangeSummary(
   name: string,

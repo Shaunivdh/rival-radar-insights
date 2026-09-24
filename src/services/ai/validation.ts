@@ -3,7 +3,7 @@ import { logAIEvent } from '@/lib/aiTelemetry';
 import { VALIDATION_PATCHES_SCHEMA } from '../aiSchemas';
 import { logger } from '@/lib/logger';
 import { AI_MODEL_SMART, SKIP_AI, askClaude, errorTypeOf } from './client';
-import { CATEGORY_SCORE_MAP_FULL } from './shared';
+import { CATEGORY_SCORE_MAP_FULL } from './businessView';
 import { resolveEvidence } from './evidence';
 
 const SCOUTLY_FACT_CHECKER_SYSTEM = `You are Scoutly's fact-checker. Your only job is to fix flagged issues in already-generated priority actions with the smallest possible text change. You never invent new facts, you never rewrite well-formed sentences, and you never patch unflagged fields. Output valid JSON matching the schema in the user prompt and nothing else. Never use dash punctuation (em dash, en dash, or hyphen as a dash) in patched text; if a flagged sentence contains one, replace it with a comma, colon, or full stop.`;

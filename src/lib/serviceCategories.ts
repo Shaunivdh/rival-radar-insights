@@ -58,7 +58,7 @@ export const GENERIC_AI_QUERY_TEMPLATES = [
   'Top rated {service} near {location}',
   'Who would you recommend for {service} in {location}',
   'Which {service} in {location} has the best reviews',
-  'I need a {service} in {location} — who should I use',
+  'I need a {service} in {location}. Who should I use',
 ] as const;
 
 export const SERVICE_CATEGORIES = {

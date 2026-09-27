@@ -7,7 +7,29 @@ import {
 import { mapPriorityActionRow } from '@/lib/priorityActionRow';
 import { businessJson, rowToSignals } from '@/lib/supabase/mappers';
 import type { Business, ExtractedSignals, PriorityAction } from '@/types';
-import { asBusinessId } from '@/types';
+import { asBusinessId, type BusinessId, type ProjectId } from '@/types';
+
+/**
+ * Why a run produced no actions.
+ *
+ * Closed on purpose: `runProjectActionGeneration` in the crawl worker branches on
+ * these exact strings, so rewording one here is a compile error at the branch
+ * rather than a condition that silently stops matching. The insert case keeps a
+ * template literal because it carries the Postgres message.
+ */
+export type ActionGenerationReason =
+  | 'no businesses in project'
+  | 'project has no own business'
+  | 'AI temporarily unavailable'
+  | 'generation returned 0 actions'
+  | 'all generated actions already exist'
+  | `insert failed: ${string}`;
+
+export type ActionGenerationResult = {
+  inserted: number;
+  reason?: ActionGenerationReason;
+  ownBusinessId?: BusinessId;
+};
 import type { ServiceCategory } from '@/lib/serviceCategories';
 import { logger } from '@/lib/logger';
 
@@ -22,8 +44,8 @@ import { logger } from '@/lib/logger';
  * produces the plan synchronously.
  */
 export async function generateAndPersistProjectActions(
-  projectId: string,
-): Promise<{ inserted: number; reason?: string; ownBusinessId?: string }> {
+  projectId: ProjectId,
+): Promise<ActionGenerationResult> {
   const { data: allBiz } = await supabaseAdmin
     .from('businesses')
     .select(

@@ -5,6 +5,7 @@ import type { Database } from '@/types/database';
 import { cookies } from 'next/headers';
 import { supabaseAdmin } from '@/lib/supabase/server';
 import { generateAndPersistProjectActions } from '@/lib/priorityActionsGenerator';
+import { asProjectId } from '@/types';
 import { isRateLimited } from '@/lib/rateLimit';
 import { logger } from '@/lib/logger';
 
@@ -72,7 +73,7 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const result = await generateAndPersistProjectActions(projectId);
+    const result = await generateAndPersistProjectActions(asProjectId(projectId));
     logger.info('regenerate-actions', 'Regenerated', {
       userId,
       projectId,

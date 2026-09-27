@@ -26,6 +26,7 @@ import { normalizeUrl } from '@/lib/url';
 import { saveScoreSnapshot, getWeeklyDelta } from '@/lib/supabase/scores';
 import { logCrawlStep } from '@/lib/crawl/crawl-logger';
 import { THREAT_DEDUP_MS, CHANGE_CONFIRMATION_DELAY_MS } from '@/lib/crawl/config';
+import { asProjectId } from '@/types';
 import type {
   BusinessId,
   ChangeEvent,
@@ -94,7 +95,7 @@ async function clearEnrichmentError(
  */
 async function runProjectActionGeneration(projectId: string, logPrefix: string): Promise<void> {
   try {
-    const result = await generateAndPersistProjectActions(projectId);
+    const result = await generateAndPersistProjectActions(asProjectId(projectId));
     const ownId = result.ownBusinessId;
     if (!ownId) return;
 

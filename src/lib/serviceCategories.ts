@@ -1,27 +1,35 @@
-export type ServiceCategory =
-  | 'accounting'
-  | 'veterinary'
-  | 'legal'
-  | 'healthcare'
-  | 'dental'
-  | 'real_estate'
-  | 'construction'
-  | 'hospitality'
-  | 'retail'
-  | 'beauty'
-  | 'tattoo'
-  | 'fitness'
-  | 'education'
-  | 'it_services'
-  | 'marketing'
-  | 'cleaning'
-  | 'automotive'
-  | 'trades'
-  | 'petcare'
-  | 'photography'
-  | 'childcare'
-  | 'events'
-  | 'other';
+/**
+ * Every service category, in the order the setup dropdowns list them.
+ * `ServiceCategory` and the `SERVICE_CATEGORIES` keys are both derived from this
+ * tuple, so adding a category here is a compile error until its config exists.
+ */
+export const SERVICE_CATEGORY_KEYS = [
+  'accounting',
+  'veterinary',
+  'legal',
+  'healthcare',
+  'dental',
+  'real_estate',
+  'construction',
+  'hospitality',
+  'retail',
+  'beauty',
+  'tattoo',
+  'fitness',
+  'education',
+  'it_services',
+  'marketing',
+  'cleaning',
+  'automotive',
+  'trades',
+  'petcare',
+  'photography',
+  'childcare',
+  'events',
+  'other',
+] as const;
+
+export type ServiceCategory = (typeof SERVICE_CATEGORY_KEYS)[number];
 
 export interface ServiceCategoryConfig {
   label: string;
@@ -31,11 +39,11 @@ export interface ServiceCategoryConfig {
    */
   searchTerm: string;
   /** Dashboard sections to surface prominently for this industry */
-  dashboardPriority: string[];
+  dashboardPriority: readonly string[];
   /** Signal keys to highlight in the competitor comparison */
-  keyMetrics: string[];
+  keyMetrics: readonly string[];
   /** Conversational query templates for AI visibility checks. Use {service} and {location} as placeholders. */
-  aiQueryTemplates: string[];
+  aiQueryTemplates: readonly string[];
   /** Country modifier appended to AI visibility queries (e.g. 'UK', 'Ireland'). */
   countryModifier: string;
 }
@@ -51,9 +59,9 @@ export const GENERIC_AI_QUERY_TEMPLATES = [
   'Who would you recommend for {service} in {location}',
   'Which {service} in {location} has the best reviews',
   'I need a {service} in {location} — who should I use',
-];
+] as const;
 
-export const SERVICE_CATEGORIES: Record<ServiceCategory, ServiceCategoryConfig> = {
+export const SERVICE_CATEGORIES = {
   accounting: {
     label: 'Accounting & Finance',
     searchTerm: 'accountant',
@@ -309,8 +317,9 @@ export const SERVICE_CATEGORIES: Record<ServiceCategory, ServiceCategoryConfig> 
     aiQueryTemplates: GENERIC_AI_QUERY_TEMPLATES,
     countryModifier: 'UK',
   },
-};
+} as const satisfies Record<ServiceCategory, ServiceCategoryConfig>;
 
-export const SERVICE_CATEGORY_OPTIONS = (Object.keys(SERVICE_CATEGORIES) as ServiceCategory[]).map(
-  (key) => ({ value: key, label: SERVICE_CATEGORIES[key].label }),
-);
+export const SERVICE_CATEGORY_OPTIONS = SERVICE_CATEGORY_KEYS.map((key) => ({
+  value: key,
+  label: SERVICE_CATEGORIES[key].label,
+}));

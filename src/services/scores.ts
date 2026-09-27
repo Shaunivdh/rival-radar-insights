@@ -7,6 +7,15 @@ import type {
   PageSpeedData,
 } from '@/types';
 
+/** One weighted input to the overall score. `null` means unknown, never zero. */
+type ScoreComponent = { score: number | null; weight: number };
+type ScoredComponent = { score: number; weight: number };
+
+/** Type guard so the weighted average reads `c.score` without a non-null assertion. */
+function hasScore(c: ScoreComponent): c is ScoredComponent {
+  return c.score !== null;
+}
+
 /**
  * Website health score derived from crawl signals.
  * Max 100, clamped to 0–100.
@@ -142,7 +151,7 @@ export function computeReviewVelocityScore(
  * "unknown" to zero.
  */
 export function recomputeOverallScore(score: AIHealthScore): number {
-  const components: Array<{ score: number | null; weight: number }> = [
+  const components: ScoreComponent[] = [
     { score: score.reputationScore, weight: 0.25 },
     { score: score.localVisibilityScore, weight: 0.25 },
     { score: score.websiteHealthScore, weight: 0.2 },
@@ -151,10 +160,10 @@ export function recomputeOverallScore(score: AIHealthScore): number {
     { score: score.reviewVelocityScore, weight: 0.05 },
   ];
 
-  const available = components.filter((c) => c.score !== null);
+  const available = components.filter(hasScore);
   const totalWeight = available.reduce((sum, c) => sum + c.weight, 0);
   if (totalWeight === 0) return 0;
-  return Math.round(available.reduce((sum, c) => sum + c.score! * c.weight, 0) / totalWeight);
+  return Math.round(available.reduce((sum, c) => sum + c.score * c.weight, 0) / totalWeight);
 }
 
 /**
@@ -206,7 +215,7 @@ export function calculateScores(input: ScoreInput): AIHealthScore {
   );
 
   // Weighted average that EXCLUDES null components (unknown ≠ zero)
-  const components: Array<{ score: number | null; weight: number }> = [
+  const components: ScoreComponent[] = [
     { score: reputationScore, weight: 0.25 },
     { score: localVisibilityScore, weight: 0.25 },
     { score: websiteHealthScore, weight: 0.2 },
@@ -215,12 +224,12 @@ export function calculateScores(input: ScoreInput): AIHealthScore {
     { score: reviewVelocityScore, weight: 0.05 },
   ];
 
-  const available = components.filter((c) => c.score !== null);
+  const available = components.filter(hasScore);
   const totalWeight = available.reduce((sum, c) => sum + c.weight, 0);
   const overallScore =
     totalWeight === 0
       ? 0
-      : Math.round(available.reduce((sum, c) => sum + c.score! * c.weight, 0) / totalWeight);
+      : Math.round(available.reduce((sum, c) => sum + c.score * c.weight, 0) / totalWeight);
 
   return {
     overallScore,

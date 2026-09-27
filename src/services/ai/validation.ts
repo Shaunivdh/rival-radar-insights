@@ -73,8 +73,18 @@ const ADD_VERBS = [
   'build',
   'launch',
   'start',
-];
-const LIST_VERBS = ['add', 'get', 'obtain', 'pursue', 'list', 'offer', 'link', 'join', 'display'];
+] as const;
+const LIST_VERBS = [
+  'add',
+  'get',
+  'obtain',
+  'pursue',
+  'list',
+  'offer',
+  'link',
+  'join',
+  'display',
+] as const;
 
 // These match weakness/strength language only when it appears near competitor
 // references, to reduce false positives on neutral phrases like "maintain your rating".
@@ -118,22 +128,28 @@ function matchesNearCompetitor(
   return null;
 }
 
-const ALLOWED_PATCH_FIELDS = new Set([
+const PATCHABLE_FIELDS = [
   'action',
   'reason',
   'whyItMatters',
   'competitorReference',
   'timeframe',
   'outcome',
-]);
-/** Subset of ALLOWED_PATCH_FIELDS where null is also valid. All others require a string. */
-const NULLABLE_PATCH_FIELDS = new Set(['competitorReference']);
+] as const satisfies readonly (keyof PriorityAction)[];
+
+/** Subset of PATCHABLE_FIELDS where null is also valid. All others require a string. */
+const NULLABLE_FIELDS = ['competitorReference'] as const satisfies readonly PatchableField[];
+
+type PatchableField = (typeof PATCHABLE_FIELDS)[number];
+
+const ALLOWED_PATCH_FIELDS: ReadonlySet<string> = new Set(PATCHABLE_FIELDS);
+const NULLABLE_PATCH_FIELDS: ReadonlySet<string> = new Set(NULLABLE_FIELDS);
 
 type ExistenceCheck =
   | {
       kind: 'list';
       signalPath: (b: Business) => string[] | null | undefined;
-      keywords: string[];
+      keywords: readonly string[];
       label: string;
     }
   | { kind: 'flag'; signalPath: (b: Business) => boolean; pattern: RegExp; label: string };

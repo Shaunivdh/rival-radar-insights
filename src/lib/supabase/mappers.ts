@@ -19,6 +19,7 @@ import type {
   ReviewSentiment,
   SerpData,
 } from '@/types';
+import { asBusinessId } from '@/types';
 import { logger } from '@/lib/logger';
 
 type Tables = Database['public']['Tables'];
@@ -114,7 +115,7 @@ export function rowToBusiness(
   changeEvents: ChangeEvent[] = [],
 ): Business {
   return {
-    id: b.id,
+    id: asBusinessId(b.id),
     name: b.name,
     url: b.url,
     domain: b.domain,

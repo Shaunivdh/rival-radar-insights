@@ -19,6 +19,9 @@ import { createClient } from '@supabase/supabase-js';
 import fixture from './fixtures/week1.json';
 import type { Business } from '../src/types';
 
+/** The fixture carries every Business field except the database-assigned id. */
+type SeedBusiness = Omit<Business, 'id'>;
+
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 if (!url || !serviceRoleKey) {
@@ -50,7 +53,7 @@ async function findUserId(target: string): Promise<string | null> {
   return null;
 }
 
-async function insertBusiness(projectId: string, biz: Business, isOwn: boolean) {
+async function insertBusiness(projectId: string, biz: SeedBusiness, isOwn: boolean) {
   const { data: row, error } = await admin
     .from('businesses')
     .insert({
@@ -114,8 +117,8 @@ async function main() {
   if (projErr) throw projErr;
   const projectId = proj.id as string;
 
-  const own = (fixture as { ownBusiness: Business }).ownBusiness;
-  const competitors = (fixture as { competitors: Business[] }).competitors;
+  const own = (fixture as { ownBusiness: SeedBusiness }).ownBusiness;
+  const competitors = (fixture as { competitors: SeedBusiness[] }).competitors;
 
   await insertBusiness(projectId, own, true);
   for (const c of competitors) await insertBusiness(projectId, c, false);

@@ -7,6 +7,7 @@ import type {
   Project,
   SerpData,
 } from '@/types';
+import { asBusinessId, asPriorityActionId, asProjectId } from '@/types';
 
 export function buildSignals(overrides: Partial<ExtractedSignals> = {}): ExtractedSignals {
   return {
@@ -90,7 +91,7 @@ export function buildSerpData(overrides: Partial<SerpData> = {}): SerpData {
 
 export function buildBusiness(overrides: Partial<Business> = {}): Business {
   return {
-    id: 'biz_own',
+    id: asBusinessId('biz_own'),
     name: 'Acme Plumbing',
     url: 'https://acme-plumbing.test',
     domain: 'acme-plumbing.test',
@@ -113,13 +114,13 @@ export function buildBusiness(overrides: Partial<Business> = {}): Business {
 
 export function buildProject(overrides: Partial<Project> = {}): Project {
   return {
-    id: 'proj_1',
+    id: asProjectId('proj_1'),
     name: 'Acme vs Competitors',
     createdAt: Date.now(),
     ownBusiness: buildBusiness(),
     competitors: [
       buildBusiness({
-        id: 'biz_c1',
+        id: asBusinessId('biz_c1'),
         name: 'Bristol Plumbing Co',
         domain: 'bristolplumbing.test',
         url: 'https://bristolplumbing.test',
@@ -134,7 +135,7 @@ export function buildProject(overrides: Partial<Project> = {}): Project {
 
 export function buildAction(overrides: Partial<PriorityAction> = {}): PriorityAction {
   return {
-    id: 'act_1',
+    id: asPriorityActionId('act_1'),
     priority: 1,
     status: 'active',
     category: 'Conversion',

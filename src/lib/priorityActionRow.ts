@@ -1,8 +1,9 @@
 import type { PriorityAction } from '@/types';
+import { asPriorityActionId } from '@/types';
 
 export function mapPriorityActionRow(r: Record<string, unknown>): PriorityAction {
   return {
-    id: r.id as string,
+    id: asPriorityActionId(r.id as string),
     priority: r.priority as PriorityAction['priority'],
     status: (r.status as PriorityAction['status']) ?? 'active',
     category: r.category as string,

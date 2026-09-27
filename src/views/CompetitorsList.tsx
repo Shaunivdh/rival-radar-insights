@@ -5,7 +5,7 @@ import { useSearchParams } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { useRivalRadarStore } from '@/store/rivalradar';
 import { addCompetitor, triggerSingleScan } from '@/actions/projects';
-import type { Business } from '@/types';
+import type { Business, BusinessId } from '@/types';
 import {
   Plus,
   TrendingUp,
@@ -121,7 +121,7 @@ const CompetitorsList = () => {
   const [showArchived, setShowArchived] = useState(false);
   const [rescanningId, setRescanningId] = useState<string | null>(null);
 
-  const handleRescanOne = async (businessId: string) => {
+  const handleRescanOne = async (businessId: BusinessId) => {
     setRescanningId(businessId);
     await triggerSingleScan(businessId);
     syncBusinesses([{ id: businessId, crawlStatus: 'pending', signals: null, aiScore: null }]);

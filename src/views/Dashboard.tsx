@@ -25,7 +25,7 @@ import {
 } from 'lucide-react';
 import { triggerSingleScan, rescanAll, addCompetitor } from '@/actions/projects';
 import { useState } from 'react';
-import type { ChangeEvent as CE } from '@/types';
+import type { BusinessId, ChangeEvent as CE } from '@/types';
 import { DashboardGreeting } from '@/components/DashboardGreeting';
 import { ScoreTrend } from '@/components/ScoreTrend';
 import DashboardLoading from '@/views/DashboardLoading';
@@ -98,7 +98,7 @@ const Dashboard = () => {
     }
   };
 
-  const handleRescanOne = async (businessId: string) => {
+  const handleRescanOne = async (businessId: BusinessId) => {
     setRescanningId(businessId);
     await triggerSingleScan(businessId);
     syncBusinesses([{ id: businessId, crawlStatus: 'pending', signals: null, aiScore: null }]);

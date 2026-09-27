@@ -24,6 +24,7 @@ import type {
   PriorityAction,
   ChangeEvent,
 } from '@/types';
+import { asProjectId, type BusinessId, type PriorityActionId, type ProjectId } from '@/types';
 import { normalizeUrl, extractDomain, isValidUrl } from '@/lib/url';
 import { logger } from '@/lib/logger';
 
@@ -55,7 +56,7 @@ async function getSessionUserId(): Promise<string> {
 }
 
 /** Verify the session user owns `projectId`. Throws if not. Returns userId. */
-async function requireProjectOwnership(projectId: string): Promise<string> {
+async function requireProjectOwnership(projectId: ProjectId): Promise<string> {
   const userId = await getSessionUserId();
   const { data } = await supabaseAdmin
     .from('projects')
@@ -68,14 +69,14 @@ async function requireProjectOwnership(projectId: string): Promise<string> {
 }
 
 /** Verify the session user owns the project that `businessId` belongs to. */
-async function requireBusinessOwnership(businessId: string): Promise<string> {
+async function requireBusinessOwnership(businessId: BusinessId): Promise<string> {
   const { data: biz } = await supabaseAdmin
     .from('businesses')
     .select('project_id')
     .eq('id', businessId)
     .maybeSingle();
   if (!biz?.project_id) throw new Error('Not authorized');
-  return requireProjectOwnership(biz.project_id as string);
+  return requireProjectOwnership(asProjectId(biz.project_id as string));
 }
 
 // ── Row mappers ───────────────────────────────────────────────────────────────
@@ -84,7 +85,7 @@ function rowsToProject(p: ProjectRow, businesses: BusinessRow[]): Project {
   const own = businesses.find((b) => b.is_own_business);
   const competitors = businesses.filter((b) => !b.is_own_business);
   return {
-    id: p.id,
+    id: asProjectId(p.id),
     name: p.name,
     createdAt: new Date(p.created_at).getTime(),
     ownBusiness: rowToBusiness(own!),
@@ -230,7 +231,7 @@ export async function getProject(): Promise<Project | null> {
   );
 
   return {
-    id: project.id as string,
+    id: asProjectId(project.id as string),
     name: project.name as string,
     createdAt: new Date(project.created_at as string).getTime(),
     ownBusiness: enriched.find((e) => e.isOwn)!.business,
@@ -249,7 +250,7 @@ function isStale(lastCrawledAt: string | null): boolean {
   return Date.now() - new Date(lastCrawledAt).getTime() > CRAWL_INTERVAL_MS;
 }
 
-export async function triggerInitialScans(projectId: string): Promise<void> {
+export async function triggerInitialScans(projectId: ProjectId): Promise<void> {
   await requireProjectOwnership(projectId);
   const { data: businesses } = await supabaseAdmin
     .from('businesses')
@@ -295,7 +296,7 @@ export async function triggerInitialScans(projectId: string): Promise<void> {
   logger.info('triggerInitialScans', 'Inngest events sent', { projectId });
 }
 
-export async function syncProject(projectId: string): Promise<{
+export async function syncProject(projectId: ProjectId): Promise<{
   businesses: {
     id: string;
     crawlStatus: Business['crawlStatus'];
@@ -413,7 +414,7 @@ export async function syncProject(projectId: string): Promise<{
   return { businesses, priorityActions };
 }
 
-export async function triggerSingleScan(businessId: string): Promise<void> {
+export async function triggerSingleScan(businessId: BusinessId): Promise<void> {
   await requireBusinessOwnership(businessId);
   await supabaseAdmin.from('businesses').update({ crawl_status: 'pending' }).eq('id', businessId);
 
@@ -423,7 +424,7 @@ export async function triggerSingleScan(businessId: string): Promise<void> {
   });
 }
 
-export async function rescanAll(projectId: string): Promise<void> {
+export async function rescanAll(projectId: ProjectId): Promise<void> {
   await requireProjectOwnership(projectId);
   const { data: businesses } = await supabaseAdmin
     .from('businesses')
@@ -450,7 +451,7 @@ export async function rescanAll(projectId: string): Promise<void> {
 }
 
 export async function addCompetitor(
-  projectId: string,
+  projectId: ProjectId,
   competitor: Pick<Business, 'name' | 'url' | 'domain'>,
 ): Promise<Business> {
   await requireProjectOwnership(projectId);
@@ -489,7 +490,7 @@ export async function addCompetitor(
   return rowToBusiness({ ...row, crawl_status: 'pending' });
 }
 
-async function queryPriorityActions(projectId: string): Promise<PriorityAction[]> {
+async function queryPriorityActions(projectId: ProjectId): Promise<PriorityAction[]> {
   const { data: actions } = await supabaseAdmin
     .from('priority_actions')
     .select('*')
@@ -502,14 +503,14 @@ async function queryPriorityActions(projectId: string): Promise<PriorityAction[]
   return (actions ?? []).map(mapPriorityActionRow);
 }
 
-export async function fetchPriorityActions(projectId: string): Promise<PriorityAction[]> {
+export async function fetchPriorityActions(projectId: ProjectId): Promise<PriorityAction[]> {
   await requireProjectOwnership(projectId);
   return queryPriorityActions(projectId);
 }
 
 // ── Action status management ───────────────────────────────────────────────────
 
-async function promoteQueuedActions(projectId: string): Promise<void> {
+async function promoteQueuedActions(projectId: ProjectId): Promise<void> {
   // Count current active + snoozed
   const { count } = await supabaseAdmin
     .from('priority_actions')
@@ -542,8 +543,8 @@ async function promoteQueuedActions(projectId: string): Promise<void> {
 }
 
 export async function updateActionStatus(
-  actionId: string,
-  projectId: string,
+  actionId: PriorityActionId,
+  projectId: ProjectId,
   status: 'active' | 'snoozed' | 'completed',
   note?: string,
 ): Promise<PriorityAction[]> {
@@ -567,7 +568,7 @@ export async function updateActionStatus(
 }
 
 export async function updateProjectBusinessDetails(
-  projectId: string,
+  projectId: ProjectId,
   details: { primaryService: string; location: string; postcode: string | null },
 ): Promise<void> {
   const userId = await getSessionUserId();

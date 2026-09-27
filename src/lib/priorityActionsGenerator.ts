@@ -7,6 +7,7 @@ import {
 import { mapPriorityActionRow } from '@/lib/priorityActionRow';
 import { businessJson, rowToSignals } from '@/lib/supabase/mappers';
 import type { Business, ExtractedSignals, PriorityAction } from '@/types';
+import { asBusinessId } from '@/types';
 import type { ServiceCategory } from '@/lib/serviceCategories';
 import { logger } from '@/lib/logger';
 
@@ -43,7 +44,7 @@ export async function generateAndPersistProjectActions(
         .maybeSingle();
       const json = businessJson(b);
       return {
-        id: b.id,
+        id: asBusinessId(b.id),
         name: b.name,
         isOwn: b.is_own_business,
         signals: rowToSignals(sig),

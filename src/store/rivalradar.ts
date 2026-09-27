@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { Project, Business, AppSettings, PriorityAction, User } from '@/types';
+import type { BusinessId, Project, Business, AppSettings, PriorityAction, User } from '@/types';
 import { supabase } from '@/lib/supabase/client';
 import { getProject, fetchPriorityActions } from '@/actions/projects';
 
@@ -36,7 +36,7 @@ interface RivalRadarState {
   dismissDemoBanner: () => void;
   deleteProject: () => void;
   syncBusinesses: (updates: SyncedBusiness[]) => void;
-  getBusinessById: (id: string) => Business | undefined;
+  getBusinessById: (id: BusinessId) => Business | undefined;
   addCompetitorToStore: (business: Business) => void;
 }
 

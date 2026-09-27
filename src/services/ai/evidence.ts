@@ -7,7 +7,7 @@ import { summariseBiz } from './businessView';
 // The code resolves each path against the real objects: a path that does not exist
 // drops the action; a value that does not match is flagged for the fact-checker.
 
-type EvidenceResolution =
+export type EvidenceResolution =
   | { ok: true; path: string }
   | { ok: false; path: string; reason: 'missing_path' | 'value_mismatch'; actual?: unknown };
 

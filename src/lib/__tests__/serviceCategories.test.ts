@@ -1,8 +1,10 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, expectTypeOf } from 'vitest';
 import {
   SERVICE_CATEGORIES,
+  SERVICE_CATEGORY_KEYS,
   SERVICE_CATEGORY_OPTIONS,
   GENERIC_AI_QUERY_TEMPLATES,
+  type ServiceCategory,
 } from '@/lib/serviceCategories';
 
 describe('SERVICE_CATEGORIES', () => {
@@ -37,5 +39,31 @@ describe('SERVICE_CATEGORIES', () => {
   it('options mirror the categories and generic templates are the fallback for "other"', () => {
     expect(SERVICE_CATEGORY_OPTIONS.map((o) => o.value)).toEqual(Object.keys(SERVICE_CATEGORIES));
     expect(SERVICE_CATEGORIES.other.aiQueryTemplates).toBe(GENERIC_AI_QUERY_TEMPLATES);
+  });
+});
+
+/**
+ * The config is declared with `as const satisfies`, so the key tuple, the
+ * `ServiceCategory` union and the record can never drift apart, and the
+ * searchTerm a SERP query is built from stays a literal rather than widening to
+ * `string`. Checked by `bun run typecheck`.
+ */
+describe('SERVICE_CATEGORIES types', () => {
+  it('derives the category union from the key tuple', () => {
+    expectTypeOf<(typeof SERVICE_CATEGORY_KEYS)[number]>().toEqualTypeOf<ServiceCategory>();
+    expectTypeOf<keyof typeof SERVICE_CATEGORIES>().toEqualTypeOf<ServiceCategory>();
+  });
+
+  it('keeps each config literal narrow', () => {
+    expectTypeOf(SERVICE_CATEGORIES.accounting.searchTerm).toEqualTypeOf<'accountant'>();
+    expectTypeOf(SERVICE_CATEGORIES.other.label).toEqualTypeOf<'Other'>();
+    expectTypeOf<
+      (typeof SERVICE_CATEGORY_OPTIONS)[number]['value']
+    >().toEqualTypeOf<ServiceCategory>();
+  });
+
+  it('exposes the config as read-only, since every consumer only reads it', () => {
+    expectTypeOf(SERVICE_CATEGORIES.other.aiQueryTemplates).toExtend<readonly string[]>();
+    expectTypeOf(SERVICE_CATEGORIES.other.dashboardPriority).toExtend<readonly string[]>();
   });
 });

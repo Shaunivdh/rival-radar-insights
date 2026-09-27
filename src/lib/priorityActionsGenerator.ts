@@ -137,8 +137,10 @@ export async function generateAndPersistProjectActions(
             projRow?.primary_service as ServiceCategory,
           );
   } catch (e) {
-    if (e instanceof AIUnavailableError)
+    if (e instanceof AIUnavailableError) {
+      logger.warn('priorityActions', 'AI unavailable', { projectId, kind: e.kind });
       return { inserted: 0, reason: 'AI temporarily unavailable', ownBusinessId: ownRaw.id };
+    }
     throw e;
   }
 

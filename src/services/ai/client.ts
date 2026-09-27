@@ -4,9 +4,12 @@ import type { JsonSchema } from '../aiSchemas';
 
 export class AIUnavailableError extends Error {
   readonly retryAt: string;
+  /** What actually failed underneath, preserved through the collapse. */
+  readonly kind: AIFailureKind;
   constructor(cause: unknown) {
     super('AI generation unavailable');
     this.name = 'AIUnavailableError';
+    this.kind = classifyAIFailure(cause);
     const tomorrow = new Date(Date.now() + 24 * 60 * 60 * 1000);
     this.retryAt = tomorrow.toISOString();
     if (cause instanceof Error) this.cause = cause;
@@ -21,10 +24,38 @@ export class TruncatedOutputError extends Error {
   }
 }
 
+/**
+ * Why an LLM call failed, as a closed set.
+ *
+ * The public generators collapse every failure into `AIUnavailableError`, so
+ * without this the kind survives only in telemetry, and an empty action plan
+ * looks the same whether the model was cut off mid-JSON or returned something
+ * unparseable. Those two need different fixes: a bigger `max_tokens` versus a
+ * prompt or schema problem.
+ *
+ * Deliberately does not branch on the SDK's own error classes. They only tell us
+ * "the API call failed", which `errorTypeOf` already records by name for
+ * telemetry, and depending on their class identity here would make the error path
+ * break under any test that mocks the SDK module with a partial double.
+ */
+export type AIFailureKind = 'truncated' | 'parse' | 'unknown';
+
+export function classifyAIFailure(cause: unknown): AIFailureKind {
+  if (cause instanceof TruncatedOutputError) return 'truncated';
+  // parseStructured hands the text block to JSON.parse, so an unparseable or
+  // schema-invalid body arrives as a SyntaxError.
+  if (cause instanceof SyntaxError) return 'parse';
+  return 'unknown';
+}
+
 /** Telemetry error label: `truncated` is counted separately from parse/API errors. */
 export function errorTypeOf(e: unknown): string {
   if (e instanceof TruncatedOutputError) return 'truncated';
-  return (e as Error)?.name ?? 'Error';
+  if (e instanceof Error) return e.name;
+  if (typeof e === 'object' && e !== null && 'name' in e && typeof e.name === 'string') {
+    return e.name;
+  }
+  return 'Error';
 }
 
 /** Structured-output text block → parsed JSON. Throws on truncation instead of parsing a partial. */

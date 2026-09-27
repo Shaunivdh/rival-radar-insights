@@ -1156,7 +1156,10 @@ export const confirmChangeFunction = inngest.createFunction(
         );
       } catch (e) {
         if (e instanceof AIUnavailableError) {
-          logger.warn('confirm-change', 'AI unavailable, skipping change event', { businessId });
+          logger.warn('confirm-change', 'AI unavailable, skipping change event', {
+            businessId,
+            kind: e.kind,
+          });
           await writeEnrichmentError(
             businessId,
             'change_summary',

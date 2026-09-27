@@ -5,7 +5,8 @@
  *
  * `__tests__/ai.barrel.test.ts` locks this list.
  */
-export { AIUnavailableError, TruncatedOutputError, callLLMRaw } from './client';
+export { AIUnavailableError, TruncatedOutputError, callLLMRaw, classifyAIFailure } from './client';
+export type { AIFailureKind } from './client';
 export {
   prepareHtmlForExtraction,
   extractPageSignals,

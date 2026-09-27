@@ -27,6 +27,7 @@ import { saveScoreSnapshot, getWeeklyDelta } from '@/lib/supabase/scores';
 import { logCrawlStep } from '@/lib/crawl/crawl-logger';
 import { THREAT_DEDUP_MS, CHANGE_CONFIRMATION_DELAY_MS } from '@/lib/crawl/config';
 import type {
+  BusinessId,
   ChangeEvent,
   AIHealthScore,
   AIVisibility,
@@ -165,7 +166,7 @@ export const crawlBusinessFunction = inngest.createFunction(
     retries: 2,
     concurrency: { limit: 3 },
     onFailure: async ({ error, event, step }) => {
-      const { businessId } = event.data.event.data as { businessId: string };
+      const { businessId } = event.data.event.data as { businessId: BusinessId };
       logger.error('crawl-business', 'Unexpected failure', { businessId, error: error.message });
       logCrawlStep(businessId, null, 'onFailure', 'failed', error.message?.slice(0, 500));
       const projectId = await step.run('mark-failed-on-error', async () => {
@@ -224,7 +225,7 @@ export const crawlBusinessFunction = inngest.createFunction(
   { event: 'crawl/business.scan' },
   async ({ event, step }) => {
     const { businessId, mode } = event.data as {
-      businessId: string;
+      businessId: BusinessId;
       mode: 'initial' | 'incremental';
     };
 
@@ -1005,7 +1006,7 @@ export const confirmChangeFunction = inngest.createFunction(
     concurrency: { limit: 3 },
     onFailure: async ({ error, event, step }) => {
       const { businessId, detectionId } = event.data.event.data as {
-        businessId: string;
+        businessId: BusinessId;
         detectionId: string;
       };
       logger.error('confirm-change', 'Failed', { businessId, error: error.message });
@@ -1019,7 +1020,7 @@ export const confirmChangeFunction = inngest.createFunction(
   { event: 'crawl/change.confirm' },
   async ({ event, step }) => {
     const { businessId, baselineId, detectionId, changedPaths } = event.data as {
-      businessId: string;
+      businessId: BusinessId;
       baselineId: string;
       detectionId: string;
       changedPaths: string[];

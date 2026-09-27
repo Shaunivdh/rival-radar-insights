@@ -1,4 +1,4 @@
-import type { AIHealthScore } from '@/types';
+import type { AIHealthScore, BusinessId } from '@/types';
 import type { TypedSupabaseClient } from './types';
 import { recomputeOverallScore } from '@/services/scores';
 
@@ -52,7 +52,7 @@ export function computeWeeklyDelta(latest: AIHealthScore, previous: AIHealthScor
 
 export async function saveScoreSnapshot(
   supabase: TypedSupabaseClient,
-  businessId: string,
+  businessId: BusinessId,
   scores: AIHealthScore,
 ): Promise<void> {
   await supabase.from('score_snapshots').insert({
@@ -74,7 +74,7 @@ export async function saveScoreSnapshot(
  */
 export async function getWeeklyDelta(
   supabase: TypedSupabaseClient,
-  businessId: string,
+  businessId: BusinessId,
 ): Promise<number | null> {
   const { data: latest } = await supabase
     .from('score_snapshots')

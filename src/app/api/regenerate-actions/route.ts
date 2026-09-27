@@ -5,24 +5,8 @@ import type { Database } from '@/types/database';
 import { cookies } from 'next/headers';
 import { supabaseAdmin } from '@/lib/supabase/server';
 import { generateAndPersistProjectActions } from '@/lib/priorityActionsGenerator';
+import { isRateLimited } from '@/lib/rateLimit';
 import { logger } from '@/lib/logger';
-
-// Simple in-memory rate limiter: max 5 POST requests per IP per minute.
-// NOTE: resets per cold start and not shared across instances in serverless deployments.
-const rateMap = new Map<string, { count: number; resetAt: number }>();
-const RATE_LIMIT = 5;
-const RATE_WINDOW_MS = 60_000;
-
-function isRateLimited(ip: string): boolean {
-  const now = Date.now();
-  const entry = rateMap.get(ip);
-  if (!entry || now > entry.resetAt) {
-    rateMap.set(ip, { count: 1, resetAt: now + RATE_WINDOW_MS });
-    return false;
-  }
-  entry.count++;
-  return entry.count > RATE_LIMIT;
-}
 
 async function getAuthUserId(): Promise<string | null> {
   const cookieStore = await cookies();
@@ -63,7 +47,7 @@ export async function POST(req: NextRequest) {
   }
 
   const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? 'unknown';
-  if (isRateLimited(ip)) {
+  if (await isRateLimited(`regenerate-actions:${ip}`)) {
     return NextResponse.json({ error: 'Too many requests' }, { status: 429 });
   }
 

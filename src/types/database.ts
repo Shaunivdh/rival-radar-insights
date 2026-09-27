@@ -568,6 +568,24 @@ export type Database = {
         };
         Relationships: [];
       };
+      rate_limits: {
+        Row: {
+          count: number;
+          key: string;
+          reset_at: string;
+        };
+        Insert: {
+          count: number;
+          key: string;
+          reset_at: string;
+        };
+        Update: {
+          count?: number;
+          key?: string;
+          reset_at?: string;
+        };
+        Relationships: [];
+      };
       score_snapshots: {
         Row: {
           ai_presence_score: number | null;
@@ -676,6 +694,10 @@ export type Database = {
       [_ in never]: never;
     };
     Functions: {
+      check_rate_limit: {
+        Args: { p_key: string; p_limit: number; p_window_ms: number };
+        Returns: boolean;
+      };
       project_id_for_business: { Args: { b_id: string }; Returns: string };
       user_owns_project: { Args: { p_id: string }; Returns: boolean };
     };

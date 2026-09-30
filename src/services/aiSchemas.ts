@@ -14,7 +14,6 @@ const bool = { type: 'boolean' } as const;
 const int = { type: 'integer' } as const;
 const strArr = { type: 'array', items: str } as const;
 const nullableStr = { anyOf: [{ type: 'string' }, { type: 'null' }] } as const;
-const nullableBool = { anyOf: [{ type: 'boolean' }, { type: 'null' }] } as const;
 
 function obj(properties: Record<string, unknown>): JsonSchema {
   return {

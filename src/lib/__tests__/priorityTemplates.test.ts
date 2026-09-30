@@ -128,6 +128,13 @@ describe('applyTemplates', () => {
     expect(applyTemplatesWithHistory(b, []).firedIds).not.toContain('low_review_count');
   });
 
+  it('no_gbp_description never claims the owner description is missing', () => {
+    // googleData.description is Google's own summary, so we cannot know the owner's text.
+    const t = PRIORITY_TEMPLATES.find((x) => x.id === 'no_gbp_description')!;
+    const copy = [t.action, t.reason, t.whyItMattersTemplate, ...t.steps].join(' ');
+    expect(copy).not.toMatch(/missing|too short|no description/i);
+  });
+
   it('low_review_count does not treat a missing review count as zero', () => {
     const gd = buildGoogleData();
     delete (gd as Partial<typeof gd>).reviewCount;

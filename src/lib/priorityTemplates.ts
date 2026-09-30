@@ -128,6 +128,8 @@ export const PRIORITY_TEMPLATES: PriorityTemplate[] = [
   },
   {
     id: 'no_gbp_description',
+    // googleData.description is Google's own summary (editorialSummary / generativeSummary),
+    // not the owner's description, so the copy asks for a check rather than claiming a gap.
     trigger: (b) => {
       const desc = b.googleData?.description;
       return !desc || desc.trim().length < 50;
@@ -135,16 +137,16 @@ export const PRIORITY_TEMPLATES: PriorityTemplate[] = [
     category: 'Local SEO',
     effort: 'low',
     estimatedImpact: 'medium',
-    timeframe: '30 minutes',
-    action: 'Write a proper Google Business description',
-    reason: 'Your Google Business description is missing or too short',
+    timeframe: '15 minutes',
+    action: 'Check your Google Business description',
+    reason: 'Make sure your Google description names your services and town',
     whyItMattersTemplate:
-      'Your Google Business description is one of the first things people read when they find you in search results. A clear description that mentions your services and area helps Google match you to the right searches and helps customers understand what you offer before they even visit your site.',
+      'Your Google Business description is one of the first things people read when they find you. A description that names your main services and the area you cover helps Google match you to the right searches and tells customers straight away that you do what they need.',
     steps: [
-      'Go to business.google.com and click "Edit profile", then "Description".',
-      'Write 2 to 3 sentences covering: what you do, where you operate, and what makes you different.',
-      'Include your main service and location naturally, and do not stuff keywords.',
-      'Keep it under 750 characters (the Google limit).',
+      'Go to business.google.com, click "Edit profile", then "Description", and read what is there.',
+      'If it is empty or vague, write 2 to 3 sentences covering what you do, where you work, and what makes you different.',
+      'Make sure your main service and your town appear naturally, without stuffing in keywords.',
+      'Keep it under 750 characters, which is the Google limit.',
     ],
     outcome: 'Better visibility in local search results',
     requiresSiteSignals: false,

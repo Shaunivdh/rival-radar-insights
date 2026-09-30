@@ -25,11 +25,10 @@ import {
 } from 'lucide-react';
 import { triggerSingleScan, rescanAll, addCompetitor } from '@/actions/projects';
 import { useState } from 'react';
-import type { ChangeEvent as CE } from '@/types';
+import type { BusinessId, ChangeEvent as CE } from '@/types';
 import { DashboardGreeting } from '@/components/DashboardGreeting';
 import { ScoreTrend } from '@/components/ScoreTrend';
 import DashboardLoading from '@/views/DashboardLoading';
-import DashboardConnectPrompt from '@/components/dashboard/DashboardConnectPrompt';
 
 const STATUS_ICON: Record<string, React.ReactNode> = {
   idle: <Clock className="w-3.5 h-3.5 text-muted-foreground" />,
@@ -99,7 +98,7 @@ const Dashboard = () => {
     }
   };
 
-  const handleRescanOne = async (businessId: string) => {
+  const handleRescanOne = async (businessId: BusinessId) => {
     setRescanningId(businessId);
     await triggerSingleScan(businessId);
     syncBusinesses([{ id: businessId, crawlStatus: 'pending', signals: null, aiScore: null }]);
@@ -114,17 +113,21 @@ const Dashboard = () => {
     }
   }, [isSetupFlow, isDemoMode, isScanning, noneComplete, router]);
 
+  // Only the id is needed below; depending on `project` itself would restart the
+  // poll interval on every sync, since syncBusinesses replaces the project object.
+  const projectId = project?.id;
+
   useEffect(() => {
-    if (!project || isDemoMode) return;
+    if (!projectId || isDemoMode) return;
 
     // Reset scan tracking when the project changes
-    if (trackedProjectIdRef.current !== project.id) {
-      trackedProjectIdRef.current = project.id;
+    if (trackedProjectIdRef.current !== projectId) {
+      trackedProjectIdRef.current = projectId;
       wasScanningRef.current = false;
     }
 
     const poll = async () => {
-      const result = await syncProject(project.id);
+      const result = await syncProject(projectId);
       syncBusinesses(result.businesses);
       if (result.priorityActions?.length) setPriorityActions(result.priorityActions);
     };
@@ -145,7 +148,7 @@ const Dashboard = () => {
       const timer = setTimeout(poll, 5000);
       return () => clearTimeout(timer);
     }
-  }, [isScanning, project?.id, isDemoMode]);
+  }, [isScanning, projectId, isDemoMode, syncBusinesses, setPriorityActions]);
 
   if (!project) return null;
 
@@ -298,9 +301,6 @@ const Dashboard = () => {
 
       {/* Greeting */}
       <DashboardGreeting />
-
-      {/* Connect Google Business Profile */}
-      <DashboardConnectPrompt />
 
       {/* Score overview + right column */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">

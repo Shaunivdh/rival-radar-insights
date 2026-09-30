@@ -5,14 +5,42 @@ import {
   AIUnavailableError,
 } from '@/services/ai';
 import { mapPriorityActionRow } from '@/lib/priorityActionRow';
-import type {
-  Business,
-  ExtractedSignals,
-  AIHealthScore,
-  PageSpeedData,
-  PriorityAction,
-} from '@/types';
+import { businessJson, rowToSignals } from '@/lib/supabase/mappers';
+import type { Business, ExtractedSignals, PriorityAction } from '@/types';
+import { asBusinessId, type BusinessId, type ProjectId } from '@/types';
+
+/**
+ * Prefix of the insert-failure reason. Exported because the crawl worker matches
+ * it with `startsWith`, which no closed union can protect: renaming the literal
+ * in one place would leave that branch compiling and silently never matching.
+ */
+export const INSERT_FAILED_PREFIX = 'insert failed';
+
+/**
+ * Why a run produced no actions.
+ *
+ * Closed on purpose: `runProjectActionGeneration` in the crawl worker branches on
+ * these exact strings, so rewording one here is a compile error at the branch
+ * rather than a condition that silently stops matching. The insert case keeps a
+ * template literal because it carries the Postgres message.
+ */
+export type ActionGenerationReason =
+  | 'no businesses in project'
+  | 'project has no own business'
+  | 'AI temporarily unavailable'
+  | 'generation returned 0 actions'
+  | 'all generated actions already exist'
+  | `${typeof INSERT_FAILED_PREFIX}: ${string}`;
+
+export type ActionGenerationResult = {
+  inserted: number;
+  reason?: ActionGenerationReason;
+  ownBusinessId?: BusinessId;
+  /** Set with reason 'AI temporarily unavailable', from the caught AIUnavailableError. */
+  retryAt?: string;
+};
 import type { ServiceCategory } from '@/lib/serviceCategories';
+import { logger } from '@/lib/logger';
 
 /**
  * Generate and persist priority actions for a project from its already-persisted
@@ -25,8 +53,8 @@ import type { ServiceCategory } from '@/lib/serviceCategories';
  * produces the plan synchronously.
  */
 export async function generateAndPersistProjectActions(
-  projectId: string,
-): Promise<{ inserted: number; reason?: string; ownBusinessId?: string }> {
+  projectId: ProjectId,
+): Promise<ActionGenerationResult> {
   const { data: allBiz } = await supabaseAdmin
     .from('businesses')
     .select(
@@ -45,25 +73,18 @@ export async function generateAndPersistProjectActions(
         .order('scanned_at', { ascending: false })
         .limit(1)
         .maybeSingle();
-      const signals = sig?.seo
-        ? ({
-            seo: sig.seo,
-            trust: sig.trust,
-            content: sig.content,
-            engagement: sig.engagement,
-          } as ExtractedSignals)
-        : null;
+      const json = businessJson(b);
       return {
-        id: b.id as string,
-        name: b.name as string,
-        isOwn: b.is_own_business as boolean,
-        signals,
-        aiScore: (b.ai_score as AIHealthScore) ?? null,
-        googleData: (b.google_data as Business['googleData']) ?? null,
-        pagespeedData: (b.pagespeed_data as PageSpeedData) ?? null,
-        serpData: (b.serp_data as Business['serpData']) ?? null,
-        aiVisibility: (b.ai_visibility as Business['aiVisibility']) ?? null,
-        enrichmentErrors: (b.enrichment_errors as Business['enrichmentErrors']) ?? null,
+        id: asBusinessId(b.id),
+        name: b.name,
+        isOwn: b.is_own_business,
+        signals: rowToSignals(sig),
+        aiScore: json.aiScore,
+        googleData: json.googleData,
+        pagespeedData: json.pagespeedData,
+        serpData: json.serpData,
+        aiVisibility: json.aiVisibility,
+        enrichmentErrors: json.enrichmentErrors,
       };
     }),
   );
@@ -125,8 +146,15 @@ export async function generateAndPersistProjectActions(
             projRow?.primary_service as ServiceCategory,
           );
   } catch (e) {
-    if (e instanceof AIUnavailableError)
-      return { inserted: 0, reason: 'AI temporarily unavailable', ownBusinessId: ownRaw.id };
+    if (e instanceof AIUnavailableError) {
+      logger.warn('priorityActions', 'AI unavailable', { projectId, kind: e.kind });
+      return {
+        inserted: 0,
+        reason: 'AI temporarily unavailable',
+        ownBusinessId: ownRaw.id,
+        retryAt: e.retryAt,
+      };
+    }
     throw e;
   }
 
@@ -183,10 +211,10 @@ export async function generateAndPersistProjectActions(
   );
 
   if (insertError) {
-    console.error('[priorityActions] insert failed:', insertError);
+    logger.error('priorityActions', 'Insert failed', { error: insertError });
     return {
       inserted: 0,
-      reason: `insert failed: ${insertError.message}`,
+      reason: `${INSERT_FAILED_PREFIX}: ${insertError.message}`,
       ownBusinessId: ownRaw.id,
     };
   }
@@ -223,12 +251,5 @@ async function fetchPreviousSignals(businessId: string): Promise<ExtractedSignal
     .eq('business_id', businessId)
     .order('scanned_at', { ascending: false })
     .limit(2);
-  const prev = data?.[1];
-  if (!prev?.seo) return null;
-  return {
-    seo: prev.seo,
-    trust: prev.trust,
-    content: prev.content,
-    engagement: prev.engagement,
-  } as ExtractedSignals;
+  return rowToSignals(data?.[1]);
 }

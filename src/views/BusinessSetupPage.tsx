@@ -6,12 +6,13 @@ import { Logo } from '@/components/Logo';
 import { useEffect, useState } from 'react';
 import { ArrowRight, Plus, Trash2 } from 'lucide-react';
 import type { Business, Project } from '@/types';
+import { asBusinessId } from '@/types';
 import { createProject, triggerInitialScans } from '@/actions/projects';
 import { SERVICE_CATEGORY_OPTIONS, type ServiceCategory } from '@/lib/serviceCategories';
 import { isValidUKPostcode } from '@/lib/utils';
 
 const emptyBusiness = (): Business => ({
-  id: crypto.randomUUID(),
+  id: asBusinessId(crypto.randomUUID()),
   name: '',
   url: '',
   domain: '',

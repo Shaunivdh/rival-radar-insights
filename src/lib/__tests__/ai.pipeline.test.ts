@@ -6,6 +6,7 @@
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import type { Business, PriorityAction, ExtractedSignals } from '@/types';
+import { asBusinessId, asPriorityActionId } from '@/types';
 
 // ── Mock Anthropic SDK before importing ai.ts ───────────────────────────
 const mockCreate = vi.fn();
@@ -32,7 +33,7 @@ import {
 /** Minimal Business with sensible defaults; override what you need. */
 function buildBusiness(overrides: Partial<Business> = {}): Business {
   return {
-    id: 'biz-1',
+    id: asBusinessId('biz-1'),
     name: 'Acme Plumbing',
     url: 'https://acme-plumbing.co.uk',
     domain: 'acme-plumbing.co.uk',
@@ -126,7 +127,7 @@ function buildBusiness(overrides: Partial<Business> = {}): Business {
 
 function buildCompetitor(name: string, overrides: Partial<Business> = {}): Business {
   return buildBusiness({
-    id: `comp-${name.toLowerCase().replace(/\s/g, '-')}`,
+    id: asBusinessId(`comp-${name.toLowerCase().replace(/\s/g, '-')}`),
     name,
     url: `https://${name.toLowerCase().replace(/\s/g, '-')}.co.uk`,
     domain: `${name.toLowerCase().replace(/\s/g, '-')}.co.uk`,
@@ -201,7 +202,7 @@ function emptySignals(): ExtractedSignals {
 function cannedLLMActions(count: number): PriorityAction[] {
   const pool: PriorityAction[] = [
     {
-      id: '',
+      id: asPriorityActionId(''),
       status: 'active',
       priority: 1,
       category: 'AI Visibility',
@@ -221,7 +222,7 @@ function cannedLLMActions(count: number): PriorityAction[] {
       timeframe: '2-4 weeks',
     },
     {
-      id: '',
+      id: asPriorityActionId(''),
       status: 'active',
       priority: 2,
       category: 'Reviews',
@@ -241,7 +242,7 @@ function cannedLLMActions(count: number): PriorityAction[] {
       timeframe: '1-2 weeks',
     },
     {
-      id: '',
+      id: asPriorityActionId(''),
       status: 'active',
       priority: 3,
       category: 'Conversion',
@@ -454,7 +455,7 @@ describe('Priority action pipeline (integration)', () => {
 
     const previousActions: PriorityAction[] = [
       {
-        id: '',
+        id: asPriorityActionId(''),
         status: 'active',
         priority: 1,
         category: 'Conversion',
@@ -469,7 +470,7 @@ describe('Priority action pipeline (integration)', () => {
         timeframe: '1 day',
       },
       {
-        id: '',
+        id: asPriorityActionId(''),
         status: 'active',
         priority: 2,
         category: 'Reviews',
@@ -484,7 +485,7 @@ describe('Priority action pipeline (integration)', () => {
         timeframe: '1 week',
       },
       {
-        id: '',
+        id: asPriorityActionId(''),
         status: 'active',
         priority: 3,
         category: 'Website',
@@ -542,7 +543,7 @@ describe('Priority action pipeline (integration)', () => {
     const own = buildBusiness({
       signals: emptySignals(),
       enrichmentErrors: {
-        extract: 'Page-signal extraction failed — some on-site recommendations may be unavailable.',
+        extract: 'Page-signal extraction failed; some on-site recommendations may be unavailable.',
       },
     });
 
@@ -585,8 +586,9 @@ describe('Priority action pipeline (integration)', () => {
     expect((thrown as AIUnavailableError).cause).toBeInstanceOf(TruncatedOutputError);
     const events = logSpy.mock.calls
       .map((c) => String(c[0]))
-      .filter((l) => l.startsWith('[ai-event]'))
-      .map((l) => JSON.parse(l.slice('[ai-event] '.length)));
+      // logger emits: `[info] [ai-event] <event> {json fields}`
+      .filter((l) => l.includes('[ai-event]'))
+      .map((l) => JSON.parse(l.slice(l.indexOf('{'))));
     expect(events.some((e) => e.event === 'generation' && e.errorType === 'truncated')).toBe(true);
 
     logSpy.mockRestore();

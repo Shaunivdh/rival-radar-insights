@@ -1,29 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { z } from 'zod';
 import { createServerClient } from '@supabase/ssr';
+import type { Database } from '@/types/database';
 import { cookies } from 'next/headers';
 import { supabaseAdmin } from '@/lib/supabase/server';
 import { generateAndPersistProjectActions } from '@/lib/priorityActionsGenerator';
-
-// Simple in-memory rate limiter: max 5 POST requests per IP per minute.
-// NOTE: resets per cold start and not shared across instances in serverless deployments.
-const rateMap = new Map<string, { count: number; resetAt: number }>();
-const RATE_LIMIT = 5;
-const RATE_WINDOW_MS = 60_000;
-
-function isRateLimited(ip: string): boolean {
-  const now = Date.now();
-  const entry = rateMap.get(ip);
-  if (!entry || now > entry.resetAt) {
-    rateMap.set(ip, { count: 1, resetAt: now + RATE_WINDOW_MS });
-    return false;
-  }
-  entry.count++;
-  return entry.count > RATE_LIMIT;
-}
+import { asProjectId } from '@/types';
+import { isRateLimited } from '@/lib/rateLimit';
+import { aiUnavailableResponse, handleAIError } from '@/lib/apiErrorHandler';
+import { logger } from '@/lib/logger';
 
 async function getAuthUserId(): Promise<string | null> {
   const cookieStore = await cookies();
-  const supabase = createServerClient(
+  const supabase = createServerClient<Database>(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
@@ -40,6 +29,11 @@ async function getAuthUserId(): Promise<string | null> {
   return user?.id ?? null;
 }
 
+/** Recovery route with no frontend caller — invoked manually with { projectId }. */
+const postBodySchema = z.object({
+  projectId: z.string().uuid(),
+});
+
 /**
  * POST /api/regenerate-actions  { projectId }
  *
@@ -54,15 +48,26 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? 'unknown';
-  if (isRateLimited(ip)) {
+  // Keyed on the authenticated user, not on x-forwarded-for. This route spends
+  // money on every call (SMART generation plus the fact-checker pass), and a
+  // client-supplied header is the wrong thing to meter it by: rotating the header
+  // gives each fake value its own bucket, while a shared office IP or NAT would
+  // throttle unrelated users against each other.
+  // failClosed: this route spends money on every call and nothing in the UI
+  // waits on it, so when the limiter cannot reach a verdict a 429 is the cheap
+  // outcome and an unmetered paid call is not.
+  if (await isRateLimited(`regenerate-actions:${userId}`, { failClosed: true })) {
     return NextResponse.json({ error: 'Too many requests' }, { status: 429 });
   }
 
-  const { projectId } = (await req.json().catch(() => ({}))) as { projectId?: string };
-  if (!projectId) {
-    return NextResponse.json({ error: 'Missing projectId' }, { status: 400 });
+  const parsed = postBodySchema.safeParse(await req.json().catch(() => null));
+  if (!parsed.success) {
+    return NextResponse.json(
+      { error: 'Invalid request', issues: parsed.error.flatten() },
+      { status: 400 },
+    );
   }
+  const { projectId } = parsed.data;
 
   // Verify the caller owns this project.
   const { data: project } = await supabaseAdmin
@@ -76,13 +81,21 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const result = await generateAndPersistProjectActions(projectId);
-    console.log(
-      `[regenerate-actions] userId=${userId} projectId=${projectId} inserted=${result.inserted} reason=${result.reason ?? 'ok'}`,
-    );
+    const result = await generateAndPersistProjectActions(asProjectId(projectId));
+    logger.info('regenerate-actions', 'Regenerated', {
+      userId,
+      projectId,
+      inserted: result.inserted,
+      reason: result.reason ?? 'ok',
+    });
+    // The generator catches AIUnavailableError itself (the crawl worker needs the
+    // reason, not a throw), so an outage arrives here as a result, never in catch.
+    if (result.reason === 'AI temporarily unavailable') {
+      return aiUnavailableResponse(result.retryAt);
+    }
     return NextResponse.json({ ok: true, ...result });
   } catch (e) {
-    console.error(`[regenerate-actions] failed projectId=${projectId}:`, e);
-    return NextResponse.json({ error: 'Failed to generate recommendations' }, { status: 500 });
+    logger.error('regenerate-actions', 'Failed', { projectId, error: e });
+    return handleAIError(e);
   }
 }

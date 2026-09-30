@@ -33,7 +33,7 @@ import {
   ShieldCheck,
   EyeOff,
 } from 'lucide-react';
-import type { PriorityAction } from '@/types';
+import type { PriorityAction, PriorityActionId } from '@/types';
 import { MOCK_PRIORITY_ACTIONS } from '@/lib/mockActionPlan';
 
 // Dev-only: preview the plan with sample data when a project has no real actions yet.
@@ -43,8 +43,8 @@ type Priority = 'critical' | 'high' | 'medium' | 'quick-win';
 type VerificationState = 'pending' | 'verified' | 'not-verified';
 
 type Recommendation = {
-  id: string;
-  dbId: string;
+  id: PriorityActionId;
+  dbId: PriorityActionId;
   dbStatus: 'active' | 'snoozed' | 'completed';
   dbNote: string | null;
   dbActionedAt: string | null;
@@ -201,10 +201,10 @@ const RecommendationCard = ({
   rec: Recommendation;
   index: number;
   status?: ActionStatus;
-  onMarkDone: (id: string, note?: string) => void;
-  onUndo: (id: string) => void;
-  onDismiss: (id: string) => void;
-  onRestore: (id: string) => void;
+  onMarkDone: (id: PriorityActionId, note?: string) => void;
+  onUndo: (id: PriorityActionId) => void;
+  onDismiss: (id: PriorityActionId) => void;
+  onRestore: (id: PriorityActionId) => void;
 }) => {
   const [expanded, setExpanded] = useState(false);
   const [showNote, setShowNote] = useState(false);
@@ -566,7 +566,7 @@ const ActionPlan = () => {
     [effectiveActions],
   );
 
-  const handleMarkDone = (id: string, note?: string) => {
+  const handleMarkDone = (id: PriorityActionId, note?: string) => {
     // Optimistic update
     setStatuses((prev) => ({
       ...prev,
@@ -578,7 +578,7 @@ const ActionPlan = () => {
     });
   };
 
-  const handleUndo = (id: string) => {
+  const handleUndo = (id: PriorityActionId) => {
     setStatuses((prev) => {
       const next = { ...prev };
       delete next[id];
@@ -590,7 +590,7 @@ const ActionPlan = () => {
     });
   };
 
-  const handleDismiss = (id: string) => {
+  const handleDismiss = (id: PriorityActionId) => {
     // Optimistic update
     setStatuses((prev) => ({
       ...prev,
@@ -607,7 +607,7 @@ const ActionPlan = () => {
     });
   };
 
-  const handleRestore = (id: string) => {
+  const handleRestore = (id: PriorityActionId) => {
     setStatuses((prev) => {
       const next = { ...prev };
       delete next[id];

@@ -3,6 +3,7 @@ import { supabaseAdmin } from '@/lib/supabase/server';
 import { logCrawlStep } from '@/lib/crawl/crawl-logger';
 import { markCrawlFailed } from '@/lib/crawl/orchestrator';
 import { CRAWL_INTERVAL_MS, CRAWL_INTERVAL_DAYS } from '@/lib/crawl/config';
+import { logger } from '@/lib/logger';
 
 /**
  * Daily health check cron — runs at 8 AM UTC.
@@ -57,7 +58,7 @@ export const crawlHealthCheckFunction = inngest.createFunction(
         );
       }
 
-      console.log(`[crawl-health-check] Recovered ${allStale.length} stale crawls`);
+      logger.info('crawl-health-check', 'Recovered stale crawls', { count: allStale.length });
       return allStale.length;
     });
 
@@ -152,9 +153,10 @@ export const crawlHealthCheckFunction = inngest.createFunction(
 
       await inngest.send(events);
 
-      console.log(
-        `[crawl-health-check] Re-queued ${ids.length} crawls due (>${CRAWL_INTERVAL_DAYS}d since last)`,
-      );
+      logger.info('crawl-health-check', 'Re-queued crawls past refresh interval', {
+        count: ids.length,
+        intervalDays: CRAWL_INTERVAL_DAYS,
+      });
       return ids.length;
     });
 

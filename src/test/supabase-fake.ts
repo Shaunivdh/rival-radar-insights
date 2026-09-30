@@ -237,6 +237,41 @@ export class FakeSupabase {
     return new QueryBuilder(this, table);
   }
 
+  /**
+   * Stands in for the `check_rate_limit` plpgsql function (migration 021), which
+   * backs both the API rate limiter and the crawl worker's action-generation
+   * claim. Mirrors the SQL: one row per key, the window restarts once it has
+   * passed, the counter clamps at limit + 1, and the boolean means "over the
+   * limit". Rows live in `rate_limits` so a test can seed a held claim.
+   *
+   * Only `.abortSignal()` is chainable, because that is how `isRateLimited`
+   * calls it.
+   */
+  rpc(fn: string, args: Record<string, unknown>) {
+    const run = (): { data: boolean | null; error: unknown } => {
+      if (fn !== 'check_rate_limit') {
+        return { data: null, error: { message: `fake supabase: unknown rpc ${fn}` } };
+      }
+      const key = args.p_key as string;
+      const limit = args.p_limit as number;
+      const windowMs = args.p_window_ms as number;
+      const now = Date.now();
+      const rows = this.rows('rate_limits');
+      const existing = rows.find((r) => r.key === key);
+
+      if (!existing) {
+        rows.push({ key, count: 1, reset_at: new Date(now + windowMs).toISOString() });
+        return { data: 1 > limit, error: null };
+      }
+
+      const expired = now > new Date(existing.reset_at as string).getTime();
+      existing.count = expired ? 1 : Math.min((existing.count as number) + 1, limit + 1);
+      if (expired) existing.reset_at = new Date(now + windowMs).toISOString();
+      return { data: (existing.count as number) > limit, error: null };
+    };
+    return { abortSignal: () => Promise.resolve(run()) };
+  }
+
   rows(table: string): Row[] {
     return (this.tables[table] ??= []);
   }

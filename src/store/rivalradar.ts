@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { Project, Business, AppSettings, PriorityAction, User } from '@/types';
+import type { BusinessId, Project, Business, AppSettings, PriorityAction, User } from '@/types';
 import { supabase } from '@/lib/supabase/client';
 import { getProject, fetchPriorityActions } from '@/actions/projects';
 
@@ -36,7 +36,7 @@ interface RivalRadarState {
   dismissDemoBanner: () => void;
   deleteProject: () => void;
   syncBusinesses: (updates: SyncedBusiness[]) => void;
-  getBusinessById: (id: string) => Business | undefined;
+  getBusinessById: (id: BusinessId) => Business | undefined;
   addCompetitorToStore: (business: Business) => void;
 }
 
@@ -131,7 +131,8 @@ export const useRivalRadarStore = create<RivalRadarState>()((set, get) => ({
             user_id: user.id,
             primary_service: settings.primaryService,
             location: settings.location,
-            postcode: settings.postcode ?? null,
+            // column is `text not null default ''` — writing null fails the upsert
+            postcode: settings.postcode ?? '',
             updated_at: new Date().toISOString(),
           },
           { onConflict: 'user_id' },

@@ -122,21 +122,20 @@ bun install
 cp .env.example .env.local
 ```
 
-| Variable                                    | Where to get it                                                                                              |
-| ------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
-| `NEXT_PUBLIC_SUPABASE_URL`                  | Supabase dashboard → Project Settings                                                                        |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY`             | Supabase dashboard → Project Settings                                                                        |
-| `SUPABASE_SERVICE_ROLE_KEY`                 | Supabase dashboard → Project Settings (server only)                                                          |
-| `NEXT_PUBLIC_APP_URL`                       | `http://localhost:3000` locally; your domain in production                                                   |
-| `CF_ACCOUNT_ID`                             | Cloudflare dashboard → account menu                                                                          |
-| `CF_API_TOKEN`                              | Cloudflare → My Profile → API Tokens (Browser Rendering permission)                                          |
-| `ANTHROPIC_API_KEY`                         | console.anthropic.com                                                                                        |
-| `GOOGLE_PLACES_API_KEY`                     | Google Cloud Console                                                                                         |
-| `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | Google Cloud Console → Credentials. Redirect URI: `${NEXT_PUBLIC_APP_URL}/api/auth/google-business/callback` |
-| `SERP_API_KEY`                              | serpapi.com                                                                                                  |
-| `RESEND_API_KEY` / `RESEND_FROM_EMAIL`      | resend.com/api-keys                                                                                          |
-| `INNGEST_EVENT_KEY` / `INNGEST_SIGNING_KEY` | Inngest dashboard → your app                                                                                 |
-| `SITE_PASSWORD`                             | Anything you like. Gates the app during private beta                                                         |
+| Variable                                    | Where to get it                                                     |
+| ------------------------------------------- | ------------------------------------------------------------------- |
+| `NEXT_PUBLIC_SUPABASE_URL`                  | Supabase dashboard → Project Settings                               |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY`             | Supabase dashboard → Project Settings                               |
+| `SUPABASE_SERVICE_ROLE_KEY`                 | Supabase dashboard → Project Settings (server only)                 |
+| `NEXT_PUBLIC_APP_URL`                       | `http://localhost:3000` locally; your domain in production          |
+| `CF_ACCOUNT_ID`                             | Cloudflare dashboard → account menu                                 |
+| `CF_API_TOKEN`                              | Cloudflare → My Profile → API Tokens (Browser Rendering permission) |
+| `ANTHROPIC_API_KEY`                         | console.anthropic.com                                               |
+| `GOOGLE_PLACES_API_KEY`                     | Google Cloud Console                                                |
+| `SERP_API_KEY`                              | serpapi.com                                                         |
+| `RESEND_API_KEY` / `RESEND_FROM_EMAIL`      | resend.com/api-keys                                                 |
+| `INNGEST_EVENT_KEY` / `INNGEST_SIGNING_KEY` | Inngest dashboard → your app                                        |
+| `SITE_PASSWORD`                             | Anything you like. Gates the app during private beta                |
 
 ### 3. Seed Cloudflare credentials in Supabase
 
@@ -184,8 +183,24 @@ Every crawl uses full JavaScript rendering with `waitUntil: 'networkidle0'` and 
 | `bun run lint` / `lint:fix`       | ESLint                                              |
 | `bun run format` / `format:check` | Prettier                                            |
 | `bun run test` / `test:watch`     | Vitest unit tests                                   |
+| `bun run test:unit`               | Vitest unit tests, single run (what CI runs)        |
 | `bun run test:integration`        | AI pipeline integration test                        |
+| `bun run test:e2e`                | Playwright end-to-end tests                         |
+| `bun run typecheck`               | `tsc --noEmit`                                      |
 | `bun run email:preview`           | Preview the weekly digest email at `localhost:3001` |
+
+---
+
+## CI
+
+`.github/workflows/ci.yml` runs on every push to every branch: `lint` →
+`typecheck` → `test:unit` → `build`, then Playwright. It builds with placeholder
+Supabase keys, never real secrets — see the comments in the workflow for why.
+
+**`main` requires CI to pass before merging.** That rule is not in this repo —
+branch protection lives in GitHub settings and has to be turned on by hand:
+Settings → Branches → add a rule for `main` → "Require status checks to pass
+before merging" → select `check`.
 
 ---
 

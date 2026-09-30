@@ -1,4 +1,5 @@
 import { createBrowserClient } from '@supabase/ssr';
+import type { Database } from '@/types/database';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL as string;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY as string;
@@ -8,4 +9,4 @@ if (!supabaseUrl || !supabaseAnonKey) {
 }
 
 // createBrowserClient syncs the session to cookies so the middleware can read it
-export const supabase = createBrowserClient(supabaseUrl, supabaseAnonKey);
+export const supabase = createBrowserClient<Database>(supabaseUrl, supabaseAnonKey);

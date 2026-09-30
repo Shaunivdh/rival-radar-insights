@@ -1,4 +1,5 @@
 import { createServerClient } from '@supabase/ssr';
+import type { Database } from '@/types/database';
 import { cookies } from 'next/headers';
 import { NextRequest, NextResponse } from 'next/server';
 
@@ -10,7 +11,7 @@ export async function GET(request: NextRequest) {
   const next = '/auth/reset-password';
 
   const cookieStore = await cookies();
-  const supabase = createServerClient(
+  const supabase = createServerClient<Database>(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {

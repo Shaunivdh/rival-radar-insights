@@ -8,8 +8,8 @@ import {
   CRAWL_DISALLOWED,
 } from '@/lib/crawl/orchestrator';
 import { fetchPageDirect } from '@/services/crawl';
-import { checkDirectSignals } from '@/lib/crawl/direct-checks';
 import { supabaseAdmin } from '@/lib/supabase/server';
+import { jsonColumn, rowToSignals, rowToSignalsUnchecked, toJson } from '@/lib/supabase/mappers';
 import { fetchGoogleData, fetchSerpData } from '@/actions/enrichment';
 import {
   generateChangeSummary,
@@ -21,13 +21,18 @@ import { calculateScores, recomputeOverallScore } from '@/services/scores';
 import { fetchPageSpeedData } from '@/services/pagespeed';
 import { suppressOscillatingChanges } from '@/services/diff';
 import { updateBusiness, saveChangeEvent } from '@/lib/supabase/business';
-import { generateAndPersistProjectActions } from '@/lib/priorityActionsGenerator';
+import {
+  generateAndPersistProjectActions,
+  INSERT_FAILED_PREFIX,
+} from '@/lib/priorityActionsGenerator';
 import { normalizeUrl } from '@/lib/url';
 import { saveScoreSnapshot, getWeeklyDelta } from '@/lib/supabase/scores';
 import { logCrawlStep } from '@/lib/crawl/crawl-logger';
+import { isRateLimited } from '@/lib/rateLimit';
 import { THREAT_DEDUP_MS, CHANGE_CONFIRMATION_DELAY_MS } from '@/lib/crawl/config';
+import { asProjectId } from '@/types';
 import type {
-  ExtractedSignals,
+  BusinessId,
   ChangeEvent,
   AIHealthScore,
   AIVisibility,
@@ -36,15 +41,7 @@ import type {
   PageSpeedData,
 } from '@/types';
 import type { ServiceCategory } from '@/lib/serviceCategories';
-
-function rowToSignals(r: Record<string, unknown>): ExtractedSignals {
-  return {
-    seo: r.seo,
-    trust: r.trust,
-    content: r.content,
-    engagement: r.engagement,
-  } as ExtractedSignals;
-}
+import { logger } from '@/lib/logger';
 
 const MAX_POLL_ATTEMPTS = 120;
 const POLL_INTERVAL = '5s';
@@ -91,24 +88,78 @@ async function clearEnrichmentError(
   delete errors[key];
   await supabaseAdmin
     .from('businesses')
-    .update({ enrichment_errors: Object.keys(errors).length ? errors : null })
+    .update({ enrichment_errors: Object.keys(errors).length ? toJson(errors) : null })
     .eq('id', businessId);
+}
+
+/**
+ * How long one run holds the right to generate a project's action plan.
+ *
+ * This is a mutex, not the regeneration policy. It only has to outlast a single
+ * generation (a SMART call plus the fact-checker pass) so that a second run
+ * arriving mid-generation is turned away. The "not more than once a day" policy
+ * stays where it was, on the `generated_at` check in the `priority-actions` step.
+ *
+ * Deliberately short. A day-long claim would also be held after a generation
+ * that FAILED, which would block the retry and leave the plan empty for 24
+ * hours: exactly the symptom this code exists to avoid.
+ */
+const ACTION_GENERATION_CLAIM_MS = 10 * 60 * 1000;
+
+/**
+ * Claim the exclusive right to generate this project's action plan, or return
+ * false if another run already holds it.
+ *
+ * Every business's run evaluates the "is every business done" gate, so when the
+ * last few finish within moments of each other they can all see all-done and all
+ * see no recent `generated_at`, because none has inserted yet. Read-then-decide
+ * cannot stop that. `check_rate_limit` does its read, increment and comparison in
+ * one locked statement, so with a limit of 1 exactly one caller per project gets
+ * through and the rest are turned away instead of paying for a duplicate
+ * generation and inserting duplicate actions.
+ *
+ * Fails open, like the limiter it is built on: if the database cannot answer, the
+ * caller proceeds and behaviour is no worse than it was before this guard.
+ */
+async function claimActionGeneration(projectId: string): Promise<boolean> {
+  try {
+    return !(await isRateLimited(`action-generation:${projectId}`, {
+      limit: 1,
+      windowMs: ACTION_GENERATION_CLAIM_MS,
+    }));
+  } catch (e) {
+    // isRateLimited expects postgrest to return errors rather than throw. If one
+    // escapes anyway, proceed: a guard that can fail the whole step is worse than
+    // the duplicate generation it was added to prevent.
+    logger.warn('priority-actions', 'Generation claim unavailable, proceeding', {
+      projectId,
+      error: e,
+    });
+    return true;
+  }
 }
 
 /**
  * Run the single action-generation path (`generateAndPersistProjectActions`) and
  * translate its outcome into the own business's `enrichment_errors.ai_actions`.
  * Shared by the main pipeline's `priority-actions` step and the onFailure handler.
+ *
+ * The manual recovery route calls `generateAndPersistProjectActions` directly and
+ * is intentionally not behind the claim: forcing a regeneration is its purpose.
  */
 async function runProjectActionGeneration(projectId: string, logPrefix: string): Promise<void> {
+  if (!(await claimActionGeneration(projectId))) {
+    logger.info(logPrefix, 'Another run holds the generation claim, skipping', { projectId });
+    return;
+  }
   try {
-    const result = await generateAndPersistProjectActions(projectId);
+    const result = await generateAndPersistProjectActions(asProjectId(projectId));
     const ownId = result.ownBusinessId;
     if (!ownId) return;
 
     if (result.inserted > 0) {
       await clearEnrichmentError(ownId, 'ai_actions');
-      console.log(`[${logPrefix}] inserted ${result.inserted} priority actions for ${projectId}`);
+      logger.info(logPrefix, 'Inserted priority actions', { inserted: result.inserted, projectId });
       return;
     }
 
@@ -117,7 +168,7 @@ async function runProjectActionGeneration(projectId: string, logPrefix: string):
       await writeEnrichmentError(
         ownId,
         'ai_actions',
-        `Recommendations unavailable — retrying at ${retryAt}`,
+        `Recommendations unavailable; retrying at ${retryAt}`,
       );
       return;
     }
@@ -125,16 +176,16 @@ async function runProjectActionGeneration(projectId: string, logPrefix: string):
     if (result.reason === 'generation returned 0 actions') {
       // Should not happen — templates alone usually fire. Surface it instead of
       // leaving the action plan silently empty (the 06-21 symptom).
-      console.warn(`[${logPrefix}] generation returned 0 actions for project ${projectId}`);
+      logger.warn(logPrefix, 'Generation returned 0 actions', { projectId });
       await writeEnrichmentError(
         ownId,
         'ai_actions',
-        'No recommendations were generated on the last scan — re-scan to try again.',
+        'No recommendations were generated on the last scan. Re-scan to try again.',
       );
       return;
     }
 
-    if (result.reason?.startsWith('insert failed')) {
+    if (result.reason?.startsWith(INSERT_FAILED_PREFIX)) {
       await writeEnrichmentError(
         ownId,
         'ai_actions',
@@ -145,9 +196,9 @@ async function runProjectActionGeneration(projectId: string, logPrefix: string):
 
     // Dedupe outcomes ('all generated actions already exist') are not errors.
     await clearEnrichmentError(ownId, 'ai_actions');
-    console.log(`[${logPrefix}] no new actions for ${projectId}: ${result.reason}`);
+    logger.info(logPrefix, 'No new actions', { projectId, reason: result.reason });
   } catch (e) {
-    console.error(`[${logPrefix}] unexpected error for project ${projectId}:`, e);
+    logger.error(logPrefix, 'Unexpected error', { projectId, error: e });
     const { data: own } = await supabaseAdmin
       .from('businesses')
       .select('id')
@@ -174,11 +225,8 @@ export const crawlBusinessFunction = inngest.createFunction(
     retries: 2,
     concurrency: { limit: 3 },
     onFailure: async ({ error, event, step }) => {
-      const { businessId } = event.data.event.data as { businessId: string };
-      console.error(
-        `[crawl-business] Unexpected failure for business ${businessId}:`,
-        error.message,
-      );
+      const { businessId } = event.data.event.data as { businessId: BusinessId };
+      logger.error('crawl-business', 'Unexpected failure', { businessId, error: error.message });
       logCrawlStep(businessId, null, 'onFailure', 'failed', error.message?.slice(0, 500));
       const projectId = await step.run('mark-failed-on-error', async () => {
         const { data } = await supabaseAdmin
@@ -236,22 +284,22 @@ export const crawlBusinessFunction = inngest.createFunction(
   { event: 'crawl/business.scan' },
   async ({ event, step }) => {
     const { businessId, mode } = event.data as {
-      businessId: string;
+      businessId: BusinessId;
       mode: 'initial' | 'incremental';
     };
 
     // Step 1: Start crawl, returns CF job ID — falls back to direct fetch on failure
-    console.log(`[crawl-worker] Starting ${mode} crawl for business ${businessId}`);
+    logger.info('crawl-worker', 'Starting crawl', { mode, businessId });
     const jobId = await step.run('start-crawl', async () => {
       try {
         const id = await startBusinessCrawl(businessId, mode);
         logCrawlStep(businessId, id, 'start-crawl', 'success', `${mode} crawl started`, { mode });
         return id;
       } catch (e) {
-        console.error(
-          `[start-crawl] CF crawl failed for ${businessId}, falling back to direct fetch:`,
-          e instanceof Error ? e.message : e,
-        );
+        logger.error('start-crawl', 'CF crawl failed, falling back to direct fetch', {
+          businessId,
+          error: e,
+        });
         logCrawlStep(
           businessId,
           null,
@@ -279,9 +327,10 @@ export const crawlBusinessFunction = inngest.createFunction(
           );
           throw e;
         }
-        console.log(
-          `[start-crawl] Direct fetch fallback succeeded for ${businessId} (${html.length} chars)`,
-        );
+        logger.info('start-crawl', 'Direct fetch fallback succeeded', {
+          businessId,
+          chars: html.length,
+        });
         logCrawlStep(
           businessId,
           DIRECT_FETCH_DONE,
@@ -297,9 +346,7 @@ export const crawlBusinessFunction = inngest.createFunction(
         return DIRECT_FETCH_DONE;
       }
     });
-    console.log(
-      `[crawl-worker] Started crawl jobId=${jobId} for business ${businessId} mode=${mode}`,
-    );
+    logger.info('crawl-worker', 'Started crawl', { jobId, businessId, mode });
 
     // If crawl was handled via direct fetch fallback, skip poll + extract
     const skipCrawlSteps = jobId === DIRECT_FETCH_DONE || jobId === CRAWL_DISALLOWED;
@@ -314,15 +361,20 @@ export const crawlBusinessFunction = inngest.createFunction(
           checkCrawlStatus(businessId, jobId),
         );
         if (attempts % 10 === 0) {
-          console.log(
-            `[crawl-worker] Poll attempt ${attempts}/${MAX_POLL_ATTEMPTS} for jobId=${jobId}: status=${crawlStatus}`,
-          );
+          logger.info('crawl-worker', 'Poll attempt', {
+            attempts,
+            maxAttempts: MAX_POLL_ATTEMPTS,
+            jobId,
+            status: crawlStatus,
+          });
         }
         attempts++;
 
         if (crawlStatus === 'running' && attempts === DIRECT_FETCH_FALLBACK_ATTEMPTS) {
-          console.warn(
-            `[crawl-worker] jobId=${jobId} still running after ${attempts} polls (~3 min) — falling back to direct fetch for business ${businessId}`,
+          logger.warn(
+            'crawl-worker',
+            'Still running after max polls — falling back to direct fetch',
+            { jobId, attempts, businessId },
           );
           break;
         }
@@ -335,9 +387,13 @@ export const crawlBusinessFunction = inngest.createFunction(
       const usedDirectFetch = crawlStatus === 'running';
 
       if (!usedDirectFetch && crawlStatus !== 'completed') {
-        console.error(
-          `[crawl-worker] Crawl failed: jobId=${jobId} finalStatus=${crawlStatus} attempts=${attempts} mode=${mode} businessId=${businessId}`,
-        );
+        logger.error('crawl-worker', 'Crawl failed', {
+          jobId,
+          finalStatus: crawlStatus,
+          attempts,
+          mode,
+          businessId,
+        });
         await step.run('log-poll-failed', async () => {
           logCrawlStep(
             businessId,
@@ -351,7 +407,7 @@ export const crawlBusinessFunction = inngest.createFunction(
         throw new Error(`Crawl ended with status: ${crawlStatus} after ${attempts} attempts`);
       }
       if (!usedDirectFetch) {
-        console.log(`[crawl-worker] Crawl completed: jobId=${jobId} after ${attempts} polls`);
+        logger.info('crawl-worker', 'Crawl completed', { jobId, attempts });
       }
 
       // Log poll result inside a step so it doesn't re-fire on Inngest replays
@@ -391,17 +447,18 @@ export const crawlBusinessFunction = inngest.createFunction(
             .single();
           const html = bizRow?.url ? await fetchPageDirect(bizRow.url as string) : null;
           if (html) {
-            console.log(
-              `[crawl-worker] Direct fetch succeeded for business ${businessId} (${html.length} chars)`,
-            );
+            logger.info('crawl-worker', 'Direct fetch succeeded', {
+              businessId,
+              chars: html.length,
+            });
             prefetchedResult = {
               status: 'completed',
               pages: [{ url: bizRow!.url as string, html }],
             };
           } else {
-            console.warn(
-              `[crawl-worker] Direct fetch also failed for business ${businessId} — skipping signal extraction`,
-            );
+            logger.warn('crawl-worker', 'Direct fetch also failed — skipping signal extraction', {
+              businessId,
+            });
             logCrawlStep(
               businessId,
               jobId,
@@ -425,35 +482,6 @@ export const crawlBusinessFunction = inngest.createFunction(
           'success',
           'Signals extracted and persisted',
         );
-
-        const { data: urlRow } = await supabaseAdmin
-          .from('businesses')
-          .select('url')
-          .eq('id', businessId)
-          .single();
-        if (!urlRow?.url) return;
-        const { hasRobotsTxt, hasSitemap } = await checkDirectSignals(
-          normalizeUrl(urlRow.url as string),
-        );
-        console.log(`[direct-checks] ${urlRow.url} robots=${hasRobotsTxt} sitemap=${hasSitemap}`);
-
-        // Only override if direct check found something the crawl missed
-        if (!hasRobotsTxt && !hasSitemap) return;
-
-        const { data: sigRow } = await supabaseAdmin
-          .from('extracted_signals')
-          .select('id, seo')
-          .eq('business_id', businessId)
-          .order('scanned_at', { ascending: false })
-          .limit(1)
-          .maybeSingle();
-        if (!sigRow) return;
-
-        const seo = { ...(sigRow.seo as Record<string, unknown>) };
-        if (hasRobotsTxt) seo.hasRobotsTxt = true;
-        if (hasSitemap) seo.hasSitemap = true;
-
-        await supabaseAdmin.from('extracted_signals').update({ seo }).eq('id', sigRow.id);
       });
     } // end skipCrawlSteps
 
@@ -465,10 +493,10 @@ export const crawlBusinessFunction = inngest.createFunction(
         .eq('id', businessId)
         .single();
       if (!biz) {
-        console.warn(
-          `[fetch-meta] Business ${businessId} no longer exists — skipping remaining steps`,
-          bizError?.message,
-        );
+        logger.warn('fetch-meta', 'Business no longer exists — skipping remaining steps', {
+          businessId,
+          error: bizError?.message,
+        });
         return null;
       }
 
@@ -492,10 +520,10 @@ export const crawlBusinessFunction = inngest.createFunction(
       };
 
       if (!result.primaryService || !result.location) {
-        console.warn(
-          `[fetch-meta] business ${businessId}: project missing ` +
-            `primary_service="${result.primaryService}" location="${result.location}". ` +
-            `SERP and AI checks will be skipped.`,
+        logger.warn(
+          'fetch-meta',
+          'Project missing primary service/location — SERP and AI checks will be skipped',
+          { businessId, primaryService: result.primaryService, location: result.location },
         );
       }
 
@@ -511,10 +539,7 @@ export const crawlBusinessFunction = inngest.createFunction(
         await clearEnrichmentError(businessId, 'google');
         logCrawlStep(businessId, jobId, 'enrich-google', 'success');
       } catch (e) {
-        console.error(
-          `[enrich-google] Failed for business ${businessId}:`,
-          e instanceof Error ? e.message : e,
-        );
+        logger.error('enrich-google', 'Failed', { businessId, error: e });
         logCrawlStep(
           businessId,
           jobId,
@@ -542,10 +567,7 @@ export const crawlBusinessFunction = inngest.createFunction(
         await clearEnrichmentError(businessId, 'serp');
         logCrawlStep(businessId, jobId, 'enrich-serp', 'success');
       } catch (e) {
-        console.error(
-          `[enrich-serp] Failed for business ${businessId}:`,
-          e instanceof Error ? e.message : e,
-        );
+        logger.error('enrich-serp', 'Failed', { businessId, error: e });
         logCrawlStep(
           businessId,
           jobId,
@@ -599,10 +621,10 @@ export const crawlBusinessFunction = inngest.createFunction(
 
         const { error } = await supabaseAdmin
           .from('businesses')
-          .update({ ai_visibility: visibility })
+          .update({ ai_visibility: toJson(visibility) })
           .eq('id', businessId);
         if (error) {
-          console.error(`[check-ai-visibility] DB write failed for business ${businessId}:`, error);
+          logger.error('check-ai-visibility', 'DB write failed', { businessId, error });
           logCrawlStep(
             businessId,
             jobId,
@@ -611,9 +633,10 @@ export const crawlBusinessFunction = inngest.createFunction(
             `DB write failed: ${error.message}`,
           );
         } else {
-          console.log(
-            `[check-ai-visibility] aiPresenceScore=${visibility.aiPresenceScore} saved for business ${businessId}`,
-          );
+          logger.info('check-ai-visibility', 'aiPresenceScore saved', {
+            aiPresenceScore: visibility.aiPresenceScore,
+            businessId,
+          });
           logCrawlStep(
             businessId,
             jobId,
@@ -623,7 +646,7 @@ export const crawlBusinessFunction = inngest.createFunction(
           );
         }
       } catch (e) {
-        console.error(`[check-ai-visibility] Failed for business ${businessId}:`, e);
+        logger.error('check-ai-visibility', 'Failed', { businessId, error: e });
         logCrawlStep(
           businessId,
           jobId,
@@ -640,9 +663,11 @@ export const crawlBusinessFunction = inngest.createFunction(
         const pagespeedData = await fetchPageSpeedData(normalizeUrl(meta.url));
         await updateBusiness(businessId, { pagespeedData, crawlStatus: 'complete' });
         await markCrawlJobComplete(businessId);
-        console.log(
-          `[enrich-pagespeed] mobile=${pagespeedData.mobile.performanceScore} desktop=${pagespeedData.desktop.performanceScore} for ${businessId}`,
-        );
+        logger.info('enrich-pagespeed', 'Scores fetched', {
+          mobile: pagespeedData.mobile.performanceScore,
+          desktop: pagespeedData.desktop.performanceScore,
+          businessId,
+        });
         logCrawlStep(
           businessId,
           jobId,
@@ -651,10 +676,7 @@ export const crawlBusinessFunction = inngest.createFunction(
           `mobile=${pagespeedData.mobile.performanceScore} desktop=${pagespeedData.desktop.performanceScore}`,
         );
       } catch (e) {
-        console.error(
-          `[enrich-pagespeed] Failed for business ${businessId}:`,
-          e instanceof Error ? e.message : e,
-        );
+        logger.error('enrich-pagespeed', 'Failed', { businessId, error: e });
         logCrawlStep(
           businessId,
           jobId,
@@ -690,9 +712,9 @@ export const crawlBusinessFunction = inngest.createFunction(
       if (!baseline) return null;
 
       const filtered = suppressOscillatingChanges(
-        rowToSignals(baseline),
-        rowToSignals(detection),
-        confirmedRows.slice(1, 5).map(rowToSignals),
+        rowToSignalsUnchecked(baseline),
+        rowToSignalsUnchecked(detection),
+        confirmedRows.slice(1, 5).map(rowToSignalsUnchecked),
       );
       if (filtered.suppressedPaths.length > 0) {
         logCrawlStep(
@@ -757,14 +779,7 @@ export const crawlBusinessFunction = inngest.createFunction(
 
       if (!biz) return;
 
-      const signals = sig?.seo
-        ? ({
-            seo: sig.seo,
-            trust: sig.trust,
-            content: sig.content,
-            engagement: sig.engagement,
-          } as ExtractedSignals)
-        : null;
+      const signals = rowToSignals(sig);
 
       let previousReviewCount: number | undefined;
       let daysBetween: number | undefined;
@@ -776,12 +791,11 @@ export const crawlBusinessFunction = inngest.createFunction(
         daysBetween = msApart / 86400000;
       }
 
-      console.log(
-        `[calculate-scores] business ${businessId} — google_data:`,
-        biz.google_data != null,
-        '| serp_data:',
-        biz.serp_data != null,
-      );
+      logger.info('calculate-scores', 'Source data presence', {
+        businessId,
+        googleData: biz.google_data != null,
+        serpData: biz.serp_data != null,
+      });
 
       const aiScore = calculateScores({
         googleData: biz.google_data as GoogleData | null,
@@ -793,10 +807,7 @@ export const crawlBusinessFunction = inngest.createFunction(
         pagespeedData: biz.pagespeed_data as PageSpeedData | null,
       });
       await updateBusiness(businessId, { aiScore });
-      console.log(
-        `[calculate-scores] ai_score saved for business ${businessId}:`,
-        JSON.stringify(aiScore),
-      );
+      logger.info('calculate-scores', 'ai_score saved', { businessId, aiScore });
       logCrawlStep(
         businessId,
         jobId,
@@ -820,7 +831,7 @@ export const crawlBusinessFunction = inngest.createFunction(
       const sentiment = await generateReviewSentiment(reviews);
       if (sentiment) {
         await updateBusiness(businessId, { reviewSentiment: sentiment });
-        console.log(`[review-sentiment] saved for business ${businessId}`);
+        logger.info('review-sentiment', 'Saved', { businessId });
       }
     });
 
@@ -849,7 +860,7 @@ export const crawlBusinessFunction = inngest.createFunction(
         .single();
       if (!bizRow?.ai_score) return;
 
-      const aiScore = bizRow.ai_score as AIHealthScore;
+      const aiScore = jsonColumn<AIHealthScore>(bizRow.ai_score)!;
       const weeksOver30 = Math.floor((daysSinceLastReview - 30) / 7);
       // Only decay scores we actually have — unknown stays unknown.
       if (aiScore.reviewVelocityScore !== null) {
@@ -868,7 +879,7 @@ export const crawlBusinessFunction = inngest.createFunction(
         .single();
       if (!bizRow?.ai_score) return;
 
-      const aiScore = bizRow.ai_score as AIHealthScore;
+      const aiScore = jsonColumn<AIHealthScore>(bizRow.ai_score)!;
       await saveScoreSnapshot(supabaseAdmin, businessId, aiScore);
 
       const weeklyDelta = await getWeeklyDelta(supabaseAdmin, businessId);
@@ -961,7 +972,7 @@ export const crawlBusinessFunction = inngest.createFunction(
       for (const comp of overtakers) {
         if (alreadyRecorded.has(comp.id)) continue;
 
-        const theirPosition = (comp.serp_data as SerpData).localVisibilityPosition!;
+        const theirPosition = jsonColumn<SerpData>(comp.serp_data)!.localVisibilityPosition!;
 
         const event: ChangeEvent = {
           id: crypto.randomUUID(),
@@ -1054,10 +1065,10 @@ export const confirmChangeFunction = inngest.createFunction(
     concurrency: { limit: 3 },
     onFailure: async ({ error, event, step }) => {
       const { businessId, detectionId } = event.data.event.data as {
-        businessId: string;
+        businessId: BusinessId;
         detectionId: string;
       };
-      console.error(`[confirm-change] failed for business ${businessId}:`, error.message);
+      logger.error('confirm-change', 'Failed', { businessId, error: error.message });
       logCrawlStep(businessId, null, 'confirm-change', 'failed', error.message?.slice(0, 500));
       // Conservative: a change we could not verify never alerts
       await step.run('discard-unconfirmed', () =>
@@ -1068,7 +1079,7 @@ export const confirmChangeFunction = inngest.createFunction(
   { event: 'crawl/change.confirm' },
   async ({ event, step }) => {
     const { businessId, baselineId, detectionId, changedPaths } = event.data as {
-      businessId: string;
+      businessId: BusinessId;
       baselineId: string;
       detectionId: string;
       changedPaths: string[];
@@ -1163,11 +1174,11 @@ export const confirmChangeFunction = inngest.createFunction(
         .order('scanned_at', { ascending: false })
         .limit(4);
 
-      const baseline = rowToSignals(baseRow);
+      const baseline = rowToSignalsUnchecked(baseRow);
       const filtered = suppressOscillatingChanges(
         baseline,
-        rowToSignals(confirmRow),
-        (historyRows ?? []).map(rowToSignals),
+        rowToSignalsUnchecked(confirmRow),
+        (historyRows ?? []).map(rowToSignalsUnchecked),
       );
 
       if (!filtered.hasChanges) {
@@ -1203,14 +1214,17 @@ export const confirmChangeFunction = inngest.createFunction(
         );
       } catch (e) {
         if (e instanceof AIUnavailableError) {
-          console.warn(`[confirm-change] AI unavailable for ${businessId}, skipping change event`);
+          logger.warn('confirm-change', 'AI unavailable, skipping change event', {
+            businessId,
+            kind: e.kind,
+          });
           await writeEnrichmentError(
             businessId,
             'change_summary',
             'AI unavailable — change summary skipped',
           );
         } else {
-          console.error(`[confirm-change] unexpected error for ${businessId}:`, e);
+          logger.error('confirm-change', 'unexpected error', { businessId, error: e });
           await writeEnrichmentError(
             businessId,
             'change_summary',

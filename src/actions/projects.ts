@@ -2,11 +2,20 @@
 
 import { cookies } from 'next/headers';
 import { createServerClient } from '@supabase/ssr';
+import type { Database } from '@/types/database';
 import { supabaseAdmin } from '@/lib/supabase/server';
 import { inngest } from '@/inngest/client';
 import { calculateScores } from '@/services/scores';
 import { mapPriorityActionRow } from '@/lib/priorityActionRow';
 import { CRAWL_INTERVAL_MS } from '@/lib/crawl/config';
+import {
+  businessJson,
+  rowToBusiness,
+  rowToChangeEvent,
+  rowToSignals,
+  toJson,
+  type BusinessRow,
+} from '@/lib/supabase/mappers';
 import type {
   Project,
   Business,
@@ -14,20 +23,19 @@ import type {
   AIHealthScore,
   PriorityAction,
   ChangeEvent,
-  AIVisibility,
-  PageSpeedData,
-  ReviewSentiment,
-  GoogleData,
-  SerpData,
 } from '@/types';
+import { asProjectId, type BusinessId, type PriorityActionId, type ProjectId } from '@/types';
 import { normalizeUrl, extractDomain, isValidUrl } from '@/lib/url';
+import { logger } from '@/lib/logger';
+
+type ProjectRow = Database['public']['Tables']['projects']['Row'];
 
 // ── Auth helper ───────────────────────────────────────────────────────────────
 
 async function getSessionUserId(): Promise<string> {
   const cookieStore = await cookies();
 
-  const supabase = createServerClient(
+  const supabase = createServerClient<Database>(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
@@ -48,7 +56,7 @@ async function getSessionUserId(): Promise<string> {
 }
 
 /** Verify the session user owns `projectId`. Throws if not. Returns userId. */
-async function requireProjectOwnership(projectId: string): Promise<string> {
+async function requireProjectOwnership(projectId: ProjectId): Promise<string> {
   const userId = await getSessionUserId();
   const { data } = await supabaseAdmin
     .from('projects')
@@ -61,73 +69,31 @@ async function requireProjectOwnership(projectId: string): Promise<string> {
 }
 
 /** Verify the session user owns the project that `businessId` belongs to. */
-async function requireBusinessOwnership(businessId: string): Promise<string> {
+async function requireBusinessOwnership(businessId: BusinessId): Promise<string> {
   const { data: biz } = await supabaseAdmin
     .from('businesses')
     .select('project_id')
     .eq('id', businessId)
     .maybeSingle();
   if (!biz?.project_id) throw new Error('Not authorized');
-  return requireProjectOwnership(biz.project_id as string);
+  return requireProjectOwnership(asProjectId(biz.project_id as string));
 }
 
 // ── Row mappers ───────────────────────────────────────────────────────────────
 
-function mapBusiness(
-  b: Record<string, unknown>,
-  signals: ExtractedSignals | null = null,
-  changeEvents: ChangeEvent[] = [],
-): Business {
-  return {
-    id: b.id as string,
-    name: b.name as string,
-    url: b.url as string,
-    domain: b.domain as string,
-    lastCrawledAt: b.last_crawled_at ? new Date(b.last_crawled_at as string).getTime() : null,
-    crawlJobId: (b.crawl_job_id as string) ?? null,
-    crawlStatus: (b.crawl_status as Business['crawlStatus']) ?? 'idle',
-    signals,
-    googleData: (b.google_data as Business['googleData']) ?? null,
-    serpData: (b.serp_data as Business['serpData']) ?? null,
-    aiScore: (b.ai_score as AIHealthScore) ?? null,
-    aiVisibility: (b.ai_visibility as AIVisibility) ?? null,
-    pagespeedData: (b.pagespeed_data as PageSpeedData) ?? null,
-    reviewSentiment: (b.review_sentiment as ReviewSentiment) ?? null,
-    enrichmentErrors: (b.enrichment_errors as Business['enrichmentErrors']) ?? null,
-    previousSignals: null,
-    changeEvents,
-  };
-}
-
-function rowsToProject(p: Record<string, unknown>, businesses: Record<string, unknown>[]): Project {
+function rowsToProject(p: ProjectRow, businesses: BusinessRow[]): Project {
   const own = businesses.find((b) => b.is_own_business);
   const competitors = businesses.filter((b) => !b.is_own_business);
   return {
-    id: p.id as string,
-    name: p.name as string,
-    createdAt: new Date(p.created_at as string).getTime(),
-    ownBusiness: mapBusiness(own!),
-    competitors: competitors.map((b) => mapBusiness(b)),
-    primaryService: (p.primary_service as string | null) ?? null,
-    location: (p.location as string | null) ?? null,
-    postcode: (p.postcode as string | null) ?? null,
+    id: asProjectId(p.id),
+    name: p.name,
+    createdAt: new Date(p.created_at).getTime(),
+    ownBusiness: rowToBusiness(own!),
+    competitors: competitors.map((b) => rowToBusiness(b)),
+    primaryService: p.primary_service ?? null,
+    location: p.location ?? null,
+    postcode: p.postcode ?? null,
   };
-}
-
-// ── Shared helpers ───────────────────────────────────────────────────────────
-
-function parseField<T>(v: unknown): T {
-  return (typeof v === 'string' ? JSON.parse(v) : v) as T;
-}
-
-function rowToSignals(sig: Record<string, unknown> | null): ExtractedSignals | null {
-  if (!sig?.seo) return null;
-  return {
-    seo: parseField(sig.seo),
-    trust: parseField(sig.trust),
-    content: parseField(sig.content),
-    engagement: parseField(sig.engagement),
-  } as ExtractedSignals;
 }
 
 // ── Actions ───────────────────────────────────────────────────────────────────
@@ -145,9 +111,12 @@ export async function createProject(
   if (invalidUrl) throw new Error(`Invalid website URL: ${invalidUrl}`);
   if (competitors.length > 5) throw new Error('Maximum of 5 competitors allowed');
 
-  console.log(
-    `[createProject] userId=${userId} name="${name}" own="${ownBusiness.name}" competitors=${competitors.length}`,
-  );
+  logger.info('createProject', 'Creating', {
+    userId,
+    name,
+    own: ownBusiness.name,
+    competitors: competitors.length,
+  });
 
   const { data: project, error: projectError } = await supabaseAdmin
     .from('projects')
@@ -162,7 +131,7 @@ export async function createProject(
     .single();
 
   if (projectError) {
-    console.error(`[createProject] project insert failed userId=${userId}:`, projectError.message);
+    logger.error('createProject', 'Project insert failed', { userId, error: projectError.message });
     throw new Error(projectError.message);
   }
 
@@ -187,18 +156,19 @@ export async function createProject(
     .select();
 
   if (bizError) {
-    console.error(
-      `[createProject] businesses insert failed projectId=${project.id}:`,
-      bizError.message,
-    );
+    logger.error('createProject', 'Businesses insert failed', {
+      projectId: project.id,
+      error: bizError.message,
+    });
     // Clean up orphaned project
     await supabaseAdmin.from('projects').delete().eq('id', project.id);
     throw new Error(bizError.message);
   }
 
-  console.log(
-    `[createProject] created projectId=${project.id} businesses=${businesses?.length ?? 0}`,
-  );
+  logger.info('createProject', 'Created', {
+    projectId: project.id,
+    businesses: businesses?.length ?? 0,
+  });
   return rowsToProject(project, businesses);
 }
 
@@ -214,7 +184,7 @@ export async function getProject(): Promise<Project | null> {
 
   if (!project) return null;
 
-  const bizRows: Record<string, unknown>[] = project.businesses ?? [];
+  const bizRows: BusinessRow[] = project.businesses ?? [];
 
   const enriched = await Promise.all(
     bizRows.map(async (b) => {
@@ -235,35 +205,33 @@ export async function getProject(): Promise<Project | null> {
       ]);
 
       const signals = rowToSignals(sig);
-      const changeEvents: ChangeEvent[] = (events ?? []).map((e) => ({
-        id: e.id as string,
-        detectedAt: new Date(e.detected_at as string).getTime(),
-        severity: e.severity as ChangeEvent['severity'],
-        summary: e.summary as string,
-        changes: e.changes as ChangeEvent['changes'],
-      }));
+      const changeEvents: ChangeEvent[] = (events ?? []).map(rowToChangeEvent);
 
-      let aiScore = (b.ai_score as AIHealthScore) ?? null;
+      const mapped = rowToBusiness(b, signals, changeEvents);
+      let aiScore = mapped.aiScore;
       if (signals && (!aiScore || !aiScore.websiteHealthScore)) {
         aiScore = calculateScores({
-          googleData: b.google_data as GoogleData | null,
-          serpData: b.serp_data as SerpData | null,
-          aiVisibility: b.ai_visibility as AIVisibility | null,
+          googleData: mapped.googleData,
+          serpData: mapped.serpData,
+          aiVisibility: mapped.aiVisibility,
           signals,
-          pagespeedData: b.pagespeed_data as PageSpeedData | null,
+          pagespeedData: mapped.pagespeedData,
         });
-        await supabaseAdmin.from('businesses').update({ ai_score: aiScore }).eq('id', b.id);
+        await supabaseAdmin
+          .from('businesses')
+          .update({ ai_score: toJson(aiScore) })
+          .eq('id', b.id);
       }
 
       return {
-        business: mapBusiness({ ...b, ai_score: aiScore }, signals, changeEvents),
-        isOwn: b.is_own_business as boolean,
+        business: { ...mapped, aiScore },
+        isOwn: b.is_own_business,
       };
     }),
   );
 
   return {
-    id: project.id as string,
+    id: asProjectId(project.id as string),
     name: project.name as string,
     createdAt: new Date(project.created_at as string).getTime(),
     ownBusiness: enriched.find((e) => e.isOwn)!.business,
@@ -282,7 +250,7 @@ function isStale(lastCrawledAt: string | null): boolean {
   return Date.now() - new Date(lastCrawledAt).getTime() > CRAWL_INTERVAL_MS;
 }
 
-export async function triggerInitialScans(projectId: string): Promise<void> {
+export async function triggerInitialScans(projectId: ProjectId): Promise<void> {
   await requireProjectOwnership(projectId);
   const { data: businesses } = await supabaseAdmin
     .from('businesses')
@@ -290,21 +258,25 @@ export async function triggerInitialScans(projectId: string): Promise<void> {
     .eq('project_id', projectId);
 
   if (!businesses?.length) {
-    console.warn(`[triggerInitialScans] no businesses found for projectId=${projectId}`);
+    logger.warn('triggerInitialScans', 'No businesses found', { projectId });
     return;
   }
 
   const stale = businesses.filter((b) => isStale(b.last_crawled_at as string | null));
   if (!stale.length) {
-    console.log(
-      `[triggerInitialScans] all businesses fresh, skipping projectId=${projectId} total=${businesses.length}`,
-    );
+    logger.info('triggerInitialScans', 'All businesses fresh, skipping', {
+      projectId,
+      total: businesses.length,
+    });
     return;
   }
 
-  console.log(
-    `[triggerInitialScans] queuing ${stale.length}/${businesses.length} businesses for projectId=${projectId} ids=${stale.map((b) => b.id).join(',')}`,
-  );
+  logger.info('triggerInitialScans', 'Queuing businesses', {
+    stale: stale.length,
+    total: businesses.length,
+    projectId,
+    ids: stale.map((b) => b.id),
+  });
 
   await supabaseAdmin
     .from('businesses')
@@ -321,10 +293,10 @@ export async function triggerInitialScans(projectId: string): Promise<void> {
       ts: Date.now() + i * 15000, // stagger by 15s each
     })),
   );
-  console.log(`[triggerInitialScans] inngest events sent for projectId=${projectId}`);
+  logger.info('triggerInitialScans', 'Inngest events sent', { projectId });
 }
 
-export async function syncProject(projectId: string): Promise<{
+export async function syncProject(projectId: ProjectId): Promise<{
   businesses: {
     id: string;
     crawlStatus: Business['crawlStatus'];
@@ -377,8 +349,9 @@ export async function syncProject(projectId: string): Promise<{
 
   const businesses = await Promise.all(
     rows.map(async (b) => {
+      const mapped = businessJson(b);
       let signals: ExtractedSignals | null = null;
-      let aiScore: AIHealthScore | null = (b.ai_score as AIHealthScore) ?? null;
+      let aiScore: AIHealthScore | null = mapped.aiScore;
 
       if (b.crawl_status === 'complete') {
         const { data: sig } = await supabaseAdmin
@@ -398,13 +371,16 @@ export async function syncProject(projectId: string): Promise<{
           (b.serp_data && aiScore && aiScore.localVisibilityScore === 0)
         ) {
           aiScore = calculateScores({
-            googleData: b.google_data as GoogleData | null,
-            serpData: b.serp_data as SerpData | null,
-            aiVisibility: b.ai_visibility as AIVisibility | null,
+            googleData: mapped.googleData,
+            serpData: mapped.serpData,
+            aiVisibility: mapped.aiVisibility,
             signals,
-            pagespeedData: b.pagespeed_data as PageSpeedData | null,
+            pagespeedData: mapped.pagespeedData,
           });
-          await supabaseAdmin.from('businesses').update({ ai_score: aiScore }).eq('id', b.id);
+          await supabaseAdmin
+            .from('businesses')
+            .update({ ai_score: toJson(aiScore) })
+            .eq('id', b.id);
         }
       }
 
@@ -415,22 +391,16 @@ export async function syncProject(projectId: string): Promise<{
         .order('detected_at', { ascending: false })
         .limit(50);
 
-      const changeEvents: ChangeEvent[] = (events ?? []).map((e) => ({
-        id: e.id as string,
-        detectedAt: new Date(e.detected_at as string).getTime(),
-        severity: e.severity as ChangeEvent['severity'],
-        summary: e.summary as string,
-        changes: e.changes as ChangeEvent['changes'],
-      }));
+      const changeEvents: ChangeEvent[] = (events ?? []).map(rowToChangeEvent);
 
       return {
-        id: b.id as string,
+        id: b.id,
         crawlStatus: b.crawl_status as Business['crawlStatus'],
         signals,
         aiScore,
-        enrichmentErrors: (b.enrichment_errors as Business['enrichmentErrors']) ?? null,
-        googleData: (b.google_data as Business['googleData']) ?? null,
-        serpData: (b.serp_data as Business['serpData']) ?? null,
+        enrichmentErrors: mapped.enrichmentErrors,
+        googleData: mapped.googleData,
+        serpData: mapped.serpData,
         changeEvents,
       };
     }),
@@ -444,7 +414,7 @@ export async function syncProject(projectId: string): Promise<{
   return { businesses, priorityActions };
 }
 
-export async function triggerSingleScan(businessId: string): Promise<void> {
+export async function triggerSingleScan(businessId: BusinessId): Promise<void> {
   await requireBusinessOwnership(businessId);
   await supabaseAdmin.from('businesses').update({ crawl_status: 'pending' }).eq('id', businessId);
 
@@ -454,7 +424,7 @@ export async function triggerSingleScan(businessId: string): Promise<void> {
   });
 }
 
-export async function rescanAll(projectId: string): Promise<void> {
+export async function rescanAll(projectId: ProjectId): Promise<void> {
   await requireProjectOwnership(projectId);
   const { data: businesses } = await supabaseAdmin
     .from('businesses')
@@ -481,7 +451,7 @@ export async function rescanAll(projectId: string): Promise<void> {
 }
 
 export async function addCompetitor(
-  projectId: string,
+  projectId: ProjectId,
   competitor: Pick<Business, 'name' | 'url' | 'domain'>,
 ): Promise<Business> {
   await requireProjectOwnership(projectId);
@@ -514,13 +484,13 @@ export async function addCompetitor(
 
   await inngest.send({
     name: 'crawl/business.scan',
-    data: { businessId: row.id as string, mode: 'initial' as const },
+    data: { businessId: row.id, mode: 'initial' as const },
   });
 
-  return mapBusiness({ ...row, crawl_status: 'pending' });
+  return rowToBusiness({ ...row, crawl_status: 'pending' });
 }
 
-async function queryPriorityActions(projectId: string): Promise<PriorityAction[]> {
+async function queryPriorityActions(projectId: ProjectId): Promise<PriorityAction[]> {
   const { data: actions } = await supabaseAdmin
     .from('priority_actions')
     .select('*')
@@ -533,14 +503,14 @@ async function queryPriorityActions(projectId: string): Promise<PriorityAction[]
   return (actions ?? []).map(mapPriorityActionRow);
 }
 
-export async function fetchPriorityActions(projectId: string): Promise<PriorityAction[]> {
+export async function fetchPriorityActions(projectId: ProjectId): Promise<PriorityAction[]> {
   await requireProjectOwnership(projectId);
   return queryPriorityActions(projectId);
 }
 
 // ── Action status management ───────────────────────────────────────────────────
 
-async function promoteQueuedActions(projectId: string): Promise<void> {
+async function promoteQueuedActions(projectId: ProjectId): Promise<void> {
   // Count current active + snoozed
   const { count } = await supabaseAdmin
     .from('priority_actions')
@@ -573,8 +543,8 @@ async function promoteQueuedActions(projectId: string): Promise<void> {
 }
 
 export async function updateActionStatus(
-  actionId: string,
-  projectId: string,
+  actionId: PriorityActionId,
+  projectId: ProjectId,
   status: 'active' | 'snoozed' | 'completed',
   note?: string,
 ): Promise<PriorityAction[]> {
@@ -598,7 +568,7 @@ export async function updateActionStatus(
 }
 
 export async function updateProjectBusinessDetails(
-  projectId: string,
+  projectId: ProjectId,
   details: { primaryService: string; location: string; postcode: string | null },
 ): Promise<void> {
   const userId = await getSessionUserId();

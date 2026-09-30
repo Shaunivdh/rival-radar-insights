@@ -48,7 +48,10 @@ Your priority is **correctness, minimal token usage, and small safe diffs**.
 
 ## 5. AI Usage (Anthropic)
 
-All calls live in `src/services/ai.ts` and go through `callLLMRaw`. Models come from
+All calls live in `src/services/ai/` and go through `callLLMRaw` in `src/services/ai/client.ts`.
+Modules: `client`, `prompts`, `businessView`, `extraction`, `actions`, `evidence`, `validation`,
+`summary`, `visibility`. `index.ts` is the barrel: import from `@/services/ai`, never a submodule,
+and keep its export list in step with `src/services/__tests__/ai.barrel.test.ts`. Models come from
 `AI_MODEL_FAST` (default Haiku 4.5) and `AI_MODEL_SMART` (default Sonnet 5).
 
 | Function                                       | Model | max_tokens       | Output                                   |
@@ -75,7 +78,7 @@ Health scores are deterministic (`src/services/scores.ts`) — no AI.
 
 Applies to every string a user can read: LLM output (priority actions, change summaries,
 fact-checker patches), the deterministic templates in `src/lib/priorityTemplates.ts`, the
-mock plan in `src/lib/mockActionPlan.ts`, and UI copy.
+mock plan in `src/lib/mockActionPlan.ts`, and UI copy. **Code comments are exempt** — they are not user-readable.
 
 - **NO DASHES IN AI-GENERATED RECOMMENDATIONS.** No em dashes (—), no en dashes (–), no
   hyphen used as a dash, no arrows (→). Use a comma, colon, semicolon, or a new sentence.
@@ -83,8 +86,9 @@ mock plan in `src/lib/mockActionPlan.ts`, and UI copy.
 - Hyphens inside ordinary compound words are fine ("plain-English", "top-rated", "time-to-result").
 - **UK English** spelling and phrasing: organise, colour, personalise, enquiry, maths.
 - Prompt text counts too: never write a dash into a prompt string or an in-prompt example,
-  the model copies the punctuation it is shown. Enforced in `SCOUTLY_SYSTEM`, `TONE_RULES`
-  and `SCOUTLY_FACT_CHECKER_SYSTEM` (`src/services/ai.ts`).
+  the model copies the punctuation it is shown. Enforced in `SCOUTLY_SYSTEM`
+  (`src/services/ai/prompts.ts`), `TONE_RULES` (`src/services/ai/actions.ts`) and
+  `SCOUTLY_FACT_CHECKER_SYSTEM` (`src/services/ai/validation.ts`).
 
 ---
 

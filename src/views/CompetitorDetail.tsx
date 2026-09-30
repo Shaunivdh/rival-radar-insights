@@ -2,9 +2,10 @@
 
 import { useParams, useRouter } from 'next/navigation';
 import { useRivalRadarStore } from '@/store/rivalradar';
+import { asBusinessId } from '@/types';
 import { ScoreChip } from '@/components/ScoreChip';
 import { StarRating } from '@/components/StarRating';
-import { SeverityBadge, ChangeEventCard } from '@/components/Badges';
+import { ChangeEventCard } from '@/components/Badges';
 import {
   ArrowLeft,
   ExternalLink,
@@ -49,7 +50,7 @@ const CompetitorDetail = () => {
     }
   };
 
-  const biz = getBusinessById(id || '');
+  const biz = getBusinessById(asBusinessId(id || ''));
   if (!biz) return <div className="p-8 text-center text-muted-foreground">Business not found</div>;
 
   const s = biz.signals;

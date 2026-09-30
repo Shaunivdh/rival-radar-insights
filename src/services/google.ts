@@ -1,4 +1,5 @@
 import type { GoogleData } from '@/types';
+import { logger } from '@/lib/logger';
 
 const NEW_PLACES_BASE = 'https://places.googleapis.com/v1/places';
 
@@ -64,15 +65,13 @@ function mapPlaceToGoogleData(place: Record<string, unknown>): GoogleData {
     openingHours:
       ((place.regularOpeningHours as Record<string, unknown>)?.weekdayDescriptions as string[]) ??
       [],
-    recentReviews: ((place.reviews as unknown[]) ?? [])
-      .slice(0, 5)
-      .map((r: Record<string, unknown>) => ({
-        rating: r.rating as number,
-        text: ((r.text as Record<string, unknown>)?.text as string) ?? '',
-        time: r.publishTime ? new Date(r.publishTime as string).getTime() : 0,
-        authorName: ((r.authorAttribution as Record<string, unknown>)?.displayName as string) ?? '',
-        ownerReply: ((r.ownerResponse as Record<string, unknown>)?.text as string) ?? undefined,
-      })),
+    recentReviews: ((place.reviews as Record<string, unknown>[]) ?? []).slice(0, 5).map((r) => ({
+      rating: r.rating as number,
+      text: ((r.text as Record<string, unknown>)?.text as string) ?? '',
+      time: r.publishTime ? new Date(r.publishTime as string).getTime() : 0,
+      authorName: ((r.authorAttribution as Record<string, unknown>)?.displayName as string) ?? '',
+      ownerReply: ((r.ownerResponse as Record<string, unknown>)?.text as string) ?? undefined,
+    })),
     photos: (place.photos as unknown[] | undefined)?.length ?? 0,
     priceLevel: (place.priceLevel as number | undefined) ?? null,
     description:
@@ -211,7 +210,7 @@ export async function getPlaceData(
       .split(/\s+/)
       .filter((w) => w.length > 2);
     if (nameWords.length > 0 && nameWords.every((w) => displayName.includes(w))) {
-      console.log(`[google] name fallback matched "${displayName}" for "${name}"`);
+      logger.info('google', 'name fallback matched', { displayName, name });
       return mapPlaceToGoogleData(top);
     }
   }

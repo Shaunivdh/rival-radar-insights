@@ -1,4 +1,5 @@
 import type { PriorityAction } from '@/types';
+import { asPriorityActionId } from '@/types';
 
 /**
  * Dev-only sample action plan. Used by the Action Plan view as a fallback when the
@@ -7,7 +8,7 @@ import type { PriorityAction } from '@/types';
  */
 export const MOCK_PRIORITY_ACTIONS: PriorityAction[] = [
   {
-    id: 'mock-ai-visibility',
+    id: asPriorityActionId('mock-ai-visibility'),
     priority: 1,
     status: 'active',
     category: 'AI Visibility',
@@ -29,7 +30,7 @@ export const MOCK_PRIORITY_ACTIONS: PriorityAction[] = [
     continuityNote: 'Still outstanding from last week',
   },
   {
-    id: 'mock-review-replies',
+    id: asPriorityActionId('mock-review-replies'),
     priority: 1,
     status: 'active',
     category: 'Review Replies',
@@ -50,7 +51,7 @@ export const MOCK_PRIORITY_ACTIONS: PriorityAction[] = [
     continuityNote: null,
   },
   {
-    id: 'mock-local-seo',
+    id: asPriorityActionId('mock-local-seo'),
     priority: 2,
     status: 'active',
     category: 'Local SEO',
@@ -71,7 +72,7 @@ export const MOCK_PRIORITY_ACTIONS: PriorityAction[] = [
     continuityNote: null,
   },
   {
-    id: 'mock-website-speed',
+    id: asPriorityActionId('mock-website-speed'),
     priority: 2,
     status: 'active',
     category: 'Website',
@@ -92,7 +93,7 @@ export const MOCK_PRIORITY_ACTIONS: PriorityAction[] = [
     continuityNote: null,
   },
   {
-    id: 'mock-gbp-photos',
+    id: asPriorityActionId('mock-gbp-photos'),
     priority: 4,
     status: 'active',
     category: 'Conversion',
@@ -113,7 +114,7 @@ export const MOCK_PRIORITY_ACTIONS: PriorityAction[] = [
     continuityNote: null,
   },
   {
-    id: 'mock-hours',
+    id: asPriorityActionId('mock-hours'),
     priority: 5,
     status: 'active',
     category: 'Trust',

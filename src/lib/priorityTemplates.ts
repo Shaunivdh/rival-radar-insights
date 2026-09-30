@@ -1,4 +1,5 @@
 import type { Business, PriorityAction } from '@/types';
+import { asPriorityActionId } from '@/types';
 
 export type PriorityTemplate = {
   id: string;
@@ -483,7 +484,7 @@ export function applyTemplates(b: Business): ApplyResult {
 
     if (actions.length < 5) {
       actions.push({
-        id: '',
+        id: asPriorityActionId(''),
         status: 'active',
         priority: (actions.length + 1) as PriorityAction['priority'],
         category: tpl.category,
@@ -543,7 +544,7 @@ export function applyTemplatesWithHistory(
       );
 
       actions.push({
-        id: '',
+        id: asPriorityActionId(''),
         status: 'active',
         priority: (actions.length + 1) as PriorityAction['priority'],
         category: tpl.category,

@@ -4,6 +4,7 @@
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { buildBusiness, buildProject } from '@/test/builders';
+import { asBusinessId } from '@/types';
 
 const { upsert, from } = vi.hoisted(() => {
   const upsert = vi.fn(() => Promise.resolve({ error: null }));
@@ -39,18 +40,18 @@ describe('project state', () => {
   it('getBusinessById finds own business and competitors', () => {
     useRivalRadarStore.getState().setProject(buildProject());
     const s = useRivalRadarStore.getState();
-    expect(s.getBusinessById('biz_own')?.name).toBe('Acme Plumbing');
-    expect(s.getBusinessById('biz_c1')?.name).toBe('Bristol Plumbing Co');
-    expect(s.getBusinessById('nope')).toBeUndefined();
+    expect(s.getBusinessById(asBusinessId('biz_own'))?.name).toBe('Acme Plumbing');
+    expect(s.getBusinessById(asBusinessId('biz_c1'))?.name).toBe('Bristol Plumbing Co');
+    expect(s.getBusinessById(asBusinessId('nope'))).toBeUndefined();
   });
 
   it('addCompetitorToStore appends and is a no-op without a project', () => {
-    useRivalRadarStore.getState().addCompetitorToStore(buildBusiness({ id: 'x' }));
+    useRivalRadarStore.getState().addCompetitorToStore(buildBusiness({ id: asBusinessId('x') }));
     expect(useRivalRadarStore.getState().project).toBeNull();
     useRivalRadarStore.getState().setProject(buildProject());
     useRivalRadarStore
       .getState()
-      .addCompetitorToStore(buildBusiness({ id: 'biz_c2', name: 'New' }));
+      .addCompetitorToStore(buildBusiness({ id: asBusinessId('biz_c2'), name: 'New' }));
     expect(useRivalRadarStore.getState().project?.competitors.map((c) => c.id)).toEqual([
       'biz_c1',
       'biz_c2',

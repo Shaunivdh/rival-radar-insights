@@ -22,12 +22,10 @@ import {
   KeyRound,
   AlertTriangle,
   RefreshCw,
-  Store,
-  CheckCircle,
 } from 'lucide-react';
 import { useRivalRadarStore } from '@/store/rivalradar';
 import { isValidUKPostcode } from '@/lib/utils';
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { rescanAll, updateProjectBusinessDetails } from '@/actions/projects';
 import { SERVICE_CATEGORY_OPTIONS, type ServiceCategory } from '@/lib/serviceCategories';
@@ -54,17 +52,20 @@ const SettingsPage = () => {
   const [saved, setSaved] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState('');
-  const [gbpConnected, setGbpConnected] = useState<boolean | null>(null);
 
   const biz = project?.ownBusiness;
   const initials = user?.email?.slice(0, 2).toUpperCase() ?? 'MJ';
 
-  useEffect(() => {
-    fetch('/api/gbp/status')
-      .then((r) => r.json())
-      .then((d) => setGbpConnected(d.connected))
-      .catch(() => {});
-  }, []);
+  // Drop one field's error as the user edits it. Returning `prev` untouched when the
+  // key isn't set lets React bail out of the re-render, as the old `in` guard did.
+  const clearError = (key: keyof FieldErrors) => {
+    setErrors((prev) => {
+      if (!(key in prev)) return prev;
+      const rest = { ...prev };
+      delete rest[key];
+      return rest;
+    });
+  };
 
   const handleSave = async () => {
     if (saving) return;
@@ -239,10 +240,7 @@ const SettingsPage = () => {
                       value={form.primaryService ?? ''}
                       onChange={(e) => {
                         setForm({ ...form, primaryService: e.target.value as ServiceCategory });
-                        if ('primaryService' in errors) {
-                          const { primaryService: _, ...rest } = errors;
-                          setErrors(rest);
-                        }
+                        clearError('primaryService');
                       }}
                       className="flex h-10 w-full rounded-md border border-input bg-background pl-10 pr-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                     >
@@ -268,10 +266,7 @@ const SettingsPage = () => {
                     defaultValue={form.location ?? ''}
                     onChange={(e) => {
                       setForm({ ...form, location: e.target.value });
-                      if ('location' in errors) {
-                        const { location: _, ...rest } = errors;
-                        setErrors(rest);
-                      }
+                      clearError('location');
                     }}
                   />
                   {errors.location && <p className="text-xs text-destructive">{errors.location}</p>}
@@ -284,42 +279,10 @@ const SettingsPage = () => {
                     defaultValue={form.postcode ?? ''}
                     onChange={(e) => {
                       setForm({ ...form, postcode: e.target.value.toUpperCase() });
-                      if ('postcode' in errors) {
-                        const { postcode: _, ...rest } = errors;
-                        setErrors(rest);
-                      }
+                      clearError('postcode');
                     }}
                   />
                   {errors.postcode && <p className="text-xs text-destructive">{errors.postcode}</p>}
-                </div>
-                <div className="space-y-2 md:col-span-2">
-                  <Label htmlFor="gbp">Google Business Profile</Label>
-                  {gbpConnected === null ? (
-                    <p className="text-xs text-muted-foreground">Checking connection...</p>
-                  ) : gbpConnected ? (
-                    <div className="flex items-center justify-between p-3 rounded-lg bg-success/5 border border-success/20">
-                      <div className="flex items-center gap-2 text-sm text-success">
-                        <CheckCircle className="w-4 h-4" />
-                        Connected
-                      </div>
-                      <a href="/google-business" className="text-xs text-primary hover:underline">
-                        Manage
-                      </a>
-                    </div>
-                  ) : (
-                    <div className="flex items-center justify-between p-3 rounded-lg bg-muted">
-                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                        <Store className="w-4 h-4" />
-                        Not connected
-                      </div>
-                      <a
-                        href="/api/auth/google-business"
-                        className="px-3 py-1.5 bg-primary text-primary-foreground text-xs font-medium rounded-lg hover:opacity-90"
-                      >
-                        Connect
-                      </a>
-                    </div>
-                  )}
                 </div>
               </div>
               <Separator />

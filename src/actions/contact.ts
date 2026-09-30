@@ -5,6 +5,7 @@ import { cookies } from 'next/headers';
 import { createServerClient } from '@supabase/ssr';
 import { sendEmail } from '@/services/email';
 import ContactMessage from '@/emails/ContactMessage';
+import { logger } from '@/lib/logger';
 
 const SUPPORT_EMAIL = process.env.SUPPORT_EMAIL ?? '';
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -51,7 +52,7 @@ export async function sendContactMessage(input: {
     return { ok: false, error: 'Please add a subject and a message.' };
   }
   if (!SUPPORT_EMAIL) {
-    console.error('[contact] SUPPORT_EMAIL is not configured');
+    logger.error('contact', 'SUPPORT_EMAIL is not configured');
     return { ok: false, error: 'We could not send your message. Please try again later.' };
   }
 
@@ -71,7 +72,7 @@ export async function sendContactMessage(input: {
     });
     return { ok: true };
   } catch (err) {
-    console.error('[contact] send failed', err);
+    logger.error('contact', 'Send failed', { error: err });
     return { ok: false, error: 'Something went wrong sending your message. Please try again.' };
   }
 }

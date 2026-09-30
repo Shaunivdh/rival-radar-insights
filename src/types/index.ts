@@ -1,5 +1,10 @@
+import type { BusinessId, PriorityActionId, ProjectId } from './ids';
+
+export type { BusinessId, PriorityActionId, ProjectId } from './ids';
+export { asBusinessId, asPriorityActionId, asProjectId } from './ids';
+
 export interface Project {
-  id: string;
+  id: ProjectId;
   name: string;
   createdAt: number;
   ownBusiness: Business;
@@ -25,7 +30,7 @@ export interface AIVisibility {
 }
 
 export interface Business {
-  id: string;
+  id: BusinessId;
   name: string;
   url: string;
   domain: string;
@@ -164,7 +169,7 @@ export interface AIHealthScore {
 
 export interface ScoreSnapshot {
   id: string;
-  businessId: string;
+  businessId: BusinessId;
   overallScore: number;
   reputationScore: number;
   localVisibilityScore: number;
@@ -176,7 +181,7 @@ export interface ScoreSnapshot {
 }
 
 export interface PriorityAction {
-  id: string;
+  id: PriorityActionId;
   priority: 1 | 2 | 3 | 4 | 5;
   status: 'active' | 'snoozed' | 'completed' | 'queued';
   category: string;

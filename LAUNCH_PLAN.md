@@ -17,7 +17,7 @@
 | Scoring               | Working                 | 6 categories, overall score, trends                                                                                               |
 | AI Actions            | Working                 | 27 rule templates + LLM fallback + validation layer. Accuracy plan phases 1 to 5 implemented, verification still open             |
 | Competitor comparison | Working                 | Side-by-side scores, strengths/weaknesses                                                                                         |
-| GBP monitoring        | Working                 | OAuth flow, reviews, location data                                                                                                |
+| GBP monitoring        | Removed                 | OAuth flow, reviews and location deleted. GBP completeness still scored via Places API                                                                                                |
 | AI mention tracking   | Working                 | Multi-prompt presence scoring                                                                                                     |
 | Tests                 | Working                 | vitest + msw contracts, @inngest/test, Playwright e2e                                                                             |
 | Landing page          | **Built**               | `/` renders `src/views/LandingPage.tsx`. Plus `/contact`, `/what-we-track`                                                        |

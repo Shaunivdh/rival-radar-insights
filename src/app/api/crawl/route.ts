@@ -1,8 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { z } from 'zod';
 import { createServerClient } from '@supabase/ssr';
+import type { Database } from '@/types/database';
 import { cookies } from 'next/headers';
 import { inngest } from '@/inngest/client';
 import { supabaseAdmin } from '@/lib/supabase/server';
+import { logger } from '@/lib/logger';
 
 // Simple in-memory rate limiter: max 10 POST requests per IP per minute
 // NOTE: resets per cold start and not shared across instances in serverless deployments
@@ -23,7 +26,7 @@ function isRateLimited(ip: string): boolean {
 
 async function getAuthUserId(): Promise<string | null> {
   const cookieStore = await cookies();
-  const supabase = createServerClient(
+  const supabase = createServerClient<Database>(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
@@ -40,17 +43,35 @@ async function getAuthUserId(): Promise<string | null> {
   return user?.id ?? null;
 }
 
-const VALID_MODES = new Set(['initial', 'incremental']);
+/** GET /api/crawl?projectId — sent by SetupPage / BusinessSetupPage status polling. */
+const getQuerySchema = z.object({
+  projectId: z.string().uuid(),
+});
+
+/** POST /api/crawl — sent by CompetitorDetail's "scan" button. */
+const postBodySchema = z.object({
+  businessId: z.string().uuid(),
+  mode: z.enum(['initial', 'incremental']),
+});
 
 export async function GET(req: NextRequest) {
   const userId = await getAuthUserId();
   if (!userId) {
-    console.warn('[crawl-api] GET unauthorized - no session');
+    logger.warn('crawl-api', 'GET unauthorized - no session');
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  const projectId = req.nextUrl.searchParams.get('projectId');
-  if (!projectId) return NextResponse.json({ error: 'Missing projectId' }, { status: 400 });
+  const parsed = getQuerySchema.safeParse({
+    projectId: req.nextUrl.searchParams.get('projectId'),
+  });
+  if (!parsed.success) {
+    logger.warn('crawl-api', 'GET invalid query', { userId });
+    return NextResponse.json(
+      { error: 'Invalid request', issues: parsed.error.flatten() },
+      { status: 400 },
+    );
+  }
+  const { projectId } = parsed.data;
 
   // Verify user owns this project
   const { data: project } = await supabaseAdmin
@@ -60,7 +81,7 @@ export async function GET(req: NextRequest) {
     .eq('user_id', userId)
     .maybeSingle();
   if (!project) {
-    console.warn(`[crawl-api] GET project not found projectId=${projectId} userId=${userId}`);
+    logger.warn('crawl-api', 'GET project not found', { projectId, userId });
     return NextResponse.json({ error: 'Project not found' }, { status: 404 });
   }
 
@@ -69,46 +90,36 @@ export async function GET(req: NextRequest) {
     .select('id, name, crawl_status')
     .eq('project_id', projectId);
 
-  console.log(
-    `[crawl-api] GET status poll userId=${userId} projectId=${projectId} businesses=${JSON.stringify((businesses ?? []).map((b) => ({ id: b.id, name: b.name, status: b.crawl_status })))}`,
-  );
+  logger.info('crawl-api', 'GET status poll', {
+    userId,
+    projectId,
+    businesses: (businesses ?? []).map((b) => ({ id: b.id, name: b.name, status: b.crawl_status })),
+  });
   return NextResponse.json({ businesses: businesses ?? [] });
 }
 
 export async function POST(req: NextRequest) {
   const userId = await getAuthUserId();
   if (!userId) {
-    console.warn('[crawl-api] POST unauthorized - no session');
+    logger.warn('crawl-api', 'POST unauthorized - no session');
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
   const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? 'unknown';
   if (isRateLimited(ip)) {
-    console.warn(`[crawl-api] POST rate-limited ip=${ip} userId=${userId}`);
+    logger.warn('crawl-api', 'POST rate-limited', { ip, userId });
     return NextResponse.json({ error: 'Too many requests' }, { status: 429 });
   }
 
-  const { businessId, mode } = (await req.json()) as {
-    businessId: string;
-    mode: string;
-  };
-
-  if (!businessId || !mode) {
-    console.warn(
-      `[crawl-api] POST missing params businessId=${businessId} mode=${mode} userId=${userId}`,
-    );
-    return NextResponse.json({ error: 'Missing businessId or mode' }, { status: 400 });
-  }
-
-  if (!VALID_MODES.has(mode)) {
-    console.warn(
-      `[crawl-api] POST invalid mode="${mode}" businessId=${businessId} userId=${userId}`,
-    );
+  const parsed = postBodySchema.safeParse(await req.json().catch(() => null));
+  if (!parsed.success) {
+    logger.warn('crawl-api', 'POST invalid body', { userId });
     return NextResponse.json(
-      { error: 'Invalid mode, must be "initial" or "incremental"' },
+      { error: 'Invalid request', issues: parsed.error.flatten() },
       { status: 400 },
     );
   }
+  const { businessId, mode } = parsed.data;
 
   // Verify user owns this business via its project
   const { data: biz } = await supabaseAdmin
@@ -117,7 +128,7 @@ export async function POST(req: NextRequest) {
     .eq('id', businessId)
     .single();
   if (!biz) {
-    console.warn(`[crawl-api] POST business not found businessId=${businessId} userId=${userId}`);
+    logger.warn('crawl-api', 'POST business not found', { businessId, userId });
     return NextResponse.json({ error: 'Business not found' }, { status: 404 });
   }
 
@@ -128,18 +139,18 @@ export async function POST(req: NextRequest) {
     .eq('user_id', userId)
     .maybeSingle();
   if (!project) {
-    console.warn(
-      `[crawl-api] POST not authorized businessId=${businessId} userId=${userId} projectId=${biz.project_id}`,
-    );
+    logger.warn('crawl-api', 'POST not authorized', {
+      businessId,
+      userId,
+      projectId: biz.project_id,
+    });
     return NextResponse.json({ error: 'Not authorized for this business' }, { status: 403 });
   }
 
-  console.log(
-    `[crawl-api] POST scan triggered userId=${userId} businessId=${businessId} mode=${mode}`,
-  );
+  logger.info('crawl-api', 'POST scan triggered', { userId, businessId, mode });
   await inngest.send({
     name: 'crawl/business.scan',
-    data: { businessId, mode: mode as 'initial' | 'incremental' },
+    data: { businessId, mode },
   });
 
   return NextResponse.json({ ok: true });

@@ -1,5 +1,5 @@
-import type { SupabaseClient } from '@supabase/supabase-js';
-import type { AIHealthScore } from '@/types';
+import type { AIHealthScore, BusinessId } from '@/types';
+import type { TypedSupabaseClient } from './types';
 import { recomputeOverallScore } from '@/services/scores';
 
 /** AI presence only contributes to the weekly delta when its (smoothed) score moved at least this much. */
@@ -51,8 +51,8 @@ export function computeWeeklyDelta(latest: AIHealthScore, previous: AIHealthScor
 }
 
 export async function saveScoreSnapshot(
-  supabase: SupabaseClient,
-  businessId: string,
+  supabase: TypedSupabaseClient,
+  businessId: BusinessId,
   scores: AIHealthScore,
 ): Promise<void> {
   await supabase.from('score_snapshots').insert({
@@ -73,8 +73,8 @@ export async function saveScoreSnapshot(
  * Returns null if no such previous snapshot exists.
  */
 export async function getWeeklyDelta(
-  supabase: SupabaseClient,
-  businessId: string,
+  supabase: TypedSupabaseClient,
+  businessId: BusinessId,
 ): Promise<number | null> {
   const { data: latest } = await supabase
     .from('score_snapshots')

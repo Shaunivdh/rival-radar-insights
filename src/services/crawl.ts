@@ -1,4 +1,5 @@
 import type { CrawlOptions, RawCrawlResult } from '@/types';
+import { logger } from '@/lib/logger';
 
 export interface CrawlCredentials {
   accountId: string;
@@ -135,9 +136,9 @@ export async function crawlSinglePage(
     );
   } catch (e) {
     if (e instanceof CrawlDisallowedError) {
-      console.warn(`[crawlSinglePage] Crawl disallowed for ${url}: ${e.message}`);
+      logger.warn('crawlSinglePage', 'Crawl disallowed', { url, error: e.message });
     } else {
-      console.warn(`[crawlSinglePage] Failed to start crawl for ${url}:`, e);
+      logger.warn('crawlSinglePage', 'Failed to start crawl', { url, error: e });
     }
     return null;
   }
@@ -154,28 +155,31 @@ export async function crawlSinglePage(
         break;
       }
       if (TERMINAL_FAILURE_STATES.has(status)) {
-        console.warn(`[crawlSinglePage] Job ${jobId} for ${url} ended with status=${status}`);
+        logger.warn('crawlSinglePage', 'Job ended without completing', { jobId, url, status });
         return null;
       }
       // Any other status (running, queued, pending, etc.) — keep polling.
     } catch (e) {
       consecutiveErrors++;
       if (consecutiveErrors >= MAX_CONSECUTIVE_POLL_ERRORS) {
-        console.warn(
-          `[crawlSinglePage] ${consecutiveErrors} consecutive poll errors for ${url}, giving up:`,
-          e instanceof Error ? e.message : e,
-        );
+        logger.warn('crawlSinglePage', 'Consecutive poll errors, giving up', {
+          consecutiveErrors,
+          url,
+          error: e,
+        });
         return null;
       }
-      console.warn(
-        `[crawlSinglePage] Poll error ${consecutiveErrors}/${MAX_CONSECUTIVE_POLL_ERRORS} for ${url}, retrying:`,
-        e instanceof Error ? e.message : e,
-      );
+      logger.warn('crawlSinglePage', 'Poll error, retrying', {
+        consecutiveErrors,
+        maxConsecutiveErrors: MAX_CONSECUTIVE_POLL_ERRORS,
+        url,
+        error: e,
+      });
     }
   }
 
   if (!completed) {
-    console.warn(`[crawlSinglePage] Timeout for ${url} after ${(attempts * intervalMs) / 1000}s`);
+    logger.warn('crawlSinglePage', 'Timeout', { url, seconds: (attempts * intervalMs) / 1000 });
     return null;
   }
 
@@ -186,17 +190,16 @@ export async function crawlSinglePage(
     // Empty-completed: site likely blocks crawling via robots/Content-Signal
     // even though it didn't 400 at start time.
     if (result.pages.length === 0) {
-      console.warn(
-        `[crawlSinglePage] Job ${jobId} for ${url} completed with zero pages — likely blocked by robots/Content-Signal directive`,
+      logger.warn(
+        'crawlSinglePage',
+        'Job completed with zero pages — likely blocked by robots/Content-Signal directive',
+        { jobId, url },
       );
       return null;
     }
     return result.pages[0] ?? null;
   } catch (e) {
-    console.warn(
-      `[crawlSinglePage] getCrawlResults failed after completion for ${url}:`,
-      e instanceof Error ? e.message : e,
-    );
+    logger.warn('crawlSinglePage', 'getCrawlResults failed after completion', { url, error: e });
     return null;
   }
 }
@@ -223,7 +226,7 @@ export async function startCrawl(
     ...(options.gotoOptions ? { gotoOptions: options.gotoOptions } : {}),
     ...(options.waitForSelector ? { waitForSelector: options.waitForSelector } : {}),
   };
-  console.log(`[crawl] startCrawl request:`, JSON.stringify(body));
+  logger.info('crawl', 'startCrawl request', { body });
 
   const res = await fetch(`${cfBase(credentials.accountId)}/crawl`, {
     method: 'POST',
@@ -243,7 +246,7 @@ export async function startCrawl(
   }
 
   const data = JSON.parse(resText) as { success: boolean; result: string };
-  console.log(`[crawl] startCrawl response: jobId=${data.result} success=${data.success}`);
+  logger.info('crawl', 'startCrawl response', { jobId: data.result, success: data.success });
   if (!data.success) throw new Error('CF crawl start: success=false');
   return data.result;
 }
@@ -261,7 +264,7 @@ export async function pollCrawlStatus(
   if (!res.ok) throw new Error(`CF poll failed: ${res.status}`);
 
   const data = (await res.json()) as { success: boolean; result: { status: string } };
-  console.log(`[crawl] pollCrawlStatus jobId=${jobId} status=${data.result.status}`);
+  logger.info('crawl', 'pollCrawlStatus', { jobId, status: data.result.status });
   return { status: data.result.status };
 }
 
@@ -301,7 +304,9 @@ export async function startIncrementalCrawl(
 ): Promise<string> {
   // NOTE: modifiedSince was removed (caused CF jobs to hang). render:true is required
   // because many modern sites (SPAs, React/Vue) return near-empty HTML without JS execution.
-  console.log(`[crawl] startIncrementalCrawl (JS rendering enabled, expect 3-5s per page): ${url}`);
+  logger.info('crawl', 'startIncrementalCrawl (JS rendering enabled, expect 3-5s per page)', {
+    url,
+  });
   return startCrawl(
     url,
     {
@@ -328,18 +333,18 @@ export async function fetchPageDirect(url: string): Promise<string | null> {
       signal: AbortSignal.timeout(15000),
     });
     if (!res.ok) {
-      console.warn(`[fetchPageDirect] ${url} returned ${res.status}`);
+      logger.warn('fetchPageDirect', 'Non-OK response', { url, status: res.status });
       return null;
     }
     const html = await res.text();
     if (!html || html.length < 300) {
-      console.warn(`[fetchPageDirect] ${url} returned too little content (${html.length} chars)`);
+      logger.warn('fetchPageDirect', 'Too little content returned', { url, chars: html.length });
       return null;
     }
-    console.log(`[fetchPageDirect] ${url} fetched OK (${html.length} chars)`);
+    logger.info('fetchPageDirect', 'Fetched OK', { url, chars: html.length });
     return html;
   } catch (e) {
-    console.warn(`[fetchPageDirect] ${url} failed:`, e instanceof Error ? e.message : e);
+    logger.warn('fetchPageDirect', 'Failed', { url, error: e });
     return null;
   }
 }

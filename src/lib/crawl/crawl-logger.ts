@@ -1,4 +1,6 @@
 import { supabaseAdmin } from '@/lib/supabase/server';
+import { toJson } from '@/lib/supabase/mappers';
+import { logger } from '@/lib/logger';
 
 type CrawlLogStatus = 'started' | 'success' | 'failed' | 'warning' | 'skipped';
 
@@ -22,13 +24,14 @@ export function logCrawlStep(
       step,
       status,
       message: message ?? null,
-      meta: meta ?? null,
+      meta: meta ? toJson(meta) : null,
     })
     .then(({ error }) => {
       if (error)
-        console.error(
-          `[crawl-logger] Failed to log step="${step}" for business=${businessId}:`,
-          error.message,
-        );
+        logger.error('crawl-logger', 'Failed to log step', {
+          step,
+          businessId,
+          error: error.message,
+        });
     });
 }

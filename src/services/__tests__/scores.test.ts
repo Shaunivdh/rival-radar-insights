@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, expectTypeOf } from 'vitest';
 import {
   computeWebsiteHealthScore,
   computeReputationScore,
@@ -341,5 +341,45 @@ describe('calculateScores', () => {
       },
     });
     expect(result.aiPresenceScore).toBe(42);
+  });
+});
+
+/**
+ * The scoring contract is "unknown is null, never zero", and it is expressed in
+ * the types: every component that can be unmeasured is `number | null`, while
+ * the two that are always computable are plain `number`. Widening or narrowing
+ * one of these by accident is how a missing GBP starts reading as a zero score,
+ * so `bun run typecheck` guards the shape here.
+ */
+describe('score signatures', () => {
+  it('reports an unmeasured component as null, not zero', () => {
+    expectTypeOf(computeReputationScore).returns.toEqualTypeOf<number | null>();
+    expectTypeOf(computeGBPCompletenessScore).returns.toEqualTypeOf<number | null>();
+    expectTypeOf(computeWebsiteHealthScore).returns.toEqualTypeOf<number | null>();
+    expectTypeOf(computeReviewVelocityScore).returns.toEqualTypeOf<number | null>();
+  });
+
+  it('always produces an overall score, because it renormalises over what is known', () => {
+    expectTypeOf(recomputeOverallScore).returns.toEqualTypeOf<number>();
+    expectTypeOf<AIHealthScore['overallScore']>().toEqualTypeOf<number>();
+  });
+
+  it('keeps the nullable and non-nullable components apart on AIHealthScore', () => {
+    // Local visibility is derived from serpData with an explicit 0 for "not in
+    // the top 10", so it is the one component that is never unknown.
+    expectTypeOf<AIHealthScore['localVisibilityScore']>().toEqualTypeOf<number>();
+    expectTypeOf<AIHealthScore['reputationScore']>().toEqualTypeOf<number | null>();
+    expectTypeOf<AIHealthScore['websiteHealthScore']>().toEqualTypeOf<number | null>();
+    expectTypeOf<AIHealthScore['gbpCompletenessScore']>().toEqualTypeOf<number | null>();
+    expectTypeOf<AIHealthScore['aiPresenceScore']>().toEqualTypeOf<number | null>();
+    expectTypeOf<AIHealthScore['reviewVelocityScore']>().toEqualTypeOf<number | null>();
+    expectTypeOf<AIHealthScore['weeklyDelta']>().toEqualTypeOf<number | null>();
+  });
+
+  it('takes nullable enrichment data, so a blocked crawl is a valid input', () => {
+    expectTypeOf(computeReputationScore).parameter(0).toEqualTypeOf<GoogleData | null>();
+    expectTypeOf(computeGBPCompletenessScore).parameter(0).toEqualTypeOf<GoogleData | null>();
+    expectTypeOf(computeWebsiteHealthScore).parameter(0).toEqualTypeOf<ExtractedSignals | null>();
+    expectTypeOf(calculateScores).returns.toEqualTypeOf<AIHealthScore>();
   });
 });

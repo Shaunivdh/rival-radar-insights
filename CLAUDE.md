@@ -78,7 +78,7 @@ Health scores are deterministic (`src/services/scores.ts`) — no AI.
 
 Applies to every string a user can read: LLM output (priority actions, change summaries,
 fact-checker patches), the deterministic templates in `src/lib/priorityTemplates.ts`, the
-mock plan in `src/lib/mockActionPlan.ts`, and UI copy.
+mock plan in `src/lib/mockActionPlan.ts`, and UI copy. **Code comments are exempt** — they are not user-readable.
 
 - **NO DASHES IN AI-GENERATED RECOMMENDATIONS.** No em dashes (—), no en dashes (–), no
   hyphen used as a dash, no arrows (→). Use a comma, colon, semicolon, or a new sentence.

@@ -116,4 +116,55 @@ describe('isRateLimited', () => {
     expect(loggedErrors).toHaveLength(1);
     expect(loggedErrors[0]).toMatchObject({ scope: 'rateLimit' });
   });
+
+  /**
+   * /api/regenerate-actions spends money on every call and has no UI caller
+   * waiting on it, so there a refusal is the cheap outcome and an unmetered paid
+   * call is not. Failing open stays the default for every other route.
+   */
+  describe('failClosed', () => {
+    it('refuses the request when the RPC errors', async () => {
+      rpcResult = { data: null, error: { message: 'boom' } };
+
+      await expect(isRateLimited('regenerate-actions:user-1', { failClosed: true })).resolves.toBe(
+        true,
+      );
+      expect(loggedErrors).toHaveLength(1);
+    });
+
+    it('refuses the request when the RPC returns no verdict', async () => {
+      rpcResult = { data: null, error: null };
+
+      await expect(isRateLimited('regenerate-actions:user-1', { failClosed: true })).resolves.toBe(
+        true,
+      );
+    });
+
+    it('still allows a caller who is genuinely under the limit', async () => {
+      rpcResult = { data: false, error: null };
+
+      await expect(isRateLimited('regenerate-actions:user-1', { failClosed: true })).resolves.toBe(
+        false,
+      );
+      expect(loggedErrors).toHaveLength(0);
+    });
+
+    it('still refuses a caller who is genuinely over the limit', async () => {
+      rpcResult = { data: true, error: null };
+
+      await expect(isRateLimited('regenerate-actions:user-1', { failClosed: true })).resolves.toBe(
+        true,
+      );
+    });
+  });
+
+  it('honours an explicit limit and window through the options object', async () => {
+    await isRateLimited('scoped:key', { limit: 2, windowMs: 1_000 });
+
+    expect(rpcCalls[0][1]).toMatchObject({
+      p_key: 'scoped:key',
+      p_limit: 2,
+      p_window_ms: 1_000,
+    });
+  });
 });

@@ -53,7 +53,10 @@ export async function POST(req: NextRequest) {
   // client-supplied header is the wrong thing to meter it by: rotating the header
   // gives each fake value its own bucket, while a shared office IP or NAT would
   // throttle unrelated users against each other.
-  if (await isRateLimited(`regenerate-actions:${userId}`)) {
+  // failClosed: this route spends money on every call and nothing in the UI
+  // waits on it, so when the limiter cannot reach a verdict a 429 is the cheap
+  // outcome and an unmetered paid call is not.
+  if (await isRateLimited(`regenerate-actions:${userId}`, { failClosed: true })) {
     return NextResponse.json({ error: 'Too many requests' }, { status: 429 });
   }
 

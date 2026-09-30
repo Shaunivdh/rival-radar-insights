@@ -84,32 +84,20 @@ describe('crawlSinglePage', () => {
 
   it('polls until completed and returns the first page', async () => {
     server.use(...cloudflareHandlers({ pollsBeforeDone: 2 }));
-    const page = await crawlSinglePage(
-      'https://acme-plumbing.test',
-      'extract',
-      creds,
-      undefined,
-      poll,
-    );
+    const page = await crawlSinglePage('https://acme-plumbing.test', creds, undefined, poll);
     expect(page?.url).toBe('https://acme-plumbing.test/');
     expect(page?.html).toContain('<h1>Acme Plumbing Bristol</h1>');
   });
 
   it('returns null when the job errors', async () => {
     server.use(...cloudflareHandlers({ pollsBeforeDone: 0, results: cfErroredResponse }));
-    const page = await crawlSinglePage(
-      'https://acme-plumbing.test',
-      'extract',
-      creds,
-      undefined,
-      poll,
-    );
+    const page = await crawlSinglePage('https://acme-plumbing.test', creds, undefined, poll);
     expect(page).toBeNull();
   });
 
   it('returns null on poll timeout', async () => {
     server.use(...cloudflareHandlers({ pollsBeforeDone: 99 }));
-    const page = await crawlSinglePage('https://acme-plumbing.test', 'extract', creds, undefined, {
+    const page = await crawlSinglePage('https://acme-plumbing.test', creds, undefined, {
       attempts: 2,
       intervalMs: 1,
     });
@@ -123,7 +111,7 @@ describe('crawlSinglePage', () => {
       ),
     );
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
-    const page = await crawlSinglePage('https://blocked.test', 'extract', creds, undefined, poll);
+    const page = await crawlSinglePage('https://blocked.test', creds, undefined, poll);
     expect(page).toBeNull();
     expect(warn).toHaveBeenCalledWith(expect.stringContaining('Crawl disallowed'));
     warn.mockRestore();

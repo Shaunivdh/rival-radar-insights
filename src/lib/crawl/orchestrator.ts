@@ -15,7 +15,6 @@ import { saveToCache, loadFromCache } from '@/services/crawl.cache';
 import { extractSignals } from '@/services/extract';
 import { parseHtmlSignals, mergePageSignals } from '@/lib/crawl/html-parser';
 import { checkDirectSignals } from '@/lib/crawl/direct-checks';
-import { EXTRACTION_PROMPT } from '@/lib/crawl/extraction-prompt';
 import { normalizeUrl } from '@/lib/url';
 import type { RawCrawlResult } from '@/types';
 import { logger } from '@/lib/logger';
@@ -226,7 +225,6 @@ export async function startBusinessCrawl(
           {
             maxPages: Math.max(1, MAX_TOTAL_PAGES - MAX_PRIORITY_PAGES),
             render: true,
-            jsonOptions: { prompt: EXTRACTION_PROMPT },
             gotoOptions: { waitUntil: 'networkidle0', timeout: 30000 },
           },
           credentials,
@@ -381,7 +379,7 @@ export async function extractAndPersistSignals(
           { url },
         );
         await new Promise((r) => setTimeout(r, 5000));
-        const retryPage = await crawlSinglePage(url, EXTRACTION_PROMPT, credentials, {
+        const retryPage = await crawlSinglePage(url, credentials, {
           gotoOptions: { waitUntil: 'networkidle0', timeout: 30000 },
         });
 
@@ -510,7 +508,7 @@ export async function extractAndPersistSignals(
 
       if (priorityLinks.length > 0) {
         const extraPages = await Promise.all(
-          priorityLinks.map((link) => crawlSinglePage(link, EXTRACTION_PROMPT, credentials)),
+          priorityLinks.map((link) => crawlSinglePage(link, credentials)),
         );
         const validPages = extraPages.filter(
           (p): p is RawCrawlResult['pages'][0] => p !== null && !isUnusablePage(p.html ?? ''),

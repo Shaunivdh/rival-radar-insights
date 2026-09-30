@@ -221,7 +221,6 @@ export interface Change {
 export interface CrawlOptions {
   maxPages?: number;
   render?: boolean;
-  jsonOptions?: { prompt: string };
   modifiedSince?: number;
   gotoOptions?: { waitUntil?: string; timeout?: number };
   waitForSelector?: { selector: string; timeout?: number; visible?: boolean };

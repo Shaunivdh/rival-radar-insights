@@ -36,6 +36,8 @@ export type ActionGenerationResult = {
   inserted: number;
   reason?: ActionGenerationReason;
   ownBusinessId?: BusinessId;
+  /** Set with reason 'AI temporarily unavailable', from the caught AIUnavailableError. */
+  retryAt?: string;
 };
 import type { ServiceCategory } from '@/lib/serviceCategories';
 import { logger } from '@/lib/logger';
@@ -146,7 +148,12 @@ export async function generateAndPersistProjectActions(
   } catch (e) {
     if (e instanceof AIUnavailableError) {
       logger.warn('priorityActions', 'AI unavailable', { projectId, kind: e.kind });
-      return { inserted: 0, reason: 'AI temporarily unavailable', ownBusinessId: ownRaw.id };
+      return {
+        inserted: 0,
+        reason: 'AI temporarily unavailable',
+        ownBusinessId: ownRaw.id,
+        retryAt: e.retryAt,
+      };
     }
     throw e;
   }

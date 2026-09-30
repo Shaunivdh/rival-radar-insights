@@ -7,7 +7,7 @@ import { supabaseAdmin } from '@/lib/supabase/server';
 import { generateAndPersistProjectActions } from '@/lib/priorityActionsGenerator';
 import { asProjectId } from '@/types';
 import { isRateLimited } from '@/lib/rateLimit';
-import { handleAIError } from '@/lib/apiErrorHandler';
+import { aiUnavailableResponse, handleAIError } from '@/lib/apiErrorHandler';
 import { logger } from '@/lib/logger';
 
 async function getAuthUserId(): Promise<string | null> {
@@ -88,6 +88,11 @@ export async function POST(req: NextRequest) {
       inserted: result.inserted,
       reason: result.reason ?? 'ok',
     });
+    // The generator catches AIUnavailableError itself (the crawl worker needs the
+    // reason, not a throw), so an outage arrives here as a result, never in catch.
+    if (result.reason === 'AI temporarily unavailable') {
+      return aiUnavailableResponse(result.retryAt);
+    }
     return NextResponse.json({ ok: true, ...result });
   } catch (e) {
     logger.error('regenerate-actions', 'Failed', { projectId, error: e });

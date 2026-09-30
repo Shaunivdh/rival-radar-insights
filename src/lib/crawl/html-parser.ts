@@ -271,6 +271,15 @@ export function parseHtmlSignals(html: string, baseUrl?: string): Record<string,
   )
     signals.hasPortfolio = true;
 
+  // Portfolio item count — distinct links to individual items under a portfolio-type path
+  // (e.g. /projects/kitchen-refit). extractSignals takes the max across pages.
+  const portfolioItems = new Set<string>();
+  for (const m of html.matchAll(
+    /href=["'][^"']*\/(?:portfolio|gallery|our-work|ourwork|projects|case-studies|casestudies)\/([a-z0-9][a-z0-9-_]*)\/?["'?#]/gi,
+  ))
+    portfolioItems.add(m[1].toLowerCase());
+  if (portfolioItems.size > 0) signals.portfolioItemCount = portfolioItems.size;
+
   // Service areas — text under an "areas we cover / serve" heading, plus UK postcode districts
   // found in full postcodes on the page. AI stays primary; this is a union-merged fallback.
   const serviceAreas = harvestServiceAreas(html, text);

@@ -2,9 +2,7 @@
  * Ground-truth extraction eval (accuracy plan §5).
  *
  * Fixtures live in `scripts/fixtures/sites/<slug>.html` + `<slug>.expected.json`.
- * The deterministic path (vitest) runs `parseHtmlSignals` → `extractSignals` with
- * no AI; the full path (`scripts/eval-extraction.ts`) adds Haiku extraction on top,
- * merged exactly as the orchestrator does.
+ * Runs `parseHtmlSignals` → `extractSignals`, merged exactly as the orchestrator does.
  */
 import { parseHtmlSignals, mergePageSignals } from '@/lib/crawl/html-parser';
 import { extractSignals } from '@/services/extract';
@@ -99,14 +97,6 @@ export function fixtureToRawResult(
 /** Deterministic-only extraction (no AI), mirroring the orchestrator merge. */
 export async function extractDeterministic(fixture: Fixture): Promise<ExtractedSignals> {
   return extractSignals(fixtureToRawResult(fixture));
-}
-
-/** Extraction with an AI page-JSON blob supplied by the caller (full-path eval). */
-export async function extractWithAI(
-  fixture: Fixture,
-  aiJson: Record<string, unknown>,
-): Promise<ExtractedSignals> {
-  return extractSignals(fixtureToRawResult(fixture, aiJson));
 }
 
 export function scoreFixture(expected: ExpectedSignals, actual: ExtractedSignals): FixtureScore {

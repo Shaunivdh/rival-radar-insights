@@ -24,21 +24,19 @@ import {
 import { cloudflareChallengeHtml, cookieOverlayHtml, nearEmptyHtml } from '@/test/fixtures/html';
 import type { RawCrawlResult } from '@/types';
 
-const { saveToCacheMock, loadFromCacheMock, extractPageSignalsMock, priorPages, priorMax } =
-  vi.hoisted(() => {
-    // Read at orchestrator import time — keep priority-page enrichment to one crawl.
-    const priorPages = process.env.CRAWL_PRIORITY_PAGES;
-    const priorMax = process.env.CRAWL_MAX_PAGES;
-    process.env.CRAWL_PRIORITY_PAGES = '1';
-    process.env.CRAWL_MAX_PAGES = '15';
-    return {
-      priorPages,
-      priorMax,
-      saveToCacheMock: vi.fn(),
-      loadFromCacheMock: vi.fn(() => null),
-      extractPageSignalsMock: vi.fn(async () => ({})),
-    };
-  });
+const { saveToCacheMock, loadFromCacheMock, priorPages, priorMax } = vi.hoisted(() => {
+  // Read at orchestrator import time — keep priority-page enrichment to one crawl.
+  const priorPages = process.env.CRAWL_PRIORITY_PAGES;
+  const priorMax = process.env.CRAWL_MAX_PAGES;
+  process.env.CRAWL_PRIORITY_PAGES = '1';
+  process.env.CRAWL_MAX_PAGES = '15';
+  return {
+    priorPages,
+    priorMax,
+    saveToCacheMock: vi.fn(),
+    loadFromCacheMock: vi.fn(() => null),
+  };
+});
 
 // The env vars above are process-wide; restore them so other test files sharing
 // this worker are not silently reconfigured.
@@ -56,7 +54,6 @@ vi.mock('@/services/crawl.cache', () => ({
   saveToCache: saveToCacheMock,
   loadFromCache: loadFromCacheMock,
 }));
-vi.mock('@/services/ai', () => ({ extractPageSignals: extractPageSignalsMock }));
 // The real probe arms an 8s abort timer, which races the faked clock above and
 // makes robots/sitemap values depend on timing. Pin it.
 vi.mock('@/lib/crawl/direct-checks', () => ({
@@ -139,7 +136,6 @@ beforeEach(() => {
   });
   loadFromCacheMock.mockReset();
   loadFromCacheMock.mockReturnValue(null);
-  extractPageSignalsMock.mockClear();
   vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'setInterval', 'clearInterval'] });
   server.use(...cfHandlers());
 });

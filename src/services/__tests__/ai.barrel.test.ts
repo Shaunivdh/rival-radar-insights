@@ -15,8 +15,6 @@ const EXPECTED_EXPORTS: Record<string, 'function' | 'number'> = {
   TruncatedOutputError: 'function',
   callLLMRaw: 'function',
   classifyAIFailure: 'function',
-  prepareHtmlForExtraction: 'function',
-  extractPageSignals: 'function',
   generateReviewSentiment: 'function',
   resolveEvidence: 'function',
   dropUngroundedActions: 'function',

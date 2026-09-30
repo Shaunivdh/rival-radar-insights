@@ -8,7 +8,6 @@
  *   mockCreate.mockImplementation(anthropicResponder());
  */
 import {
-  EXTRACTION_SCHEMA,
   SENTIMENT_SCHEMA,
   MENTIONED_BUSINESSES_SCHEMA,
   PRIORITY_ACTIONS_SCHEMA,
@@ -30,63 +29,7 @@ export function llmMessage(body: unknown, stopReason: 'end_turn' | 'max_tokens' 
   };
 }
 
-/** A full EXTRACTION_SCHEMA-shaped object; override fields per page/test. */
-export function extractionJson(overrides: Record<string, unknown> = {}) {
-  return {
-    title: 'Acme Plumbing | Emergency Plumbers in Bristol',
-    metaDescription: 'Gas Safe registered plumbers in Bristol.',
-    h1Tags: ['Acme Plumbing Bristol'],
-    hasSitemap: false,
-    hasRobotsTxt: false,
-    internalLinkCount: 6,
-    schemaMarkupTypes: ['LocalBusiness'],
-    canonicalTagsPresent: true,
-    altTagCoverage: 'partial',
-    accreditations: ['Gas Safe'],
-    certifications: [],
-    awardsAndMemberships: [],
-    reviewPlatformsLinked: ['Google', 'Trustpilot'],
-    teamPageExists: false,
-    insuranceMentioned: true,
-    guaranteesMentioned: [],
-    servicesListed: ['Boiler repair', 'Bathroom installation', 'Emergency plumbing'],
-    serviceAreasMentioned: ['Bristol'],
-    hasBlog: true,
-    hasPortfolio: false,
-    portfolioItemCount: 0,
-    hasFAQ: false,
-    hasContactForm: false,
-    hasBookingSystem: false,
-    bookingProvider: null,
-    hasCallToAction: true,
-    ctaText: ['Call us'],
-    hasNewsletterSignup: false,
-    socialLinksPresent: [],
-    hasPhoneNumberProminent: true,
-    newServicesDetected: [],
-    removedServicesDetected: [],
-    newTechIntegrations: [],
-    recentAnnouncementsOrNews: [],
-    recentHiringSignals: [],
-    newLocationsOrExpansion: [],
-    sectorSpecific: {
-      cqcRating: null,
-      ofstedRating: null,
-      treatmentsListed: [],
-      consultationBookable: null,
-      gasSafeRegistered: true,
-      nicEicApproved: null,
-      trustmarkMember: null,
-      dvsaApproved: null,
-      passRates: null,
-      ageRangesCovered: [],
-    },
-    ...overrides,
-  };
-}
-
 export interface ResponderOptions {
-  extraction?: Record<string, unknown>;
   webSearchText?: string;
   changeSummary?: Record<string, unknown>;
   llmActions?: unknown[];
@@ -108,8 +51,6 @@ export function anthropicResponder(opts: ResponderOptions = {}) {
     }
     const schema = params.output_config?.format?.schema;
     switch (schema) {
-      case EXTRACTION_SCHEMA:
-        return llmMessage(extractionJson(opts.extraction));
       case SENTIMENT_SCHEMA:
         return llmMessage({
           positiveThemes: ['Fast response'],

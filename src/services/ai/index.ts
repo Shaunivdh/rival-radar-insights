@@ -7,11 +7,7 @@
  */
 export { AIUnavailableError, TruncatedOutputError, callLLMRaw, classifyAIFailure } from './client';
 export type { AIFailureKind } from './client';
-export {
-  prepareHtmlForExtraction,
-  extractPageSignals,
-  generateReviewSentiment,
-} from './extraction';
+export { generateReviewSentiment } from './extraction';
 export { resolveEvidence, dropUngroundedActions } from './evidence';
 // Type-only, so it does not widen the runtime surface the barrel test locks.
 export type { EvidenceResolution } from './evidence';

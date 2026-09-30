@@ -182,3 +182,18 @@ describe('parseHtmlSignals — ld+json schema', () => {
     expect(s.internalLinkCount).toBe(3);
   });
 });
+
+describe('parseHtmlSignals — portfolio', () => {
+  it('counts distinct portfolio item links, ignoring the index page and repeats', () => {
+    const html = `<a href="/projects/">All</a>
+      <a href="/projects/kitchen-refit">A</a><a href="/projects/kitchen-refit/">A again</a>
+      <a href="https://x.test/case-studies/loft?ref=1">B</a><a href='/gallery/garden-01'>C</a>`;
+    const s = parseHtmlSignals(html, 'https://x.test/');
+    expect(s.hasPortfolio).toBe(true);
+    expect(s.portfolioItemCount).toBe(3);
+  });
+
+  it('leaves portfolioItemCount unset when there are no item links', () => {
+    expect(parseHtmlSignals('<a href="/portfolio">Work</a>').portfolioItemCount).toBeUndefined();
+  });
+});

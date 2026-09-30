@@ -8,7 +8,6 @@ export interface AIEvent {
     | 'sentiment'
     | 'change_summary'
     | 'change_summary_skipped'
-    | 'extract_signals'
     | 'usage';
   model: string;
   success: boolean;

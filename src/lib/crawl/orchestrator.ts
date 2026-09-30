@@ -13,7 +13,6 @@ import {
 } from '@/services/crawl';
 import { saveToCache, loadFromCache } from '@/services/crawl.cache';
 import { extractSignals } from '@/services/extract';
-import { extractPageSignals } from '@/services/ai';
 import { parseHtmlSignals, mergePageSignals } from '@/lib/crawl/html-parser';
 import { checkDirectSignals } from '@/lib/crawl/direct-checks';
 import { EXTRACTION_PROMPT } from '@/lib/crawl/extraction-prompt';
@@ -23,12 +22,6 @@ import { logger } from '@/lib/logger';
 
 const MAX_PRIORITY_PAGES = parseInt(process.env.CRAWL_PRIORITY_PAGES ?? '5', 10);
 const MAX_TOTAL_PAGES = parseInt(process.env.CRAWL_MAX_PAGES ?? '15', 10);
-/**
- * Pages sent to the AI extractor, in order: root page, then priority pages
- * (services/about/contact/accreditations), then remaining CF-discovered pages.
- * Haiku 4.5 at ~7k input tokens/page ≈ $0.008/page → 8 pages ≈ $0.06 per crawl.
- */
-const MAX_AI_EXTRACT_PAGES = parseInt(process.env.CRAWL_AI_EXTRACT_PAGES ?? '8', 10);
 
 const CHALLENGE_TITLES = [
   'one moment, please',
@@ -576,40 +569,9 @@ export async function extractAndPersistSignals(
     rawResult = { ...rawResult, pages: dedupedPages };
   }
 
-  // CF crawl doesn't return json field — extract signals from HTML via Claude
-  const needsExtraction = rawResult.pages.some(
-    (p) => (!p.json || Object.keys(p.json).length === 0) && !!p.html,
-  );
-  let extractFailures = 0;
-  let extractAttempts = 0;
-  if (needsExtraction) {
-    const pagesToExtract = rawResult.pages.slice(0, MAX_AI_EXTRACT_PAGES);
-    const settled = await Promise.allSettled(
-      pagesToExtract.map((p) =>
-        p.html ? extractPageSignals(p.html, EXTRACTION_PROMPT) : Promise.resolve({}),
-      ),
-    );
-    const extracted = settled.map((r) => {
-      if (r.status === 'fulfilled') return r.value;
-      extractFailures++;
-      return {} as Record<string, unknown>;
-    });
-    extractAttempts = pagesToExtract.filter((p) => !!p.html).length;
-    rawResult = {
-      ...rawResult,
-      pages: rawResult.pages.map((p, i) =>
-        i < MAX_AI_EXTRACT_PAGES ? { ...p, json: extracted[i] } : p,
-      ),
-    };
-    logger.info('crawl', 'Extracted signals from HTML', {
-      pages: pagesToExtract.length,
-      failures: extractFailures,
-    });
-  }
-
-  // Always apply deterministic HTML parsing on top of AI-extracted json.
-  // AI often returns empty strings for metadata fields even when the HTML contains them.
-  // For array fields, union-merge so neither AI nor deterministic results are lost.
+  // Page signals come from deterministic HTML parsing only. Per-page AI extraction was
+  // removed: the parser covers every field extractSignals reads (100% on the fixture eval),
+  // so the Haiku calls added cost and a failure mode without adding signal.
   rawResult = {
     ...rawResult,
     pages: rawResult.pages.map((p) => {
@@ -667,7 +629,7 @@ export async function extractAndPersistSignals(
   });
   if (insertError) throw new Error(`Failed to insert signals: ${insertError.message}`);
 
-  // Merge enrichment_errors so we can flag an extract failure without clobbering other fields.
+  // Clear any legacy AI-extract error flag without clobbering other enrichment_errors fields.
   const { data: existingErrRow } = await supabaseAdmin
     .from('businesses')
     .select('enrichment_errors')
@@ -675,16 +637,7 @@ export async function extractAndPersistSignals(
     .single();
   const existingErrs = (existingErrRow?.enrichment_errors ?? {}) as Record<string, string>;
   const nextErrs: Record<string, string> = { ...existingErrs };
-  // Flag on ANY extract failure — partial failures still corrupt downstream signals.
-  if (extractFailures > 0 && extractAttempts > 0) {
-    const ratio = `${extractFailures}/${extractAttempts}`;
-    nextErrs.extract =
-      extractFailures === extractAttempts
-        ? 'Page-signal extraction failed; some on-site recommendations may be unavailable.'
-        : `Page-signal extraction partially failed (${ratio} pages); some on-site recommendations may be unavailable.`;
-  } else {
-    delete nextErrs.extract;
-  }
+  delete nextErrs.extract;
 
   const { error: updateError } = await supabaseAdmin
     .from('businesses')

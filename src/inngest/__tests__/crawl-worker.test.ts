@@ -329,6 +329,24 @@ describe('change detection → confirmation', () => {
     expect(row('businesses', BUSINESS_ID).crawl_status).toBe('complete');
   }, 60_000);
 
+  it('accepts a noise-only diff as the new baseline without a confirmation crawl', async () => {
+    seedProject({ last_crawled_at: '2026-08-20T00:00:00.000Z' });
+    await runCrawl('initial');
+    const baseline = db.rows('extracted_signals')[0];
+    (baseline.engagement as Record<string, unknown>).ctaText = ['Some older CTA wording'];
+    baseline.scanned_at = '2026-08-20T00:00:00.000Z';
+
+    server.use(...cloudflareHandlers({ pollsBeforeDone: 1 }));
+    const second = await runCrawl('incremental');
+    expect(second.error).toBeUndefined();
+    const detection = db.rows('extracted_signals').find((r) => r.id !== baseline.id)!;
+    expect(detection.status).toBe('confirmed');
+    expect(second.ctx.step.sendEvent).not.toHaveBeenCalledWith(
+      'schedule-change-confirmation',
+      expect.anything(),
+    );
+  }, 60_000);
+
   // Regression guard: 'confirm-persist-signals' must apply the same direct
   // robots/sitemap override as 'persist-signals'. Without it the confirmation
   // snapshot flips both fields to false, the diff reports a phantom

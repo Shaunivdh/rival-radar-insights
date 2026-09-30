@@ -21,7 +21,7 @@ import {
 import { getOrComputeShared } from '@/lib/projectCache';
 import { calculateScores, recomputeOverallScore } from '@/services/scores';
 import { fetchPageSpeedData } from '@/services/pagespeed';
-import { suppressOscillatingChanges } from '@/services/diff';
+import { suppressOscillatingChanges, materialChangePaths } from '@/services/diff';
 import { updateBusiness, saveChangeEvent } from '@/lib/supabase/business';
 import {
   generateAndPersistProjectActions,
@@ -749,6 +749,19 @@ export const crawlBusinessFunction = inngest.createFunction(
         );
       }
       if (!filtered.hasChanges) return null;
+
+      // Only material changes earn a confirmation re-crawl. Noise-only diffs keep the
+      // row 'confirmed' so it quietly becomes the next baseline.
+      if (materialChangePaths(filtered.changedPaths).length === 0) {
+        logCrawlStep(
+          businessId,
+          jobId,
+          'diff-and-summarize',
+          'success',
+          `Non-material changes accepted without confirmation: ${filtered.changedPaths.join(', ')}`,
+        );
+        return null;
+      }
 
       await supabaseAdmin
         .from('extracted_signals')

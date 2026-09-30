@@ -573,6 +573,7 @@ export const crawlBusinessFunction = inngest.createFunction(
           meta.primaryService,
           meta.location,
           meta.postcode,
+          meta.projectId,
         );
         await clearEnrichmentError(businessId, 'serp');
         logCrawlStep(businessId, jobId, 'enrich-serp', 'success');

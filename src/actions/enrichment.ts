@@ -8,7 +8,8 @@ import {
   postcodeToLocation,
   searchTermsForTypes,
 } from '@/services/google';
-import { getRankingData } from '@/services/serp';
+import { getRankingData, type LocalPackFetcher } from '@/services/serp';
+import { getOrComputeShared } from '@/lib/projectCache';
 import { updateBusiness } from '@/lib/supabase/business';
 import { supabaseAdmin } from '@/lib/supabase/server';
 import { SERVICE_CATEGORIES, type ServiceCategory } from '@/lib/serviceCategories';
@@ -75,6 +76,9 @@ export async function fetchGoogleData(
   logger.info('enrich-google', 'google_data saved', { businessId });
 }
 
+/** Local-pack responses reused across a project for 24h (see projectCache). */
+const SERP_SHARE = { ttlMs: 24 * 60 * 60 * 1000, leaseMs: 60_000, waitMs: 20_000, pollMs: 2_000 };
+
 export async function fetchSerpData(
   businessId: string,
   businessName: string,
@@ -82,6 +86,8 @@ export async function fetchSerpData(
   primaryService: string,
   location: string,
   postcode?: string,
+  /** When set, identical local-pack requests are shared across the project's businesses. */
+  projectId?: string,
 ): Promise<void> {
   logger.info('fetchSerpData', 'Starting', {
     businessId,
@@ -138,9 +144,13 @@ export async function fetchSerpData(
 
   // Query each candidate term in parallel (they're independent) and keep the best (lowest, non-null)
   // position; the winning term is recorded in serpData.searchTerm. candidateTerms always has ≥1 entry.
+  const fetcher: LocalPackFetcher | undefined = projectId
+    ? async (key, live) =>
+        (await getOrComputeShared(projectId, 'serp', key, SERP_SHARE, live)).value
+    : undefined;
   const results = await Promise.all(
     candidateTerms.map((term) =>
-      getRankingData(businessName, term, resolvedLocation, apiKey, domain, ll),
+      getRankingData(businessName, term, resolvedLocation, apiKey, domain, ll, fetcher),
     ),
   );
   let serpData: SerpData = results[0];

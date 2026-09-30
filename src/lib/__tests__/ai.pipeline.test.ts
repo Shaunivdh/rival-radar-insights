@@ -543,7 +543,7 @@ describe('Priority action pipeline (integration)', () => {
     const own = buildBusiness({
       signals: emptySignals(),
       enrichmentErrors: {
-        extract: 'Page-signal extraction failed — some on-site recommendations may be unavailable.',
+        extract: 'Page-signal extraction failed; some on-site recommendations may be unavailable.',
       },
     });
 

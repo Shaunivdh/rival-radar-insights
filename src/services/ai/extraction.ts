@@ -104,7 +104,7 @@ export async function generateReviewSentiment(
   const t0 = Date.now();
   const prompt = `Analyse these customer reviews and return JSON only.
 Schema: {"positiveThemes":["string","string","string"],"negativeThemes":["string","string","string"],"summary":"string"}
-Rules: positiveThemes = top 3 praised topics (2-4 words each), negativeThemes = top 3 complaint topics (2-4 words each, empty array if none), summary = ≤15 words.
+Rules: positiveThemes = top 3 praised topics (2 to 4 words each), negativeThemes = top 3 complaint topics (2 to 4 words each, empty array if none), summary = ≤15 words.
 Reviews:\n${texts}`;
   try {
     const result = await askClaude<Omit<ReviewSentiment, 'generatedAt'>>(prompt, SENTIMENT_SCHEMA);

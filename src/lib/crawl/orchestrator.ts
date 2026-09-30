@@ -445,7 +445,7 @@ export async function extractAndPersistSignals(
               ? 'This website has a popup or bot challenge that blocks automated crawling. The page content could not be read.'
               : finalDiag.blockType === 'error_page'
                 ? 'This website returned an error page. It may be temporarily down or the URL may be incorrect.'
-                : 'This website could not be crawled — it may be temporarily unavailable. Re-scanning may resolve this.';
+                : 'This website could not be crawled. It may be temporarily unavailable. Re-scanning may resolve this.';
 
           await supabaseAdmin
             .from('businesses')
@@ -680,8 +680,8 @@ export async function extractAndPersistSignals(
     const ratio = `${extractFailures}/${extractAttempts}`;
     nextErrs.extract =
       extractFailures === extractAttempts
-        ? 'Page-signal extraction failed — some on-site recommendations may be unavailable.'
-        : `Page-signal extraction partially failed (${ratio} pages) — some on-site recommendations may be unavailable.`;
+        ? 'Page-signal extraction failed; some on-site recommendations may be unavailable.'
+        : `Page-signal extraction partially failed (${ratio} pages); some on-site recommendations may be unavailable.`;
   } else {
     delete nextErrs.extract;
   }

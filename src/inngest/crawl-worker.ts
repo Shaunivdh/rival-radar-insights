@@ -168,7 +168,7 @@ async function runProjectActionGeneration(projectId: string, logPrefix: string):
       await writeEnrichmentError(
         ownId,
         'ai_actions',
-        `Recommendations unavailable — retrying at ${retryAt}`,
+        `Recommendations unavailable; retrying at ${retryAt}`,
       );
       return;
     }
@@ -180,7 +180,7 @@ async function runProjectActionGeneration(projectId: string, logPrefix: string):
       await writeEnrichmentError(
         ownId,
         'ai_actions',
-        'No recommendations were generated on the last scan — re-scan to try again.',
+        'No recommendations were generated on the last scan. Re-scan to try again.',
       );
       return;
     }

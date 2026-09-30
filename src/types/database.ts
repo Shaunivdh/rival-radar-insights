@@ -538,36 +538,6 @@ export type Database = {
           },
         ];
       };
-      projects: {
-        Row: {
-          created_at: string;
-          id: string;
-          location: string | null;
-          name: string;
-          postcode: string | null;
-          primary_service: string | null;
-          user_id: string;
-        };
-        Insert: {
-          created_at?: string;
-          id?: string;
-          location?: string | null;
-          name: string;
-          postcode?: string | null;
-          primary_service?: string | null;
-          user_id: string;
-        };
-        Update: {
-          created_at?: string;
-          id?: string;
-          location?: string | null;
-          name?: string;
-          postcode?: string | null;
-          primary_service?: string | null;
-          user_id?: string;
-        };
-        Relationships: [];
-      };
       project_cache: {
         Row: {
           fetched_at: string;
@@ -599,6 +569,36 @@ export type Database = {
             referencedColumns: ['id'];
           },
         ];
+      };
+      projects: {
+        Row: {
+          created_at: string;
+          id: string;
+          location: string | null;
+          name: string;
+          postcode: string | null;
+          primary_service: string | null;
+          user_id: string;
+        };
+        Insert: {
+          created_at?: string;
+          id?: string;
+          location?: string | null;
+          name: string;
+          postcode?: string | null;
+          primary_service?: string | null;
+          user_id: string;
+        };
+        Update: {
+          created_at?: string;
+          id?: string;
+          location?: string | null;
+          name?: string;
+          postcode?: string | null;
+          primary_service?: string | null;
+          user_id?: string;
+        };
+        Relationships: [];
       };
       rate_limits: {
         Row: {

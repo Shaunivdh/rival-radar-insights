@@ -56,7 +56,6 @@ and keep its export list in step with `src/services/__tests__/ai.barrel.test.ts`
 
 | Function                                       | Model | max_tokens        | Output                                   |
 | ---------------------------------------------- | ----- | ----------------- | ---------------------------------------- |
-| `extractPageSignals` (per page)                | FAST  | 4096              | `EXTRACTION_SCHEMA`                      |
 | `generateReviewSentiment`                      | FAST  | 512               | `SENTIMENT_SCHEMA`                       |
 | `checkAIVisibility` (5 queries + web search)   | SMART | 1000 per query    | free text, then mention extraction       |
 | `extractMentionedBusinesses`                   | FAST  | 1024              | `MENTIONED_BUSINESSES_SCHEMA`            |

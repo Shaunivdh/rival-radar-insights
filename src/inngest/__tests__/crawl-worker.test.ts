@@ -168,6 +168,54 @@ describe('crawlBusinessFunction — happy path', () => {
   }, 30_000);
 });
 
+/**
+ * Every business's run evaluates the "is every business done" gate, so when the
+ * last few finish together they can all see all-done and all see no recent
+ * `generated_at`, because none has inserted yet. The claim is what stops them all
+ * paying for a generation and inserting duplicate actions.
+ */
+describe('crawlBusinessFunction — action-generation claim', () => {
+  it('skips generation when another run already holds the claim', async () => {
+    seedProject();
+    // The state another run leaves behind: claim taken, window still open.
+    db.rows('rate_limits').push({
+      key: `action-generation:${PROJECT_ID}`,
+      count: 1,
+      reset_at: new Date(Date.now() + 10 * 60 * 1000).toISOString(),
+    });
+
+    const t = new InngestTestEngine({
+      function: crawlBusinessFunction,
+      steps: stepMocks(),
+      events: [{ name: 'crawl/business.scan', data: { businessId: BUSINESS_ID, mode: 'initial' } }],
+    });
+
+    const { error } = await t.execute();
+    expect(error).toBeUndefined();
+
+    // The crawl itself still completed; only the duplicate generation was skipped.
+    expect(row('businesses', BUSINESS_ID).crawl_status).toBe('complete');
+    expect(db.rows('priority_actions')).toHaveLength(0);
+  }, 30_000);
+
+  it('takes the claim and generates when no other run holds it', async () => {
+    seedProject();
+    const t = new InngestTestEngine({
+      function: crawlBusinessFunction,
+      steps: stepMocks(),
+      events: [{ name: 'crawl/business.scan', data: { businessId: BUSINESS_ID, mode: 'initial' } }],
+    });
+
+    const { error } = await t.execute();
+    expect(error).toBeUndefined();
+    expect(db.rows('priority_actions').length).toBeGreaterThan(0);
+
+    // Claim recorded against the project, so a concurrent run would be turned away.
+    const claim = db.rows('rate_limits').find((r) => r.key === `action-generation:${PROJECT_ID}`);
+    expect(claim).toMatchObject({ count: 1 });
+  }, 30_000);
+});
+
 describe('crawlBusinessFunction — crawl failure', () => {
   it('fails the run when Cloudflare and the direct fetch both fail, and onFailure marks the business', async () => {
     seedProject();

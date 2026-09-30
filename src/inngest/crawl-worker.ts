@@ -28,6 +28,7 @@ import {
 import { normalizeUrl } from '@/lib/url';
 import { saveScoreSnapshot, getWeeklyDelta } from '@/lib/supabase/scores';
 import { logCrawlStep } from '@/lib/crawl/crawl-logger';
+import { isRateLimited } from '@/lib/rateLimit';
 import { THREAT_DEDUP_MS, CHANGE_CONFIRMATION_DELAY_MS } from '@/lib/crawl/config';
 import { asProjectId } from '@/types';
 import type {
@@ -92,11 +93,65 @@ async function clearEnrichmentError(
 }
 
 /**
+ * How long one run holds the right to generate a project's action plan.
+ *
+ * This is a mutex, not the regeneration policy. It only has to outlast a single
+ * generation (a SMART call plus the fact-checker pass) so that a second run
+ * arriving mid-generation is turned away. The "not more than once a day" policy
+ * stays where it was, on the `generated_at` check in the `priority-actions` step.
+ *
+ * Deliberately short. A day-long claim would also be held after a generation
+ * that FAILED, which would block the retry and leave the plan empty for 24
+ * hours: exactly the symptom this code exists to avoid.
+ */
+const ACTION_GENERATION_CLAIM_MS = 10 * 60 * 1000;
+
+/**
+ * Claim the exclusive right to generate this project's action plan, or return
+ * false if another run already holds it.
+ *
+ * Every business's run evaluates the "is every business done" gate, so when the
+ * last few finish within moments of each other they can all see all-done and all
+ * see no recent `generated_at`, because none has inserted yet. Read-then-decide
+ * cannot stop that. `check_rate_limit` does its read, increment and comparison in
+ * one locked statement, so with a limit of 1 exactly one caller per project gets
+ * through and the rest are turned away instead of paying for a duplicate
+ * generation and inserting duplicate actions.
+ *
+ * Fails open, like the limiter it is built on: if the database cannot answer, the
+ * caller proceeds and behaviour is no worse than it was before this guard.
+ */
+async function claimActionGeneration(projectId: string): Promise<boolean> {
+  try {
+    return !(await isRateLimited(`action-generation:${projectId}`, {
+      limit: 1,
+      windowMs: ACTION_GENERATION_CLAIM_MS,
+    }));
+  } catch (e) {
+    // isRateLimited expects postgrest to return errors rather than throw. If one
+    // escapes anyway, proceed: a guard that can fail the whole step is worse than
+    // the duplicate generation it was added to prevent.
+    logger.warn('priority-actions', 'Generation claim unavailable, proceeding', {
+      projectId,
+      error: e,
+    });
+    return true;
+  }
+}
+
+/**
  * Run the single action-generation path (`generateAndPersistProjectActions`) and
  * translate its outcome into the own business's `enrichment_errors.ai_actions`.
  * Shared by the main pipeline's `priority-actions` step and the onFailure handler.
+ *
+ * The manual recovery route calls `generateAndPersistProjectActions` directly and
+ * is intentionally not behind the claim: forcing a regeneration is its purpose.
  */
 async function runProjectActionGeneration(projectId: string, logPrefix: string): Promise<void> {
+  if (!(await claimActionGeneration(projectId))) {
+    logger.info(logPrefix, 'Another run holds the generation claim, skipping', { projectId });
+    return;
+  }
   try {
     const result = await generateAndPersistProjectActions(asProjectId(projectId));
     const ownId = result.ownBusinessId;

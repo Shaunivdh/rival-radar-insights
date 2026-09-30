@@ -1,5 +1,6 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { withRetry } from '@/lib/aiRetry';
+import { logAIEvent } from '@/lib/aiTelemetry';
 import type { JsonSchema } from '../aiSchemas';
 
 export class AIUnavailableError extends Error {
@@ -94,10 +95,25 @@ export async function callLLMRaw(
   params: Anthropic.MessageCreateParamsNonStreaming,
   retryOpts?: { backoffMs?: number; label?: string },
 ): Promise<Anthropic.Message> {
-  return withRetry(() => getClient().messages.create(params), {
-    label: retryOpts?.label ?? 'callLLMRaw',
+  const label = retryOpts?.label ?? 'callLLMRaw';
+  const t0 = Date.now();
+  const msg = await withRetry(() => getClient().messages.create(params), {
+    label,
     ...(retryOpts?.backoffMs ? { backoffMs: retryOpts.backoffMs } : {}),
   });
+  // Token usage per call, so cost estimates can be measured rather than guessed.
+  logAIEvent({
+    event: 'usage',
+    model: params.model,
+    success: true,
+    durationMs: Date.now() - t0,
+    label,
+    inputTokens: msg.usage?.input_tokens,
+    outputTokens: msg.usage?.output_tokens,
+    cacheReadTokens: msg.usage?.cache_read_input_tokens ?? undefined,
+    webSearchRequests: msg.usage?.server_tool_use?.web_search_requests ?? undefined,
+  });
+  return msg;
 }
 
 /**

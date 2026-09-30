@@ -8,7 +8,8 @@ export interface AIEvent {
     | 'sentiment'
     | 'change_summary'
     | 'change_summary_skipped'
-    | 'extract_signals';
+    | 'extract_signals'
+    | 'usage';
   model: string;
   success: boolean;
   durationMs: number;
@@ -19,6 +20,12 @@ export interface AIEvent {
   cacheHits?: number;
   templatesUsed?: number;
   templatesFired?: string[];
+  /** Call-site label passed to callLLMRaw, e.g. 'ai-presence'. */
+  label?: string;
+  inputTokens?: number;
+  outputTokens?: number;
+  cacheReadTokens?: number;
+  webSearchRequests?: number;
 }
 
 /**

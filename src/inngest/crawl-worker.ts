@@ -15,8 +15,10 @@ import {
   generateChangeSummary,
   generateReviewSentiment,
   checkAIVisibility,
+  runVisibilityQuery,
   AIUnavailableError,
 } from '@/services/ai';
+import { getOrComputeShared } from '@/lib/projectCache';
 import { calculateScores, recomputeOverallScore } from '@/services/scores';
 import { fetchPageSpeedData } from '@/services/pagespeed';
 import { suppressOscillatingChanges } from '@/services/diff';
@@ -45,6 +47,14 @@ import { logger } from '@/lib/logger';
 
 const MAX_POLL_ATTEMPTS = 120;
 const POLL_INTERVAL = '5s';
+/** AI-visibility answers shared across a project's businesses (see projectCache). The
+ *  TTL matches checkAIVisibility's own 24h freshness skip. */
+const AI_VISIBILITY_SHARE = {
+  ttlMs: 24 * 60 * 60 * 1000,
+  leaseMs: 3 * 60 * 1000,
+  waitMs: 45_000,
+  pollMs: 3_000,
+};
 const DIRECT_FETCH_FALLBACK_ATTEMPTS = 36; // ~3 min before falling back to direct fetch
 
 async function writeEnrichmentError(
@@ -607,6 +617,18 @@ export const crawlBusinessFunction = inngest.createFunction(
           meta.name,
           existing?.ai_visibility as AIVisibility | null,
           meta.primaryService as ServiceCategory,
+          // Queries depend only on the project's service + location, so the project's
+          // businesses share one set of web-search answers; matching stays per business.
+          async (query) =>
+            (
+              await getOrComputeShared(
+                meta.projectId,
+                'ai_visibility',
+                query,
+                AI_VISIBILITY_SHARE,
+                () => runVisibilityQuery(query),
+              )
+            ).value,
         );
         if (!visibility) {
           logCrawlStep(

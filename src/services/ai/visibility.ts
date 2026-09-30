@@ -194,6 +194,26 @@ function matchWithLocation(
   return { confidence, match: result.match };
 }
 
+/** One live AI-visibility query: Sonnet with web search, answer text only. */
+export async function runVisibilityQuery(query: string): Promise<string> {
+  const result = await callLLMRaw(
+    {
+      model: AI_MODEL_SMART,
+      max_tokens: 1000,
+      system:
+        'You are a helpful local business recommendation assistant. When asked about businesses in a specific area, provide specific real business names and brief descriptions. Always include specific names.',
+      // Current web-search tool (dynamic filtering); requires Sonnet 4.6+ / Sonnet 5.
+      tools: [{ type: 'web_search_20260209', name: 'web_search' }],
+      messages: [{ role: 'user', content: query }],
+    },
+    { backoffMs: 10000, label: 'ai-presence' },
+  );
+  return result.content
+    .filter((c) => c.type === 'text')
+    .map((c) => (c as { type: 'text'; text: string }).text)
+    .join('\n');
+}
+
 /**
  * Check how visible a business is in AI recommendation responses.
  *
@@ -214,6 +234,9 @@ export async function checkAIVisibility(
   businessName: string,
   existingVisibility?: AIVisibility | null,
   serviceCategory?: ServiceCategory,
+  /** Source of the raw answer text per query. Defaults to a live web-search call;
+   *  the crawl worker passes a project-cached version so businesses share it. */
+  getResponse: (query: string) => Promise<string> = runVisibilityQuery,
 ): Promise<AIVisibility | null> {
   if (SKIP_AI) {
     return {
@@ -262,23 +285,7 @@ export async function checkAIVisibility(
 
   for (const query of queries) {
     try {
-      const result = await callLLMRaw(
-        {
-          model: AI_MODEL_SMART,
-          max_tokens: 1000,
-          system:
-            'You are a helpful local business recommendation assistant. When asked about businesses in a specific area, provide specific real business names and brief descriptions. Always include specific names.',
-          // Current web-search tool (dynamic filtering); requires Sonnet 4.6+ / Sonnet 5.
-          tools: [{ type: 'web_search_20260209', name: 'web_search' }],
-          messages: [{ role: 'user', content: query }],
-        },
-        { backoffMs: 10000, label: 'ai-presence' },
-      );
-
-      const aiText = result.content
-        .filter((c) => c.type === 'text')
-        .map((c) => (c as { type: 'text'; text: string }).text)
-        .join('\n');
+      const aiText = await getResponse(query);
 
       logger.info('ai-presence', 'Query response', {
         query,

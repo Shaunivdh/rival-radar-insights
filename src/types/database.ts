@@ -568,6 +568,38 @@ export type Database = {
         };
         Relationships: [];
       };
+      project_cache: {
+        Row: {
+          fetched_at: string;
+          key: string;
+          kind: string;
+          payload: Json;
+          project_id: string;
+        };
+        Insert: {
+          fetched_at?: string;
+          key: string;
+          kind: string;
+          payload: Json;
+          project_id: string;
+        };
+        Update: {
+          fetched_at?: string;
+          key?: string;
+          kind?: string;
+          payload?: Json;
+          project_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'project_cache_project_id_fkey';
+            columns: ['project_id'];
+            isOneToOne: false;
+            referencedRelation: 'projects';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
       rate_limits: {
         Row: {
           count: number;

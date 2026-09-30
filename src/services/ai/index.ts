@@ -17,4 +17,9 @@ export {
   generatePriorityActionsWithHistory,
 } from './actions';
 export { generateChangeSummary } from './summary';
-export { clearMentionsCache, checkAIVisibility, AI_PRESENCE_WINDOW } from './visibility';
+export {
+  clearMentionsCache,
+  checkAIVisibility,
+  runVisibilityQuery,
+  AI_PRESENCE_WINDOW,
+} from './visibility';

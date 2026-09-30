@@ -24,6 +24,7 @@ const EXPECTED_EXPORTS: Record<string, 'function' | 'number'> = {
   generateChangeSummary: 'function',
   clearMentionsCache: 'function',
   checkAIVisibility: 'function',
+  runVisibilityQuery: 'function',
   AI_PRESENCE_WINDOW: 'number',
 };
 

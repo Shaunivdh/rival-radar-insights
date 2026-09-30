@@ -568,8 +568,9 @@ export async function extractAndPersistSignals(
   }
 
   // Page signals come from deterministic HTML parsing only. Per-page AI extraction was
-  // removed: the parser covers every field extractSignals reads (100% on the fixture eval),
-  // so the Haiku calls added cost and a failure mode without adding signal.
+  // removed: it had been failing on every call (schema too large for structured output)
+  // and the parser covers every field extractSignals reads. Note the parser's service
+  // lists are noisier than the AI's were on real sites (headings, stat labels).
   rawResult = {
     ...rawResult,
     pages: rawResult.pages.map((p) => {

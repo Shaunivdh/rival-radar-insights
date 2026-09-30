@@ -86,7 +86,7 @@ const runConfirm = (data: Record<string, unknown>) =>
  * execution must get a fresh engine and a fresh list — never reuse either.
  */
 const stepMocks = () => [
-  ...Array.from({ length: 8 }, (_, i) => i + 1).flatMap((n) => [
+  ...Array.from({ length: 16 }, (_, i) => i + 1).flatMap((n) => [
     { id: `poll-wait-${n}`, handler: () => null },
     { id: `confirm-poll-wait-${n}`, handler: () => null },
   ]),
@@ -123,7 +123,7 @@ describe('crawlBusinessFunction — happy path', () => {
     expect(biz.last_crawled_at).toBeTruthy();
     expect(db.rows('crawl_jobs').map((j) => j.status)).toEqual(['completed']);
 
-    // Signals persisted: AI extraction merged with deterministic parser, robots/sitemap from direct checks
+    // Signals persisted: deterministic parser, robots/sitemap from direct checks
     const sig = db.rows('extracted_signals');
     expect(sig).toHaveLength(1);
     const seo = sig[0].seo as Record<string, unknown>;
@@ -458,4 +458,29 @@ describe('crawlBusinessFunction — disallowed site', () => {
     expect(seo.hasRobotsTxt).toBe(false);
     expect(seo.hasSitemap).toBe(false);
   }, 30_000);
+});
+
+describe('crawlBusinessFunction — crawl never finishes', () => {
+  // Poll backoff (5, 5, 10, 10, 15, then 20s) must still hand over to direct fetch
+  // at the ~3 minute mark the old flat 5s schedule used, not poll for 10 minutes.
+  it('falls back to direct fetch after ~3 minutes of polling', async () => {
+    seedProject();
+    server.use(
+      // Running for the main job's 13 polls, then done so the priority-page crawls finish.
+      ...cloudflareHandlers({ pollsBeforeDone: 13 }),
+      http.get('https://acme-plumbing.test/', () => HttpResponse.text(cfSampleHtml)),
+    );
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const { error } = await runCrawl('initial');
+    expect(error).toBeUndefined();
+
+    const pollLog = db
+      .rows('crawl_logs')
+      .find((r) => r.step === 'poll-status' && r.status === 'warning');
+    expect(pollLog?.message).toBe('Timed out, falling back to direct fetch');
+    // 12 sleeps reach 185s, the first total at or past the 175s fallback threshold.
+    expect((pollLog?.meta as { attempts: number }).attempts).toBe(13);
+    expect(db.rows('extracted_signals')).toHaveLength(1);
+    expect(row('businesses', BUSINESS_ID).crawl_status).toBe('complete');
+  }, 60_000);
 });

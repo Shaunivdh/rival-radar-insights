@@ -10,6 +10,13 @@ import type { Business, ExtractedSignals, PriorityAction } from '@/types';
 import { asBusinessId, type BusinessId, type ProjectId } from '@/types';
 
 /**
+ * Prefix of the insert-failure reason. Exported because the crawl worker matches
+ * it with `startsWith`, which no closed union can protect: renaming the literal
+ * in one place would leave that branch compiling and silently never matching.
+ */
+export const INSERT_FAILED_PREFIX = 'insert failed';
+
+/**
  * Why a run produced no actions.
  *
  * Closed on purpose: `runProjectActionGeneration` in the crawl worker branches on
@@ -23,7 +30,7 @@ export type ActionGenerationReason =
   | 'AI temporarily unavailable'
   | 'generation returned 0 actions'
   | 'all generated actions already exist'
-  | `insert failed: ${string}`;
+  | `${typeof INSERT_FAILED_PREFIX}: ${string}`;
 
 export type ActionGenerationResult = {
   inserted: number;
@@ -200,7 +207,7 @@ export async function generateAndPersistProjectActions(
     logger.error('priorityActions', 'Insert failed', { error: insertError });
     return {
       inserted: 0,
-      reason: `insert failed: ${insertError.message}`,
+      reason: `${INSERT_FAILED_PREFIX}: ${insertError.message}`,
       ownBusinessId: ownRaw.id,
     };
   }

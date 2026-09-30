@@ -7,6 +7,7 @@ import { supabaseAdmin } from '@/lib/supabase/server';
 import { generateAndPersistProjectActions } from '@/lib/priorityActionsGenerator';
 import { asProjectId } from '@/types';
 import { isRateLimited } from '@/lib/rateLimit';
+import { handleAIError } from '@/lib/apiErrorHandler';
 import { logger } from '@/lib/logger';
 
 async function getAuthUserId(): Promise<string | null> {
@@ -47,8 +48,12 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? 'unknown';
-  if (await isRateLimited(`regenerate-actions:${ip}`)) {
+  // Keyed on the authenticated user, not on x-forwarded-for. This route spends
+  // money on every call (SMART generation plus the fact-checker pass), and a
+  // client-supplied header is the wrong thing to meter it by: rotating the header
+  // gives each fake value its own bucket, while a shared office IP or NAT would
+  // throttle unrelated users against each other.
+  if (await isRateLimited(`regenerate-actions:${userId}`)) {
     return NextResponse.json({ error: 'Too many requests' }, { status: 429 });
   }
 
@@ -83,6 +88,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true, ...result });
   } catch (e) {
     logger.error('regenerate-actions', 'Failed', { projectId, error: e });
-    return NextResponse.json({ error: 'Failed to generate recommendations' }, { status: 500 });
+    return handleAIError(e);
   }
 }

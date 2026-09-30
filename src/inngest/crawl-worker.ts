@@ -21,7 +21,10 @@ import { calculateScores, recomputeOverallScore } from '@/services/scores';
 import { fetchPageSpeedData } from '@/services/pagespeed';
 import { suppressOscillatingChanges } from '@/services/diff';
 import { updateBusiness, saveChangeEvent } from '@/lib/supabase/business';
-import { generateAndPersistProjectActions } from '@/lib/priorityActionsGenerator';
+import {
+  generateAndPersistProjectActions,
+  INSERT_FAILED_PREFIX,
+} from '@/lib/priorityActionsGenerator';
 import { normalizeUrl } from '@/lib/url';
 import { saveScoreSnapshot, getWeeklyDelta } from '@/lib/supabase/scores';
 import { logCrawlStep } from '@/lib/crawl/crawl-logger';
@@ -127,7 +130,7 @@ async function runProjectActionGeneration(projectId: string, logPrefix: string):
       return;
     }
 
-    if (result.reason?.startsWith('insert failed')) {
+    if (result.reason?.startsWith(INSERT_FAILED_PREFIX)) {
       await writeEnrichmentError(
         ownId,
         'ai_actions',

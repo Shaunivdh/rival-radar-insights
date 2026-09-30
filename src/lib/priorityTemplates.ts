@@ -20,6 +20,12 @@ export type PriorityTemplate = {
    * still fire when `enrichmentErrors.extract` is set.
    */
   requiresSiteSignals?: boolean;
+  /**
+   * True if the trigger reads from `b.googleData`. Such templates are skipped
+   * when Google data is missing or the Google fetch errored, so a failed fetch
+   * is not reported to the owner as a gap in their profile.
+   */
+  requiresGoogleData?: boolean;
 };
 
 export const PRIORITY_TEMPLATES: PriorityTemplate[] = [
@@ -68,6 +74,7 @@ export const PRIORITY_TEMPLATES: PriorityTemplate[] = [
     ],
     outcome: 'Steady stream of recent reviews',
     requiresSiteSignals: false,
+    requiresGoogleData: true,
   },
   {
     id: 'missing_h1',
@@ -117,6 +124,7 @@ export const PRIORITY_TEMPLATES: PriorityTemplate[] = [
     ],
     outcome: 'Complete Google listing that builds trust',
     requiresSiteSignals: false,
+    requiresGoogleData: true,
   },
   {
     id: 'no_gbp_description',
@@ -140,6 +148,7 @@ export const PRIORITY_TEMPLATES: PriorityTemplate[] = [
     ],
     outcome: 'Better visibility in local search results',
     requiresSiteSignals: false,
+    requiresGoogleData: true,
   },
   {
     id: 'no_website_meta_description',
@@ -207,6 +216,7 @@ export const PRIORITY_TEMPLATES: PriorityTemplate[] = [
     ],
     outcome: 'More clicks and calls from your Google listing',
     requiresSiteSignals: false,
+    requiresGoogleData: true,
   },
   {
     id: 'missing_alt_tags',
@@ -374,8 +384,8 @@ export const PRIORITY_TEMPLATES: PriorityTemplate[] = [
   {
     id: 'low_review_count',
     trigger: (b) => {
-      const count = b.googleData?.reviewCount ?? 0;
-      return count < 10;
+      const count = b.googleData?.reviewCount;
+      return count != null && count < 10;
     },
     category: 'Reviews',
     effort: 'medium',
@@ -393,6 +403,7 @@ export const PRIORITY_TEMPLATES: PriorityTemplate[] = [
     ],
     outcome: 'A review profile that builds instant trust',
     requiresSiteSignals: false,
+    requiresGoogleData: true,
   },
   {
     id: 'slow_mobile_site',
@@ -475,9 +486,11 @@ export function applyTemplates(b: Business): ApplyResult {
   // When on-site extraction failed, signal-dependent triggers are unreliable
   // (empty arrays look the same as "missing" vs "truly absent"), so skip them.
   const extractFailed = Boolean(b.enrichmentErrors?.extract);
+  const googleMissing = !b.googleData || Boolean(b.enrichmentErrors?.google);
 
   for (const tpl of PRIORITY_TEMPLATES) {
     if (extractFailed && tpl.requiresSiteSignals !== false) continue;
+    if (googleMissing && tpl.requiresGoogleData) continue;
     if (!tpl.trigger(b)) continue;
 
     firedIds.push(tpl.id);
@@ -526,9 +539,11 @@ export function applyTemplatesWithHistory(
   const actions: PriorityAction[] = [];
   const firedIds: string[] = [];
   const extractFailed = Boolean(b.enrichmentErrors?.extract);
+  const googleMissing = !b.googleData || Boolean(b.enrichmentErrors?.google);
 
   for (const tpl of PRIORITY_TEMPLATES) {
     if (extractFailed && tpl.requiresSiteSignals !== false) continue;
+    if (googleMissing && tpl.requiresGoogleData) continue;
     if (!tpl.trigger(b)) continue;
 
     firedIds.push(tpl.id);

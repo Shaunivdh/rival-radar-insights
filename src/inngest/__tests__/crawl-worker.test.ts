@@ -13,6 +13,7 @@ import { CF_BASE, cloudflareHandlers, siteProbeHandlers } from '@/test/msw/handl
 import { cfSampleHtml } from '@/test/fixtures/providers/cloudflare';
 import { anthropicResponder } from '@/test/anthropic-mock';
 import { fakeDb as db } from '@/test/supabase-fake';
+import { buildGoogleData } from '@/test/builders';
 
 const { mockCreate } = vi.hoisted(() => {
   // Keep priority-page crawls to one so the multi-page path runs without 5 parallel jobs.
@@ -218,7 +219,8 @@ describe('crawlBusinessFunction — action-generation claim', () => {
 
 describe('crawlBusinessFunction — crawl failure', () => {
   it('fails the run when Cloudflare and the direct fetch both fail, and onFailure marks the business', async () => {
-    seedProject();
+    // A known Google gap (3 reviews), so action generation has real data to work from.
+    seedProject({ google_data: buildGoogleData({ reviewCount: 3 }) });
     server.use(
       http.post(`${CF_BASE}/crawl`, () => HttpResponse.text('upstream down', { status: 502 })),
       http.get('https://acme-plumbing.test/', () => HttpResponse.text('', { status: 503 })),

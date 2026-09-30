@@ -104,6 +104,40 @@ describe('applyTemplates', () => {
     ).not.toContain('no_recent_reviews');
     expect(applyTemplates(buildBusiness()).firedIds).not.toContain('no_recent_reviews');
   });
+
+  const GOOGLE_TEMPLATES = [
+    'no_recent_reviews',
+    'no_business_hours',
+    'no_gbp_description',
+    'low_gbp_photos',
+    'low_review_count',
+  ];
+
+  it('skips Google templates when there is no Google data', () => {
+    const { firedIds } = applyTemplates(buildBusiness({ googleData: null }));
+    for (const id of GOOGLE_TEMPLATES) expect(firedIds, id).not.toContain(id);
+  });
+
+  it('skips Google templates when the Google fetch errored', () => {
+    const b = buildBusiness({
+      googleData: buildGoogleData({ reviewCount: 3, photos: 0, openingHours: [] }),
+      enrichmentErrors: { google: 'quota' },
+    });
+    const { firedIds } = applyTemplates(b);
+    for (const id of GOOGLE_TEMPLATES) expect(firedIds, id).not.toContain(id);
+    expect(applyTemplatesWithHistory(b, []).firedIds).not.toContain('low_review_count');
+  });
+
+  it('low_review_count does not treat a missing review count as zero', () => {
+    const gd = buildGoogleData();
+    delete (gd as Partial<typeof gd>).reviewCount;
+    expect(applyTemplates(buildBusiness({ googleData: gd })).firedIds).not.toContain(
+      'low_review_count',
+    );
+    expect(
+      applyTemplates(buildBusiness({ googleData: buildGoogleData({ reviewCount: 3 }) })).firedIds,
+    ).toContain('low_review_count');
+  });
 });
 
 describe('applyTemplatesWithHistory', () => {

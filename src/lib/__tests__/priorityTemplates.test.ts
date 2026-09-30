@@ -148,27 +148,50 @@ describe('applyTemplates', () => {
 });
 
 describe('applyTemplatesWithHistory', () => {
-  it('marks repeated actions as still outstanding', () => {
-    const prev = [buildAction()];
+  it('tags every template action with its template id', () => {
+    const { actions } = applyTemplates(noPhone());
+    expect(
+      actions.find((a) => a.action === 'Add your phone number to the homepage')?.templateId,
+    ).toBe('no_phone_on_homepage');
+    for (const a of applyTemplatesWithHistory(noPhone(), []).actions) {
+      expect(a.templateId, a.action).toBeTruthy();
+    }
+  });
+
+  it('marks repeated actions as still outstanding by template id, even after a copy edit', () => {
+    const prev = [
+      buildAction({ templateId: 'no_phone_on_homepage', action: 'Old headline wording' }),
+    ];
     const { actions } = applyTemplatesWithHistory(noPhone(), prev);
-    const phone = actions.find((a) => a.action === prev[0].action);
+    const phone = actions.find((a) => a.templateId === 'no_phone_on_homepage');
     expect(phone?.continuityNote).toBe('Still outstanding from last week.');
     expect(
-      actions.filter((a) => a.action !== prev[0].action).every((a) => a.continuityNote === null),
+      actions
+        .filter((a) => a.templateId !== 'no_phone_on_homepage')
+        .every((a) => a.continuityNote === null),
     ).toBe(true);
   });
 
-  it("reports last week's actions whose category no longer fires as closed", () => {
-    const prev = [buildAction({ category: 'Conversion' })];
-    const { closedFromLastWeek, firedIds } = applyTemplatesWithHistory(buildBusiness(), prev);
-    const conversionStillFires = firedIds.some(
-      (id) => PRIORITY_TEMPLATES.find((t) => t.id === id)?.category === 'Conversion',
-    );
-    expect(closedFromLastWeek).toEqual(conversionStillFires ? [] : [prev[0].action]);
+  it("reports last week's template actions that no longer fire as closed", () => {
+    const prev = [buildAction({ templateId: 'no_phone_on_homepage' })];
+    expect(applyTemplatesWithHistory(buildBusiness(), prev).closedFromLastWeek).toEqual([
+      prev[0].action,
+    ]);
+    expect(applyTemplatesWithHistory(noPhone(), prev).closedFromLastWeek).toEqual([]);
   });
 
-  it('ignores previous actions from non-template categories', () => {
-    const prev = [buildAction({ category: 'Made Up Category' })];
+  it('never reports LLM actions as closed, even when their category has no template firing', () => {
+    const prev = [buildAction({ templateId: null, action: 'Ask 3 recent customers for reviews' })];
     expect(applyTemplatesWithHistory(buildBusiness(), prev).closedFromLastWeek).toEqual([]);
+  });
+
+  it('does not report a template as closed when it was skipped for missing data', () => {
+    const prev = [buildAction({ templateId: 'low_review_count', category: 'Reviews' })];
+    const noGoogle = buildBusiness({ googleData: null });
+    expect(applyTemplatesWithHistory(noGoogle, prev).closedFromLastWeek).toEqual([]);
+    const extractFailed = noPhone();
+    extractFailed.enrichmentErrors = { extract: 'timeout' };
+    const prevPhone = [buildAction({ templateId: 'no_phone_on_homepage' })];
+    expect(applyTemplatesWithHistory(extractFailed, prevPhone).closedFromLastWeek).toEqual([]);
   });
 });

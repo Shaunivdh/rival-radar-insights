@@ -512,6 +512,7 @@ export function applyTemplates(b: Business): ApplyResult {
         steps: tpl.steps,
         outcome: tpl.outcome,
         competitorReference: null,
+        templateId: tpl.id,
         _source: 'template',
       });
     }
@@ -529,10 +530,11 @@ export type ApplyWithHistoryResult = {
 /**
  * Like `applyTemplates`, but participates in the continuity story:
  * - Sets `continuityNote: 'Still outstanding from last week.'` on template actions
- *   that also appeared in `previousActions` (matched by category + substring).
- * - Computes `closedFromLastWeek`: headlines of previous actions whose category
- *   matches a known template category but whose template no longer fires this week,
- *   indicating the user likely fixed the underlying issue.
+ *   whose template id also appears in `previousActions`.
+ * - Computes `closedFromLastWeek`: headlines of previous template actions whose
+ *   template was evaluated this week and no longer fires, indicating the user
+ *   likely fixed the underlying issue. LLM actions (no template id) are never
+ *   counted, and neither are templates skipped for missing data.
  */
 export function applyTemplatesWithHistory(
   b: Business,
@@ -540,25 +542,21 @@ export function applyTemplatesWithHistory(
 ): ApplyWithHistoryResult {
   const actions: PriorityAction[] = [];
   const firedIds: string[] = [];
+  const evaluatedIds = new Set<string>();
+  const previousIds = new Set(previousActions.map((p) => p.templateId).filter(Boolean));
   const extractFailed = Boolean(b.enrichmentErrors?.extract);
   const googleMissing = !b.googleData || Boolean(b.enrichmentErrors?.google);
 
   for (const tpl of PRIORITY_TEMPLATES) {
     if (extractFailed && tpl.requiresSiteSignals !== false) continue;
     if (googleMissing && tpl.requiresGoogleData) continue;
+    evaluatedIds.add(tpl.id);
     if (!tpl.trigger(b)) continue;
 
     firedIds.push(tpl.id);
 
     if (actions.length < 5) {
-      // Check if this template was also present last week
-      const actionLower = tpl.action.toLowerCase();
-      const wasPresent = previousActions.some(
-        (prev) =>
-          prev.category === tpl.category &&
-          (prev.action.toLowerCase().includes(actionLower) ||
-            actionLower.includes(prev.action.toLowerCase())),
-      );
+      const wasPresent = previousIds.has(tpl.id);
 
       actions.push({
         id: asPriorityActionId(''),
@@ -575,22 +573,18 @@ export function applyTemplatesWithHistory(
         outcome: tpl.outcome,
         competitorReference: null,
         continuityNote: wasPresent ? 'Still outstanding from last week.' : null,
+        templateId: tpl.id,
         _source: 'template',
       });
     }
   }
 
-  // Compute closedFromLastWeek: previous actions whose category matches a template
-  // that no longer fires (user likely fixed the gap)
-  const templateCategories = new Set(PRIORITY_TEMPLATES.map((t) => t.category));
   const closedFromLastWeek: string[] = previousActions
     .filter(
       (prev) =>
-        templateCategories.has(prev.category) &&
-        !firedIds.some((id) => {
-          const tpl = PRIORITY_TEMPLATES.find((t) => t.id === id);
-          return tpl && tpl.category === prev.category;
-        }),
+        prev.templateId != null &&
+        evaluatedIds.has(prev.templateId) &&
+        !firedIds.includes(prev.templateId),
     )
     .map((prev) => prev.action);
 

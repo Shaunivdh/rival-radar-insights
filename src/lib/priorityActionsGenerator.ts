@@ -165,21 +165,24 @@ export async function generateAndPersistProjectActions(
   const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
   const { data: existingActions } = await supabaseAdmin
     .from('priority_actions')
-    .select('action, status, actioned_at')
+    .select('action, template_id, status, actioned_at')
     .eq('project_id', projectId);
 
-  const existingSet = new Set(
-    (existingActions ?? [])
-      .filter((e) => {
-        if (['active', 'snoozed', 'queued'].includes(e.status as string)) return true;
-        if (e.status === 'completed' && e.actioned_at && (e.actioned_at as string) >= thirtyDaysAgo)
-          return true;
-        return false;
-      })
-      .map((e) => e.action as string),
+  const liveExisting = (existingActions ?? []).filter((e) => {
+    if (['active', 'snoozed', 'queued'].includes(e.status as string)) return true;
+    if (e.status === 'completed' && e.actioned_at && (e.actioned_at as string) >= thirtyDaysAgo)
+      return true;
+    return false;
+  });
+  const existingSet = new Set(liveExisting.map((e) => e.action as string));
+  // Template actions match on id so a copy edit does not re-add the same gap.
+  const existingTemplateIds = new Set(
+    liveExisting.map((e) => e.template_id).filter((id): id is string => id != null),
   );
 
-  const newActions = rawActions.filter((a) => !existingSet.has(a.action));
+  const newActions = rawActions.filter(
+    (a) => !existingSet.has(a.action) && !(a.templateId && existingTemplateIds.has(a.templateId)),
+  );
   if (!newActions.length)
     return { inserted: 0, reason: 'all generated actions already exist', ownBusinessId: ownRaw.id };
 
@@ -207,6 +210,7 @@ export async function generateAndPersistProjectActions(
       estimated_impact: a.estimatedImpact,
       timeframe: a.timeframe,
       continuity_note: useHistory ? (a.continuityNote ?? null) : null,
+      template_id: a.templateId ?? null,
     })),
   );
 

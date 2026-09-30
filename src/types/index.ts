@@ -197,6 +197,8 @@ export interface PriorityAction {
   note?: string | null;
   actionedAt?: string | null;
   continuityNote?: string | null; // e.g. "Still outstanding from last week" or "You completed this"
+  /** Deterministic template that produced this action (null = LLM). Stable across copy edits. */
+  templateId?: string | null;
   /** Internal: source of this action for deterministic-check skip logic. Stripped before serving to clients. */
   _source?: 'template' | 'llm';
   /** Internal: data paths the LLM cited ("own.signals.engagement.hasContactForm=false"). Verified then stripped. */

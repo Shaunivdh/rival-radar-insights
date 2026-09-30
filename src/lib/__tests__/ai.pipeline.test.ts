@@ -461,6 +461,7 @@ describe('Priority action pipeline (integration)', () => {
         category: 'Conversion',
         effort: 'low',
         action: 'Add a phone number to the homepage',
+        templateId: 'no_phone_on_homepage',
         reason: 'No phone number visible',
         whyItMatters: 'Visitors cannot call you easily.',
         steps: ['Add phone to header'],

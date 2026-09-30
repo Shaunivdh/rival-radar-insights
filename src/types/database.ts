@@ -485,6 +485,7 @@ export type Database = {
           reason: string;
           status: string;
           steps: Json | null;
+          template_id: string | null;
           timeframe: string;
           why_it_matters: string | null;
         };
@@ -505,6 +506,7 @@ export type Database = {
           reason: string;
           status?: string;
           steps?: Json | null;
+          template_id?: string | null;
           timeframe: string;
           why_it_matters?: string | null;
         };
@@ -525,6 +527,7 @@ export type Database = {
           reason?: string;
           status?: string;
           steps?: Json | null;
+          template_id?: string | null;
           timeframe?: string;
           why_it_matters?: string | null;
         };

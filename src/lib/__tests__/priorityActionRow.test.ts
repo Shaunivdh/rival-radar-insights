@@ -20,6 +20,7 @@ describe('mapPriorityActionRow', () => {
       note: 'follow up',
       actioned_at: '2026-07-01T00:00:00Z',
       continuity_note: 'Still outstanding',
+      template_id: 'no_faq',
     };
 
     expect(mapPriorityActionRow(row)).toEqual({
@@ -39,6 +40,7 @@ describe('mapPriorityActionRow', () => {
       note: 'follow up',
       actionedAt: '2026-07-01T00:00:00Z',
       continuityNote: 'Still outstanding',
+      templateId: 'no_faq',
     });
   });
 
@@ -62,5 +64,6 @@ describe('mapPriorityActionRow', () => {
     expect(mapped.note).toBeNull();
     expect(mapped.actionedAt).toBeNull();
     expect(mapped.continuityNote).toBeNull();
+    expect(mapped.templateId).toBeNull();
   });
 });

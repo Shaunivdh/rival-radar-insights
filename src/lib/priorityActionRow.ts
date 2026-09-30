@@ -19,5 +19,6 @@ export function mapPriorityActionRow(r: Record<string, unknown>): PriorityAction
     note: (r.note as string | null) ?? null,
     actionedAt: (r.actioned_at as string | null) ?? null,
     continuityNote: (r.continuity_note as string | null) ?? null,
+    templateId: (r.template_id as string | null) ?? null,
   };
 }

@@ -54,15 +54,15 @@ Modules: `client`, `prompts`, `businessView`, `extraction`, `actions`, `evidence
 and keep its export list in step with `src/services/__tests__/ai.barrel.test.ts`. Models come from
 `AI_MODEL_FAST` (default Haiku 4.5) and `AI_MODEL_SMART` (default Sonnet 5).
 
-| Function                                       | Model | max_tokens       | Output                                   |
-| ---------------------------------------------- | ----- | ---------------- | ---------------------------------------- |
-| `extractPageSignals` (per page)                | FAST  | 4096             | `EXTRACTION_SCHEMA`                      |
-| `generateReviewSentiment`                      | FAST  | 512              | `SENTIMENT_SCHEMA`                       |
-| `checkAIVisibility` (5 queries + web search)   | SMART | 1000 per query   | free text, then mention extraction       |
-| `extractMentionedBusinesses`                   | FAST  | 1024             | `MENTIONED_BUSINESSES_SCHEMA`            |
-| `generatePriorityActions` / `…WithHistory`     | SMART | 900 × open slots | `PRIORITY_ACTIONS_*_SCHEMA` (+ evidence) |
-| `validateActionsHybrid` (fact-checker patches) | SMART | 1500             | `VALIDATION_PATCHES_SCHEMA`              |
-| `generateChangeSummary`                        | FAST  | 1024             | `CHANGE_SUMMARY_SCHEMA`                  |
+| Function                                       | Model | max_tokens        | Output                                   |
+| ---------------------------------------------- | ----- | ----------------- | ---------------------------------------- |
+| `extractPageSignals` (per page)                | FAST  | 4096              | `EXTRACTION_SCHEMA`                      |
+| `generateReviewSentiment`                      | FAST  | 512               | `SENTIMENT_SCHEMA`                       |
+| `checkAIVisibility` (5 queries + web search)   | SMART | 1000 per query    | free text, then mention extraction       |
+| `extractMentionedBusinesses`                   | FAST  | 1024              | `MENTIONED_BUSINESSES_SCHEMA`            |
+| `generatePriorityActions` / `…WithHistory`     | SMART | 1500 × open slots | `PRIORITY_ACTIONS_*_SCHEMA` (+ evidence) |
+| `validateActionsHybrid` (fact-checker patches) | SMART | 1500              | `VALIDATION_PATCHES_SCHEMA`              |
+| `generateChangeSummary`                        | FAST  | 1024              | `CHANGE_SUMMARY_SCHEMA`                  |
 
 Health scores are deterministic (`src/services/scores.ts`) — no AI.
 

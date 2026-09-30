@@ -108,9 +108,9 @@ export async function callLLMRaw(
     success: true,
     durationMs: Date.now() - t0,
     label,
-    inputTokens: msg.usage?.input_tokens,
-    outputTokens: msg.usage?.output_tokens,
-    cacheReadTokens: msg.usage?.cache_read_input_tokens ?? undefined,
+    usageIn: msg.usage?.input_tokens,
+    usageOut: msg.usage?.output_tokens,
+    usageCacheRead: msg.usage?.cache_read_input_tokens ?? undefined,
     webSearchRequests: msg.usage?.server_tool_use?.web_search_requests ?? undefined,
   });
   return msg;

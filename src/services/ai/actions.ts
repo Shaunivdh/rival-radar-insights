@@ -288,7 +288,8 @@ ${PRIORITY_SCHEMA_BASE}
 Own business: ${JSON.stringify(summariseBiz(own, true))}
 Competitors: ${JSON.stringify(competitors.map((b) => summariseBiz(b, false)))}`;
 
-  const tokensPerSlot = 900;
+  // 900 truncated in practice once site signals fed more evidence into each action.
+  const tokensPerSlot = 1500;
   const maxTokens = remainingSlots * tokensPerSlot;
 
   const t0 = Date.now();
@@ -447,7 +448,8 @@ ${PRIORITY_SCHEMA_WITH_CONTINUITY}
 Own business: ${JSON.stringify(summariseBiz(own, true))}
 Competitors: ${JSON.stringify(competitors.map((b) => summariseBiz(b, false)))}`;
 
-  const tokensPerSlot = 900;
+  // 900 truncated in practice once site signals fed more evidence into each action.
+  const tokensPerSlot = 1500;
   const maxTokens = remainingSlots * tokensPerSlot;
 
   const t0 = Date.now();

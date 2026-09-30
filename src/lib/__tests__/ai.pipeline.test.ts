@@ -382,8 +382,8 @@ describe('Priority action pipeline (integration)', () => {
     const callArgs = mockCreate.mock.calls[0][0];
     const prompt = callArgs.messages[0].content;
     expect(prompt).toContain('already covered');
-    // maxTokens should reflect 4 remaining slots (4 * 900 = 3600)
-    expect(callArgs.max_tokens).toBe(3600);
+    // maxTokens should reflect 4 remaining slots (4 * 1500 = 6000)
+    expect(callArgs.max_tokens).toBe(6000);
     // Structured output: the generation schema is sent with every call
     expect(callArgs.output_config?.format?.type).toBe('json_schema');
   });
@@ -404,8 +404,8 @@ describe('Priority action pipeline (integration)', () => {
     // Prompt should NOT contain coveredNote
     const prompt = mockCreate.mock.calls[0][0].messages[0].content;
     expect(prompt).not.toContain('already covered');
-    // maxTokens for 5 slots = 5 * 900 = 4500
-    expect(mockCreate.mock.calls[0][0].max_tokens).toBe(4500);
+    // maxTokens for 5 slots = 5 * 1500 = 7500
+    expect(mockCreate.mock.calls[0][0].max_tokens).toBe(7500);
   });
 
   // ── 4. Validator-flagged: unverified average triggers patch call ────

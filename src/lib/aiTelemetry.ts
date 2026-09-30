@@ -21,9 +21,10 @@ export interface AIEvent {
   templatesFired?: string[];
   /** Call-site label passed to callLLMRaw, e.g. 'ai-presence'. */
   label?: string;
-  inputTokens?: number;
-  outputTokens?: number;
-  cacheReadTokens?: number;
+  // Token counts. Not named "*Tokens": the logger redacts any field matching /token/i.
+  usageIn?: number;
+  usageOut?: number;
+  usageCacheRead?: number;
   webSearchRequests?: number;
 }
 

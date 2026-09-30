@@ -45,8 +45,21 @@ import type {
 import type { ServiceCategory } from '@/lib/serviceCategories';
 import { logger } from '@/lib/logger';
 
-const MAX_POLL_ATTEMPTS = 120;
-const POLL_INTERVAL = '5s';
+/**
+ * Crawl-status poll backoff. Quick checks first (small sites finish fast), then
+ * every 20s. Each poll is a billed Inngest step, so a flat 5s interval spent most
+ * of a crawl's executions on polling. Limits are elapsed time, not attempt counts,
+ * and match the old 5s schedule: direct fetch after ~3 min, give up after 10 min.
+ */
+const POLL_DELAYS_S = [5, 5, 10, 10, 15];
+const POLL_DELAY_CAP_S = 20;
+const MAX_POLL_MS = 10 * 60 * 1000;
+const DIRECT_FETCH_FALLBACK_MS = 175_000;
+
+function pollDelaySeconds(attempt: number): number {
+  return POLL_DELAYS_S[attempt] ?? POLL_DELAY_CAP_S;
+}
+
 /** AI-visibility answers shared across a project's businesses (see projectCache). The
  *  TTL matches checkAIVisibility's own 24h freshness skip. */
 const AI_VISIBILITY_SHARE = {
@@ -55,7 +68,6 @@ const AI_VISIBILITY_SHARE = {
   waitMs: 45_000,
   pollMs: 3_000,
 };
-const DIRECT_FETCH_FALLBACK_ATTEMPTS = 36; // ~3 min before falling back to direct fetch
 
 async function writeEnrichmentError(
   businessId: string,
@@ -365,22 +377,23 @@ export const crawlBusinessFunction = inngest.createFunction(
       // Step 2: Poll until complete or failed
       let crawlStatus = 'running';
       let attempts = 0;
+      let elapsedMs = 0;
 
-      while (crawlStatus === 'running' && attempts < MAX_POLL_ATTEMPTS) {
+      while (crawlStatus === 'running' && elapsedMs < MAX_POLL_MS) {
         crawlStatus = await step.run(`poll-status-${attempts}`, () =>
           checkCrawlStatus(businessId, jobId),
         );
         if (attempts % 10 === 0) {
           logger.info('crawl-worker', 'Poll attempt', {
             attempts,
-            maxAttempts: MAX_POLL_ATTEMPTS,
+            elapsedMs,
             jobId,
             status: crawlStatus,
           });
         }
         attempts++;
 
-        if (crawlStatus === 'running' && attempts === DIRECT_FETCH_FALLBACK_ATTEMPTS) {
+        if (crawlStatus === 'running' && elapsedMs >= DIRECT_FETCH_FALLBACK_MS) {
           logger.warn(
             'crawl-worker',
             'Still running after max polls — falling back to direct fetch',
@@ -390,7 +403,9 @@ export const crawlBusinessFunction = inngest.createFunction(
         }
 
         if (crawlStatus === 'running') {
-          await step.sleep(`poll-wait-${attempts}`, POLL_INTERVAL);
+          const delayS = pollDelaySeconds(attempts - 1);
+          await step.sleep(`poll-wait-${attempts}`, `${delayS}s`);
+          elapsedMs += delayS * 1000;
         }
       }
 
@@ -1159,13 +1174,16 @@ export const confirmChangeFunction = inngest.createFunction(
 
     let crawlStatus = 'running';
     let attempts = 0;
-    while (crawlStatus === 'running' && attempts < MAX_POLL_ATTEMPTS) {
+    let elapsedMs = 0;
+    while (crawlStatus === 'running' && elapsedMs < MAX_POLL_MS) {
       crawlStatus = await step.run(`confirm-poll-${attempts}`, () =>
         checkCrawlStatus(businessId, jobId),
       );
       attempts++;
       if (crawlStatus === 'running') {
-        await step.sleep(`confirm-poll-wait-${attempts}`, POLL_INTERVAL);
+        const delayS = pollDelaySeconds(attempts - 1);
+        await step.sleep(`confirm-poll-wait-${attempts}`, `${delayS}s`);
+        elapsedMs += delayS * 1000;
       }
     }
     if (crawlStatus !== 'completed') {

@@ -57,6 +57,11 @@ vi.mock('@/services/crawl.cache', () => ({
   loadFromCache: loadFromCacheMock,
 }));
 vi.mock('@/services/ai', () => ({ extractPageSignals: extractPageSignalsMock }));
+// The real probe arms an 8s abort timer, which races the faked clock above and
+// makes robots/sitemap values depend on timing. Pin it.
+vi.mock('@/lib/crawl/direct-checks', () => ({
+  checkDirectSignals: vi.fn(async () => ({ hasRobotsTxt: false, hasSitemap: false })),
+}));
 
 import { startBusinessCrawl, extractAndPersistSignals } from '@/lib/crawl/orchestrator';
 import { fakeDb as db } from '@/test/supabase-fake';

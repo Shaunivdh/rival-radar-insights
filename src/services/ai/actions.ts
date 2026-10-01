@@ -190,6 +190,7 @@ async function generateWithDistributionCheck(
       maxTokens,
       system: SCOUTLY_SYSTEM,
       model: AI_MODEL_INSIGHT,
+      effort: INSIGHT_EFFORT,
     }).then((r) => (Array.isArray(r.actions) ? r.actions : []));
 
   let sorted = sortTop5(await ask(prompt));
@@ -228,6 +229,17 @@ async function generateWithDistributionCheck(
 export const AI_FILL_THRESHOLD = Math.min(5, Number(process.env.AI_FILL_THRESHOLD) || 3);
 /** The LLM adds at most this many actions: a competitor insight templates cannot express. */
 const INSIGHT_SLOTS = 1;
+/**
+ * Output budget for the insight call. Sonnet 5 thinks by default and thinking
+ * counts against max_tokens: one ~400 token action used ~1,950 tokens at the
+ * default effort, so 1500 truncated. Truncation wastes the whole input.
+ */
+const INSIGHT_MAX_TOKENS = 4000;
+/** Thinking depth for the insight (env AI_INSIGHT_EFFORT). Ignored on Haiku. */
+const INSIGHT_EFFORT = (process.env.AI_INSIGHT_EFFORT?.trim() || 'low') as
+  | 'low'
+  | 'medium'
+  | 'high';
 
 export type PriorityActionOptions = {
   /** Project location, used to personalise template copy. */
@@ -313,9 +325,7 @@ ${PRIORITY_SCHEMA_BASE}
 
 ${insightPayload(own, competitors)}`;
 
-  // 900 truncated in practice once site signals fed more evidence into each action.
-  const tokensPerSlot = 1500;
-  const maxTokens = remainingSlots * tokensPerSlot;
+  const maxTokens = INSIGHT_MAX_TOKENS;
 
   const t0 = Date.now();
   try {
@@ -478,9 +488,7 @@ ${PRIORITY_SCHEMA_WITH_CONTINUITY}
 
 ${insightPayload(own, competitors)}`;
 
-  // 900 truncated in practice once site signals fed more evidence into each action.
-  const tokensPerSlot = 1500;
-  const maxTokens = remainingSlots * tokensPerSlot;
+  const maxTokens = INSIGHT_MAX_TOKENS;
 
   const t0 = Date.now();
   try {

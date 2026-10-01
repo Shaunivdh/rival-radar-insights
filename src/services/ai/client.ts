@@ -127,15 +127,22 @@ export async function callLLMRaw(
 export async function askClaude<T>(
   prompt: string,
   schema: JsonSchema,
-  opts: { maxTokens?: number; system?: string; model?: string } = {},
+  opts: {
+    maxTokens?: number;
+    system?: string;
+    model?: string;
+    /** Thinking depth on models that support it; ignored on Haiku 4.5, which rejects it. */
+    effort?: 'low' | 'medium' | 'high';
+  } = {},
 ): Promise<T> {
   const maxTokens = opts.maxTokens ?? 512;
   const model = opts.model ?? AI_MODEL_FAST;
+  const effort = opts.effort && !model.startsWith('claude-haiku') ? { effort: opts.effort } : {};
   const msg = await callLLMRaw(
     {
       model,
       max_tokens: maxTokens,
-      output_config: { format: { type: 'json_schema', schema } },
+      output_config: { format: { type: 'json_schema', schema }, ...effort },
       ...(opts.system ? { system: opts.system } : {}),
       messages: [{ role: 'user', content: prompt }],
     },

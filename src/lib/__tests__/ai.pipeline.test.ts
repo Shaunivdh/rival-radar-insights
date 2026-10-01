@@ -383,8 +383,9 @@ describe('Priority action pipeline (integration)', () => {
     const prompt = callArgs.messages[0].content;
     expect(prompt).toContain('already covered');
     expect(prompt).toContain('Return exactly 1 action');
-    // One slot only: 1 * 1500
-    expect(callArgs.max_tokens).toBe(1500);
+    // One insight slot with headroom for Sonnet thinking, at low effort.
+    expect(callArgs.max_tokens).toBe(4000);
+    expect(callArgs.output_config?.effort).toBe('low');
     expect(callArgs.output_config?.format?.type).toBe('json_schema');
   });
 
@@ -400,7 +401,7 @@ describe('Priority action pipeline (integration)', () => {
     expect(mockCreate).toHaveBeenCalledTimes(1);
     const prompt = mockCreate.mock.calls[0][0].messages[0].content;
     expect(prompt).not.toContain('already covered');
-    expect(mockCreate.mock.calls[0][0].max_tokens).toBe(1500);
+    expect(mockCreate.mock.calls[0][0].max_tokens).toBe(4000);
   });
 
   it('skips the LLM entirely when 3 or more fresh templates fire', async () => {

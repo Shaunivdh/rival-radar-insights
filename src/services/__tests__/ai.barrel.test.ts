@@ -26,6 +26,7 @@ const EXPECTED_EXPORTS: Record<string, 'function' | 'number'> = {
   checkAIVisibility: 'function',
   runVisibilityQuery: 'function',
   AI_PRESENCE_WINDOW: 'number',
+  AI_FILL_THRESHOLD: 'number',
 };
 
 describe('@/services/ai barrel', () => {

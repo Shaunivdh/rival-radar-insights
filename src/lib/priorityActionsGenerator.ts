@@ -43,6 +43,85 @@ export type ActionGenerationResult = {
 import type { ServiceCategory } from '@/lib/serviceCategories';
 import { logger } from '@/lib/logger';
 
+export type ProjectForActions = {
+  own: Business;
+  competitors: Business[];
+  primaryService?: ServiceCategory;
+  location?: string | null;
+};
+
+/**
+ * Load a project's businesses exactly as action generation sees them: latest
+ * signals, enrichment JSON and review growth per business. Shared with
+ * scripts/eval-action-plan.ts so the eval cannot drift from production.
+ */
+export async function loadProjectForActions(
+  projectId: ProjectId,
+): Promise<
+  ProjectForActions | { missing: 'no businesses in project' | 'project has no own business' }
+> {
+  const { data: allBiz } = await supabaseAdmin
+    .from('businesses')
+    .select(
+      'id, name, is_own_business, ai_score, google_data, pagespeed_data, serp_data, ai_visibility, enrichment_errors',
+    )
+    .eq('project_id', projectId);
+
+  if (!allBiz?.length) return { missing: 'no businesses in project' };
+
+  // serpData/aiVisibility let the local-pack and AI-visibility templates fire;
+  // enrichmentErrors lets the extract-failed gate and prompt warnings work.
+  const businesses = await Promise.all(
+    allBiz.map(async (b) => {
+      const { data: sig } = await supabaseAdmin
+        .from('extracted_signals')
+        .select('seo, trust, content, engagement')
+        .eq('business_id', b.id)
+        .order('scanned_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      const json = businessJson(b);
+      const business: Business = {
+        id: asBusinessId(b.id),
+        name: b.name,
+        url: '',
+        domain: '',
+        lastCrawledAt: null,
+        crawlJobId: null,
+        crawlStatus: 'complete',
+        signals: rowToSignals(sig),
+        googleData: json.googleData,
+        serpData: json.serpData,
+        pagespeedData: json.pagespeedData,
+        aiScore: json.aiScore,
+        aiVisibility: json.aiVisibility,
+        reviewSentiment: null,
+        enrichmentErrors: json.enrichmentErrors,
+        reviewGrowth: await fetchReviewGrowth(supabaseAdmin, b.id),
+        previousSignals: null,
+        changeEvents: [],
+      };
+      return { isOwn: b.is_own_business, business };
+    }),
+  );
+
+  const own = businesses.find((b) => b.isOwn)?.business;
+  if (!own) return { missing: 'project has no own business' };
+
+  const { data: projRow } = await supabaseAdmin
+    .from('projects')
+    .select('primary_service, location')
+    .eq('id', projectId)
+    .single();
+
+  return {
+    own,
+    competitors: businesses.filter((b) => !b.isOwn).map((b) => b.business),
+    primaryService: (projRow?.primary_service ?? undefined) as ServiceCategory | undefined,
+    location: projRow?.location ?? null,
+  };
+}
+
 /**
  * Generate and persist priority actions for a project from its already-persisted
  * enrichment data — WITHOUT depending on a crawl run finishing.
@@ -56,81 +135,14 @@ import { logger } from '@/lib/logger';
 export async function generateAndPersistProjectActions(
   projectId: ProjectId,
 ): Promise<ActionGenerationResult> {
-  const { data: allBiz } = await supabaseAdmin
-    .from('businesses')
-    .select(
-      'id, name, is_own_business, ai_score, google_data, pagespeed_data, serp_data, ai_visibility, enrichment_errors',
-    )
-    .eq('project_id', projectId);
-
-  if (!allBiz?.length) return { inserted: 0, reason: 'no businesses in project' };
-
-  const withData = await Promise.all(
-    allBiz.map(async (b) => {
-      const { data: sig } = await supabaseAdmin
-        .from('extracted_signals')
-        .select('seo, trust, content, engagement')
-        .eq('business_id', b.id)
-        .order('scanned_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
-      const json = businessJson(b);
-      const reviewGrowth = await fetchReviewGrowth(supabaseAdmin, b.id);
-      return {
-        id: asBusinessId(b.id),
-        name: b.name,
-        isOwn: b.is_own_business,
-        signals: rowToSignals(sig),
-        aiScore: json.aiScore,
-        googleData: json.googleData,
-        pagespeedData: json.pagespeedData,
-        serpData: json.serpData,
-        aiVisibility: json.aiVisibility,
-        enrichmentErrors: json.enrichmentErrors,
-        reviewGrowth,
-      };
-    }),
-  );
-
-  const ownRaw = withData.find((b) => b.isOwn);
-  if (!ownRaw) return { inserted: 0, reason: 'project has no own business' };
-
-  const { data: projRow } = await supabaseAdmin
-    .from('projects')
-    .select('primary_service, location')
-    .eq('id', projectId)
-    .single();
-
-  // serpData/aiVisibility let the local-pack and AI-visibility templates fire;
-  // enrichmentErrors lets the extract-failed gate and prompt warnings work.
   // This is the ONLY action-generation path — the crawl worker calls it too.
-  const toBiz = (b: (typeof withData)[number]): Business => ({
-    id: b.id,
-    name: b.name,
-    url: '',
-    domain: '',
-    lastCrawledAt: null,
-    crawlJobId: null,
-    crawlStatus: 'complete',
-    signals: b.signals,
-    googleData: b.googleData,
-    serpData: b.serpData,
-    pagespeedData: b.pagespeedData,
-    aiScore: b.aiScore,
-    aiVisibility: b.aiVisibility,
-    reviewSentiment: null,
-    enrichmentErrors: b.enrichmentErrors,
-    reviewGrowth: b.reviewGrowth,
-    previousSignals: null,
-    changeEvents: [],
-  });
-
-  const ownBusiness = toBiz(ownRaw);
-  const competitorBusinesses = withData.filter((b) => !b.isOwn).map(toBiz);
+  const loaded = await loadProjectForActions(projectId);
+  if ('missing' in loaded) return { inserted: 0, reason: loaded.missing };
+  const { own: ownBusiness, competitors: competitorBusinesses, primaryService, location } = loaded;
 
   const previousActions = await fetchPreviousActionBatch(projectId);
-  const useHistory = previousActions.length > 0 && !!ownRaw.signals;
-  const previousSignals = useHistory ? await fetchPreviousSignals(ownRaw.id) : null;
+  const useHistory = previousActions.length > 0 && !!ownBusiness.signals;
+  const previousSignals = useHistory ? await fetchPreviousSignals(ownBusiness.id) : null;
 
   // Actions still live or recently completed. Loaded before generation so live
   // templates are skipped and the next best fresh gaps are chosen instead.
@@ -152,36 +164,31 @@ export async function generateAndPersistProjectActions(
     liveExisting.map((e) => e.template_id).filter((id): id is string => id != null),
   );
   const genOpts = {
-    location: projRow?.location,
+    location,
     excludeTemplateIds: [...existingTemplateIds],
   };
 
   let rawActions: PriorityAction[];
   try {
     rawActions =
-      useHistory && ownRaw.signals
+      useHistory && ownBusiness.signals
         ? await generatePriorityActionsWithHistory(
             ownBusiness,
             competitorBusinesses,
             previousActions,
             previousSignals,
-            ownRaw.signals,
-            projRow?.primary_service as ServiceCategory,
+            ownBusiness.signals,
+            primaryService,
             genOpts,
           )
-        : await generatePriorityActions(
-            ownBusiness,
-            competitorBusinesses,
-            projRow?.primary_service as ServiceCategory,
-            genOpts,
-          );
+        : await generatePriorityActions(ownBusiness, competitorBusinesses, primaryService, genOpts);
   } catch (e) {
     if (e instanceof AIUnavailableError) {
       logger.warn('priorityActions', 'AI unavailable', { projectId, kind: e.kind });
       return {
         inserted: 0,
         reason: 'AI temporarily unavailable',
-        ownBusinessId: ownRaw.id,
+        ownBusinessId: ownBusiness.id,
         retryAt: e.retryAt,
       };
     }
@@ -189,13 +196,17 @@ export async function generateAndPersistProjectActions(
   }
 
   if (!rawActions.length)
-    return { inserted: 0, reason: 'generation returned 0 actions', ownBusinessId: ownRaw.id };
+    return { inserted: 0, reason: 'generation returned 0 actions', ownBusinessId: ownBusiness.id };
 
   const newActions = rawActions.filter(
     (a) => !existingSet.has(a.action) && !(a.templateId && existingTemplateIds.has(a.templateId)),
   );
   if (!newActions.length)
-    return { inserted: 0, reason: 'all generated actions already exist', ownBusinessId: ownRaw.id };
+    return {
+      inserted: 0,
+      reason: 'all generated actions already exist',
+      ownBusinessId: ownBusiness.id,
+    };
 
   const { count: activeCount } = await supabaseAdmin
     .from('priority_actions')
@@ -230,11 +241,11 @@ export async function generateAndPersistProjectActions(
     return {
       inserted: 0,
       reason: `${INSERT_FAILED_PREFIX}: ${insertError.message}`,
-      ownBusinessId: ownRaw.id,
+      ownBusinessId: ownBusiness.id,
     };
   }
 
-  return { inserted: newActions.length, ownBusinessId: ownRaw.id };
+  return { inserted: newActions.length, ownBusinessId: ownBusiness.id };
 }
 
 /** Latest batch of priority actions (all rows sharing the most recent generated_at). */

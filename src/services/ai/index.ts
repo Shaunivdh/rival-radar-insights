@@ -12,6 +12,7 @@ export { resolveEvidence, dropUngroundedActions } from './evidence';
 // Type-only, so it does not widen the runtime surface the barrel test locks.
 export type { EvidenceResolution } from './evidence';
 export {
+  AI_FILL_THRESHOLD,
   checkCategoryDistribution,
   generatePriorityActions,
   generatePriorityActionsWithHistory,

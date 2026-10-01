@@ -52,3 +52,6 @@ yarn.lock
 /test-results/
 /playwright-report/
 /playwright/.cache/
+
+# Action plan eval output (contains real business names)
+scripts/eval-output/

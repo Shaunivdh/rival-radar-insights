@@ -636,14 +636,14 @@ export const crawlBusinessFunction = inngest.createFunction(
           meta.primaryService as ServiceCategory,
           // Queries depend only on the project's service + location, so the project's
           // businesses share one set of web-search answers; matching stays per business.
-          async (query) =>
+          async (query, place) =>
             (
               await getOrComputeShared(
                 meta.projectId,
                 'ai_visibility',
                 query,
                 AI_VISIBILITY_SHARE,
-                () => runVisibilityQuery(query),
+                () => runVisibilityQuery(query, place),
               )
             ).value,
         );

@@ -194,16 +194,37 @@ function matchWithLocation(
   return { confidence, match: result.match };
 }
 
-/** One live AI-visibility query: Sonnet with web search, answer text only. */
-export async function runVisibilityQuery(query: string): Promise<string> {
+/** Approximate searcher location for the web search tool (country is ISO 3166-1 alpha-2). */
+export type SearchPlace = { city?: string; country?: string; timezone?: string };
+
+/** Search settings per category countryModifier, plus names that already imply the country. */
+const COUNTRY_SEARCH: Record<string, { country: string; timezone: string; names: RegExp }> = {
+  UK: {
+    country: 'GB',
+    timezone: 'Europe/London',
+    names: /\b(uk|united kingdom|england|scotland|wales|northern ireland)\b/i,
+  },
+};
+
+/**
+ * One live AI-visibility query: Sonnet with web search, answer text only. `place`
+ * localises the search so "Dulwich" means the London one, not anywhere in the world.
+ */
+export async function runVisibilityQuery(query: string, place?: SearchPlace): Promise<string> {
   const result = await callLLMRaw(
     {
       model: AI_MODEL_SMART,
       max_tokens: 1000,
       system:
-        'You are a helpful local business recommendation assistant. When asked about businesses in a specific area, provide specific real business names and brief descriptions. Always include specific names.',
+        'You are a helpful local business recommendation assistant. When asked about businesses in a specific area, provide specific real business names and brief descriptions. Always include specific names. Only recommend businesses that are located in or close to the area named in the question; ignore businesses in other towns or countries that share a similar place name.',
       // Current web-search tool (dynamic filtering); requires Sonnet 4.6+ / Sonnet 5.
-      tools: [{ type: 'web_search_20260209', name: 'web_search' }],
+      tools: [
+        {
+          type: 'web_search_20260209',
+          name: 'web_search',
+          ...(place ? { user_location: { type: 'approximate' as const, ...place } } : {}),
+        },
+      ],
       messages: [{ role: 'user', content: query }],
     },
     { backoffMs: 10000, label: 'ai-presence' },
@@ -239,7 +260,7 @@ export async function checkAIVisibility(
   serviceCategory?: ServiceCategory,
   /** Source of the raw answer text per query. Defaults to a live web-search call;
    *  the crawl worker passes a project-cached version so businesses share it. */
-  getResponse: (query: string) => Promise<string> = runVisibilityQuery,
+  getResponse: (query: string, place?: SearchPlace) => Promise<string> = runVisibilityQuery,
 ): Promise<AIVisibility | null> {
   if (SKIP_AI) {
     return {
@@ -274,11 +295,20 @@ export async function checkAIVisibility(
   // business. Falls back to the raw service when no category config exists.
   const serviceTerm = catConfig?.searchTerm ?? primaryService;
 
-  const queries = templates.map((t) => {
-    let q = t.replace(/\{service\}/g, serviceTerm).replace(/\{location\}/g, location);
-    if (countryModifier) q += ` ${countryModifier}`;
-    return q;
-  });
+  // Country goes next to the place ("East Dulwich, UK"), and the search itself is
+  // localised, so a place name shared with towns abroad stays local.
+  const country = COUNTRY_SEARCH[countryModifier];
+  const namesCountry =
+    !countryModifier ||
+    country?.names.test(location) ||
+    location.toLowerCase().includes(countryModifier.toLowerCase());
+  const placeLabel = namesCountry ? location : `${location}, ${countryModifier}`;
+  const place: SearchPlace | undefined = country
+    ? { city: location.split(',')[0].trim(), country: country.country, timezone: country.timezone }
+    : undefined;
+  const queries = templates.map((t) =>
+    t.replace(/\{service\}/g, serviceTerm).replace(/\{location\}/g, placeLabel),
+  );
 
   const t0 = Date.now();
   let mentionCount = 0;
@@ -291,7 +321,7 @@ export async function checkAIVisibility(
 
   for (const query of queries) {
     try {
-      const aiText = await getResponse(query);
+      const aiText = await getResponse(query, place);
 
       logger.info('ai-presence', 'Query response', {
         query,

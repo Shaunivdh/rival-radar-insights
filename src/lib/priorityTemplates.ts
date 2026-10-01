@@ -1,5 +1,11 @@
 import type { AIHealthScore, Business, PriorityAction } from '@/types';
 import { asPriorityActionId } from '@/types';
+import {
+  fillTemplate,
+  joinNames,
+  resolveTemplateContext,
+  type TemplateContext,
+} from '@/lib/templateContext';
 
 type ScoreKey = keyof Pick<
   AIHealthScore,
@@ -40,13 +46,65 @@ export type PriorityTemplate = {
    * is not reported to the owner as a gap in their profile.
    */
   requiresGoogleData?: boolean;
+  /**
+   * Deterministic competitor comparison for `competitorReference`. Returns null
+   * unless a named competitor is strictly better on this exact gap. Never phrase
+   * our side as "0", "no" or "none": the validator flags those as contradictions.
+   */
+  compare?: (own: Business, competitors: Business[]) => string | null;
 };
+
+// ── Competitor comparison helpers ──────────────────────────────────────
+
+const siteOk = (c: Business) =>
+  !!c.signals && !c.enrichmentErrors?.crawl && !c.enrichmentErrors?.extract;
+const googleOk = (c: Business) => !!c.googleData && !c.enrichmentErrors?.google;
+
+/** "Alpha shows…", "Alpha and Beta both show…", "Alpha, Beta and Gamma all show…". */
+function competitorsWith(
+  competitors: Business[],
+  usable: (c: Business) => boolean,
+  has: (c: Business) => boolean,
+  [singular, plural]: [string, string],
+): string | null {
+  const names = competitors.filter((c) => usable(c) && has(c)).map((c) => c.name);
+  if (names.length === 0) return null;
+  if (names.length === 1) return `${names[0]} ${singular}.`;
+  return `${joinNames(names)} ${names.length === 2 ? 'both' : 'all'} ${plural}.`;
+}
+
+const siteFeature =
+  (has: (c: Business) => boolean, phrase: [string, string]) =>
+  (_own: Business, competitors: Business[]) =>
+    competitorsWith(competitors, siteOk, has, phrase);
+
+/** The competitor with the highest value, only when strictly above our own. */
+function strongest(
+  own: Business,
+  competitors: Business[],
+  get: (b: Business) => number | null | undefined,
+): { name: string; value: number; ownValue: number } | null {
+  const ownValue = get(own);
+  if (ownValue == null) return null;
+  let best: { name: string; value: number } | null = null;
+  for (const c of competitors) {
+    const v = get(c);
+    if (v != null && v > ownValue && (!best || v > best.value)) best = { name: c.name, value: v };
+  }
+  return best ? { ...best, ownValue } : null;
+}
+
+const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? '' : 's'}`;
 
 export const PRIORITY_TEMPLATES: PriorityTemplate[] = [
   {
     id: 'no_phone_on_homepage',
     impactWeight: 4,
     scoreKey: 'websiteHealthScore',
+    compare: siteFeature(
+      (c) => c.signals!.engagement.hasPhoneNumberProminent,
+      ['shows their phone number on their homepage', 'show their phone number on their homepage'],
+    ),
     trigger: (b) => b.signals?.engagement?.hasPhoneNumberProminent === false,
     category: 'Conversion',
     effort: 'low',
@@ -67,6 +125,19 @@ export const PRIORITY_TEMPLATES: PriorityTemplate[] = [
     id: 'no_recent_reviews',
     impactWeight: 4,
     scoreKey: 'reviewVelocityScore',
+    compare: (_own, competitors) => {
+      let best: { name: string; time: number } | null = null;
+      for (const c of competitors) {
+        if (!googleOk(c)) continue;
+        for (const r of c.googleData!.recentReviews ?? [])
+          if (!best || r.time > best.time) best = { name: c.name, time: r.time };
+      }
+      if (!best) return null;
+      const days = Math.floor((Date.now() - best.time) / 86_400_000);
+      if (days > 90) return null;
+      const when = days <= 0 ? 'today' : days === 1 ? 'yesterday' : `${days} days ago`;
+      return `${best.name} had a new Google review ${when}.`;
+    },
     trigger: (b) => {
       const reviews = b.googleData?.recentReviews;
       const totalCount = b.googleData?.reviewCount ?? 0;
@@ -98,6 +169,10 @@ export const PRIORITY_TEMPLATES: PriorityTemplate[] = [
     id: 'missing_h1',
     impactWeight: 3,
     scoreKey: 'websiteHealthScore',
+    compare: siteFeature(
+      (c) => (c.signals!.seo.homepageH1Count ?? c.signals!.seo.h1Tags?.length ?? 0) > 0,
+      ['has a clear main heading on their homepage', 'have a clear main heading on their homepage'],
+    ),
     trigger: (b) => {
       // Homepage-only signal: `h1Tags` is a site-wide union, so a site with an h1 on
       // /services but none on / must still fire. null = root page unusable → do not fire.
@@ -116,7 +191,7 @@ export const PRIORITY_TEMPLATES: PriorityTemplate[] = [
     whyItMattersTemplate:
       'Search engines look for a main heading to understand what your page is about. Without one, your site is harder to rank for the searches that matter to you.',
     steps: [
-      'Open your homepage editor and add a clear heading that says what you do and where, for example "Reliable Plumbing in Manchester".',
+      'Open your homepage editor and add a clear heading that says what you do and where, for example [["{Service} in {town}"||"Reliable Plumbing in Manchester"]].',
       'Make sure it is marked as an H1 (the "Heading 1" option in your editor).',
       'Keep it under 60 characters and include your main service and location.',
     ],
@@ -126,6 +201,11 @@ export const PRIORITY_TEMPLATES: PriorityTemplate[] = [
     id: 'no_business_hours',
     impactWeight: 3,
     scoreKey: 'gbpCompletenessScore',
+    compare: (_own, competitors) =>
+      competitorsWith(competitors, googleOk, (c) => (c.googleData!.openingHours?.length ?? 0) > 0, [
+        'shows their opening hours on Google',
+        'show their opening hours on Google',
+      ]),
     trigger: (b) => {
       const hours = b.googleData?.openingHours;
       return !hours || hours.length === 0;
@@ -169,7 +249,7 @@ export const PRIORITY_TEMPLATES: PriorityTemplate[] = [
     steps: [
       'Go to business.google.com, click "Edit profile", then "Description", and read what is there.',
       'If it is empty or vague, write 2 to 3 sentences covering what you do, where you work, and what makes you different.',
-      'Make sure your main service and your town appear naturally, without stuffing in keywords.',
+      '[[Make sure "{service}" and "{town}" both appear naturally, without stuffing in keywords.||Make sure your main service and your town appear naturally, without stuffing in keywords.]]',
       'Keep it under 750 characters, which is the Google limit.',
     ],
     outcome: 'Better visibility in local search results',
@@ -180,6 +260,10 @@ export const PRIORITY_TEMPLATES: PriorityTemplate[] = [
     id: 'no_website_meta_description',
     impactWeight: 3,
     scoreKey: 'websiteHealthScore',
+    compare: siteFeature(
+      (c) => (c.signals!.seo.metaDescription?.trim().length ?? 0) >= 50,
+      ['has a written search result description', 'have a written search result description'],
+    ),
     trigger: (b) => {
       const meta = b.signals?.seo?.metaDescription;
       return meta != null && meta.trim().length < 50;
@@ -194,7 +278,7 @@ export const PRIORITY_TEMPLATES: PriorityTemplate[] = [
       'When your site appears in Google, the short description below the title is your chance to convince someone to click. Without one, Google picks random text from your page, which often looks messy and does not sell what you do.',
     steps: [
       'Open your website editor or CMS and find the "meta description" or "SEO description" field for your homepage.',
-      'Write 1 to 2 sentences (under 160 characters) that say what you do, where, and why someone should choose you.',
+      'Write 1 to 2 sentences (under 160 characters) that say what you do, where, and why someone should choose you[[, for example: "{Service} in {town}. See our services and reviews, then get in touch today."]].',
       'Include your main service and location naturally.',
       'If you use WordPress, the Yoast or Rank Math plugin makes this easy: look for the "SEO" box below the editor.',
     ],
@@ -204,6 +288,10 @@ export const PRIORITY_TEMPLATES: PriorityTemplate[] = [
     id: 'no_schema_markup',
     impactWeight: 2,
     scoreKey: 'websiteHealthScore',
+    compare: siteFeature(
+      (c) => (c.signals!.seo.schemaMarkupTypes?.length ?? 0) > 0,
+      ['labels their business details for Google', 'label their business details for Google'],
+    ),
     trigger: (b) => {
       const types = b.signals?.seo?.schemaMarkupTypes;
       return types != null && types.length === 0;
@@ -228,6 +316,13 @@ export const PRIORITY_TEMPLATES: PriorityTemplate[] = [
     id: 'low_gbp_photos',
     impactWeight: 3,
     scoreKey: 'gbpCompletenessScore',
+    compare: (own, competitors) => {
+      const s = strongest(own, competitors.filter(googleOk), (b) => b.googleData?.photos);
+      if (!s) return null;
+      const theirs = s.value >= 10 ? '10 or more photos' : plural(s.value, 'photo');
+      const yours = s.ownValue > 0 ? `you have ${s.ownValue}` : 'you have not added any yet';
+      return `${s.name} has ${theirs} on Google; ${yours}.`;
+    },
     trigger: (b) => {
       const photos = b.googleData?.photos;
       return photos != null && photos < 5;
@@ -254,6 +349,10 @@ export const PRIORITY_TEMPLATES: PriorityTemplate[] = [
     id: 'missing_alt_tags',
     impactWeight: 2,
     scoreKey: 'websiteHealthScore',
+    compare: siteFeature(
+      (c) => c.signals!.seo.altTagCoverage !== 'none',
+      ['describes their website images for Google', 'describe their website images for Google'],
+    ),
     trigger: (b) => b.signals?.seo?.altTagCoverage === 'none',
     category: 'Website',
     effort: 'low',
@@ -265,7 +364,7 @@ export const PRIORITY_TEMPLATES: PriorityTemplate[] = [
       'Search engines cannot see images; they read the text description attached to each one. Without descriptions, your images are invisible to Google, which means you are missing out on image search traffic and making your site harder to rank. Adding them takes a few minutes per image.',
     steps: [
       'In your website editor, click on each image and look for an "Alt text" or "Image description" field.',
-      'Write a short description of what is in the photo, for example "Bathroom renovation completed in Manchester" rather than just "photo1".',
+      'Write a short description of what is in the photo, for example [["{Service} completed in {town}"||"Bathroom renovation completed in Manchester"]] rather than just "photo1".',
       'Include your service and location naturally where it makes sense.',
       'Work through your homepage images first, then your services pages.',
     ],
@@ -275,6 +374,10 @@ export const PRIORITY_TEMPLATES: PriorityTemplate[] = [
     id: 'no_contact_form',
     impactWeight: 4,
     scoreKey: 'websiteHealthScore',
+    compare: siteFeature(
+      (c) => c.signals!.engagement.hasContactForm,
+      ['has a contact form on their website', 'have a contact form on their website'],
+    ),
     trigger: (b) => b.signals?.engagement?.hasContactForm === false,
     category: 'Conversion',
     effort: 'low',
@@ -296,6 +399,10 @@ export const PRIORITY_TEMPLATES: PriorityTemplate[] = [
     id: 'no_services_listed',
     impactWeight: 5,
     scoreKey: 'websiteHealthScore',
+    compare: siteFeature(
+      (c) => (c.signals!.content.servicesListed?.length ?? 0) > 0,
+      ['lists their services on their website', 'list their services on their website'],
+    ),
     trigger: (b) => {
       const services = b.signals?.content?.servicesListed;
       return services != null && services.length === 0;
@@ -320,6 +427,10 @@ export const PRIORITY_TEMPLATES: PriorityTemplate[] = [
     id: 'no_service_areas',
     impactWeight: 4,
     scoreKey: 'localVisibilityScore',
+    compare: siteFeature(
+      (c) => (c.signals!.content.serviceAreasMentioned?.length ?? 0) > 0,
+      ['names the areas they cover on their website', 'name the areas they cover on their website'],
+    ),
     trigger: (b) => {
       const areas = b.signals?.content?.serviceAreasMentioned;
       return areas != null && areas.length === 0;
@@ -335,7 +446,7 @@ export const PRIORITY_TEMPLATES: PriorityTemplate[] = [
     steps: [
       'Add a short "Areas we cover" section to your homepage or contact page.',
       'List the towns, cities, or postcodes you serve, and be specific.',
-      'Mention your location naturally in your homepage headline or introduction too.',
+      '[[Mention {town} naturally in your homepage headline or introduction too.||Mention your location naturally in your homepage headline or introduction too.]]',
       'If you cover a wide area, consider creating a short page for each main town you serve.',
     ],
     outcome: 'Appear in more local searches across your coverage area',
@@ -344,6 +455,10 @@ export const PRIORITY_TEMPLATES: PriorityTemplate[] = [
     id: 'no_faq',
     impactWeight: 2,
     scoreKey: 'websiteHealthScore',
+    compare: siteFeature(
+      (c) => c.signals!.content.hasFAQ,
+      ['has a FAQ section on their website', 'have a FAQ section on their website'],
+    ),
     trigger: (b) => b.signals?.content?.hasFAQ === false,
     category: 'Website',
     effort: 'medium',
@@ -365,6 +480,10 @@ export const PRIORITY_TEMPLATES: PriorityTemplate[] = [
     id: 'no_team_page',
     impactWeight: 2,
     scoreKey: 'websiteHealthScore',
+    compare: siteFeature(
+      (c) => c.signals!.trust.teamPageExists,
+      ['has an About or Team page', 'have an About or Team page'],
+    ),
     trigger: (b) => b.signals?.trust?.teamPageExists === false,
     category: 'Trust',
     effort: 'medium',
@@ -386,6 +505,10 @@ export const PRIORITY_TEMPLATES: PriorityTemplate[] = [
     id: 'no_review_links',
     impactWeight: 2,
     scoreKey: 'reputationScore',
+    compare: siteFeature(
+      (c) => (c.signals!.trust.reviewPlatformsLinked?.length ?? 0) > 0,
+      ['links to their reviews from their website', 'link to their reviews from their website'],
+    ),
     trigger: (b) => {
       const platforms = b.signals?.trust?.reviewPlatformsLinked;
       return platforms != null && platforms.length === 0;
@@ -410,6 +533,16 @@ export const PRIORITY_TEMPLATES: PriorityTemplate[] = [
     id: 'not_in_local_pack',
     impactWeight: 5,
     scoreKey: 'localVisibilityScore',
+    compare: (_own, competitors) =>
+      competitorsWith(
+        competitors,
+        (c) => !!c.serpData && !c.enrichmentErrors?.serp,
+        (c) => c.serpData!.localPackPresent,
+        [
+          'appears in the Google map results for your area',
+          'appear in the Google map results for your area',
+        ],
+      ),
     trigger: (b) => b.serpData?.localPackPresent === false,
     category: 'Local SEO',
     effort: 'high',
@@ -433,6 +566,12 @@ export const PRIORITY_TEMPLATES: PriorityTemplate[] = [
     id: 'low_review_count',
     impactWeight: 5,
     scoreKey: 'reputationScore',
+    compare: (own, competitors) => {
+      const s = strongest(own, competitors.filter(googleOk), (b) => b.googleData?.reviewCount);
+      if (!s) return null;
+      const yours = s.ownValue > 0 ? `you have ${s.ownValue}` : 'you have not collected any yet';
+      return `${s.name} has ${plural(s.value, 'Google review')}; ${yours}.`;
+    },
     trigger: (b) => {
       const count = b.googleData?.reviewCount;
       return count != null && count < 10;
@@ -447,6 +586,7 @@ export const PRIORITY_TEMPLATES: PriorityTemplate[] = [
       'With fewer than 10 reviews, many potential customers will hesitate, because a small number of reviews feels unproven. Google also uses review count as a ranking signal for local searches. Getting 15 to 20 reviews puts you on solid footing and makes your listing look established.',
     steps: [
       'Message your last 10 satisfied customers directly and ask them to leave a Google review, and include your review link.',
+      '[[Copy this message: "Thanks for choosing us for your {service}! Would you leave us a quick Google review? It really helps a small {town} business like ours."||Copy this message: "Thanks for choosing us! Would you leave us a quick Google review? It really helps a small local business like ours."]]',
       'Add a "Leave us a review" link to your email footer and any invoices or receipts you send.',
       'After completing a job, ask in person: "Would you mind leaving us a quick Google review? It really helps us out."',
       'Set a goal of getting 2 to 3 new reviews per month and track it.',
@@ -459,6 +599,11 @@ export const PRIORITY_TEMPLATES: PriorityTemplate[] = [
     id: 'slow_mobile_site',
     impactWeight: 4,
     scoreKey: 'websiteHealthScore',
+    compare: (own, competitors) => {
+      const s = strongest(own, competitors, (b) => b.pagespeedData?.mobile?.performanceScore);
+      if (!s || s.value < 50) return null;
+      return `${s.name} scores ${s.value} out of 100 for mobile speed; you score ${s.ownValue}.`;
+    },
     trigger: (b) => {
       const score = b.pagespeedData?.mobile?.performanceScore;
       return score != null && score < 50;
@@ -484,6 +629,11 @@ export const PRIORITY_TEMPLATES: PriorityTemplate[] = [
     id: 'low_ai_visibility',
     impactWeight: 2,
     scoreKey: 'aiPresenceScore',
+    compare: (own, competitors) => {
+      const s = strongest(own, competitors, (b) => b.aiVisibility?.aiPresenceScore);
+      if (!s) return null;
+      return `${s.name} scores ${s.value} out of 100 for AI visibility; you score ${s.ownValue}.`;
+    },
     trigger: (b) => {
       const score = b.aiVisibility?.aiPresenceScore;
       return score != null && score < 30;
@@ -509,6 +659,13 @@ export const PRIORITY_TEMPLATES: PriorityTemplate[] = [
     id: 'no_cta',
     impactWeight: 4,
     scoreKey: 'websiteHealthScore',
+    compare: siteFeature(
+      (c) => c.signals!.engagement.hasCallToAction,
+      [
+        'gives visitors a clear next step on their homepage',
+        'give visitors a clear next step on their homepage',
+      ],
+    ),
     trigger: (b) => b.signals?.engagement?.hasCallToAction === false,
     category: 'Conversion',
     effort: 'low',
@@ -566,7 +723,16 @@ function evaluateTemplates(b: Business): {
   return { ranked: fired.map((f) => f.tpl), evaluatedIds };
 }
 
-function toAction(tpl: PriorityTemplate, index: number): PriorityAction {
+/** Inputs that personalise template copy. All optional: templates fall back to generic text. */
+export type TemplateOptions = { location?: string | null };
+
+function toAction(
+  tpl: PriorityTemplate,
+  index: number,
+  own: Business,
+  competitors: Business[],
+  ctx: TemplateContext,
+): PriorityAction {
   return {
     id: asPriorityActionId(''),
     status: 'active',
@@ -575,12 +741,13 @@ function toAction(tpl: PriorityTemplate, index: number): PriorityAction {
     effort: tpl.effort,
     estimatedImpact: tpl.estimatedImpact,
     timeframe: tpl.timeframe,
+    // Headline stays static: dedup and continuity match on it for LLM rows.
     action: tpl.action,
     reason: tpl.reason,
-    whyItMatters: tpl.whyItMattersTemplate,
-    steps: tpl.steps,
+    whyItMatters: fillTemplate(tpl.whyItMattersTemplate, ctx),
+    steps: tpl.steps.map((s) => fillTemplate(s, ctx)).filter(Boolean),
     outcome: tpl.outcome,
-    competitorReference: null,
+    competitorReference: tpl.compare?.(own, competitors) ?? null,
     templateId: tpl.id,
     _source: 'template',
   };
@@ -591,12 +758,18 @@ export type ApplyResult = { actions: PriorityAction[]; firedIds: string[] };
 /**
  * Run all Tier-1 priority templates against a business and return the top 5
  * by rank as PriorityAction objects (numbered from 1), along with `firedIds`:
- * every template that triggered, in rank order.
+ * every template that triggered, in rank order. Competitors feed the
+ * deterministic `competitorReference`; options personalise the copy.
  */
-export function applyTemplates(b: Business): ApplyResult {
+export function applyTemplates(
+  b: Business,
+  competitors: Business[] = [],
+  opts: TemplateOptions = {},
+): ApplyResult {
   const { ranked } = evaluateTemplates(b);
+  const ctx = resolveTemplateContext(b, opts.location);
   return {
-    actions: ranked.slice(0, 5).map(toAction),
+    actions: ranked.slice(0, 5).map((tpl, i) => toAction(tpl, i, b, competitors, ctx)),
     firedIds: ranked.map((t) => t.id),
   };
 }
@@ -619,13 +792,16 @@ export type ApplyWithHistoryResult = {
 export function applyTemplatesWithHistory(
   b: Business,
   previousActions: PriorityAction[],
+  competitors: Business[] = [],
+  opts: TemplateOptions = {},
 ): ApplyWithHistoryResult {
   const { ranked, evaluatedIds } = evaluateTemplates(b);
+  const ctx = resolveTemplateContext(b, opts.location);
   const firedIds = ranked.map((t) => t.id);
   const previousIds = new Set(previousActions.map((p) => p.templateId).filter(Boolean));
 
   const actions = ranked.slice(0, 5).map((tpl, i) => ({
-    ...toAction(tpl, i),
+    ...toAction(tpl, i, b, competitors, ctx),
     continuityNote: previousIds.has(tpl.id) ? 'Still outstanding from last week.' : null,
   }));
 

@@ -24,6 +24,7 @@ Goal: bite-sized, competitor-aware actions that help customers stand out and imp
 - Validator: the "recommends existing" check skips templates (`src/services/ai/validation.ts:224`); the "unverified average" regex still runs on them, but no template copy matches it. Other checks were not traced.
 - `priority_actions` has no template id column (`src/types/database.ts:472`). Prompt 3 needs a migration.
 - `src/views/ActionPlan.tsx` renders every PriorityAction field, including `competitorReference` and `steps`. There is no snippet field, so pasteable text goes in `steps` unless a new field and UI are added.
+- Found during prompt 5 (1 Oct 2026): Places API `recentReviews` returns up to 5 "most relevant" reviews, not the newest. In local data every business and competitor shows its newest review 120+ days old, so `no_recent_reviews` likely fires falsely and ranks first. Needs a reliable recency source (e.g. review count delta between scans via `reviewVelocityScore`) before trusting this template.
 
 ## 1. Baseline and verification (no code changes)
 

@@ -94,7 +94,7 @@ export async function generateAndPersistProjectActions(
 
   const { data: projRow } = await supabaseAdmin
     .from('projects')
-    .select('primary_service')
+    .select('primary_service, location')
     .eq('id', projectId)
     .single();
 
@@ -139,11 +139,13 @@ export async function generateAndPersistProjectActions(
             previousSignals,
             ownRaw.signals,
             projRow?.primary_service as ServiceCategory,
+            projRow?.location,
           )
         : await generatePriorityActions(
             ownBusiness,
             competitorBusinesses,
             projRow?.primary_service as ServiceCategory,
+            projRow?.location,
           );
   } catch (e) {
     if (e instanceof AIUnavailableError) {

@@ -229,11 +229,13 @@ export async function generatePriorityActions(
   own: Business,
   competitors: Business[],
   serviceCategory?: ServiceCategory,
+  /** Project location, used to personalise template copy. */
+  location?: string | null,
 ): Promise<PriorityAction[]> {
   if (SKIP_AI) return [];
 
   // ── Tier-1 templates ────────────────────────────────────────────────
-  const { actions: templateActions, firedIds } = applyTemplates(own);
+  const { actions: templateActions, firedIds } = applyTemplates(own, competitors, { location });
   const templatesUsed = templateActions.length;
 
   if (templatesUsed >= 5) {
@@ -347,6 +349,8 @@ export async function generatePriorityActionsWithHistory(
   previousSignals: ExtractedSignals | null,
   currentSignals: ExtractedSignals,
   serviceCategory?: ServiceCategory,
+  /** Project location, used to personalise template copy. */
+  location?: string | null,
 ): Promise<PriorityAction[]> {
   if (SKIP_AI) return [];
 
@@ -355,7 +359,7 @@ export async function generatePriorityActionsWithHistory(
     actions: templateActions,
     firedIds: firedIds2,
     closedFromLastWeek,
-  } = applyTemplatesWithHistory(own, previousActions);
+  } = applyTemplatesWithHistory(own, previousActions, competitors, { location });
   const templatesUsed = templateActions.length;
 
   if (templatesUsed >= 5) {

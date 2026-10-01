@@ -6,6 +6,7 @@ import {
   diagnoseTemplates,
 } from '@/lib/priorityTemplates';
 import { buildBusiness, buildSignals, buildGoogleData, buildAction } from '@/test/builders';
+import { asBusinessId } from '@/types';
 
 const noPhone = () =>
   buildBusiness({
@@ -208,6 +209,128 @@ describe('template ranking', () => {
       ['missing_alt_tags', 'no_review_links', 'no_schema_markup'].includes(id),
     );
     expect(tied).toEqual(['missing_alt_tags', 'no_review_links', 'no_schema_markup']);
+  });
+});
+
+describe('competitor comparison and personalisation', () => {
+  const rival = (name: string, overrides: Parameters<typeof buildBusiness>[0] = {}) =>
+    buildBusiness({ id: asBusinessId(`c_${name}`), name, ...overrides });
+  const lowReviews = () => buildBusiness({ googleData: buildGoogleData({ reviewCount: 6 }) });
+  const ref = (
+    actions: { templateId?: string | null; competitorReference: string | null }[],
+    id: string,
+  ) => actions.find((a) => a.templateId === id)?.competitorReference;
+
+  it('names the strongest competitor with real numbers', () => {
+    const comps = [
+      rival('Small Co', { googleData: buildGoogleData({ reviewCount: 20 }) }),
+      rival('Big Co', { googleData: buildGoogleData({ reviewCount: 140 }) }),
+    ];
+    const { actions } = applyTemplates(lowReviews(), comps);
+    expect(ref(actions, 'low_review_count')).toBe('Big Co has 140 Google reviews; you have 6.');
+  });
+
+  it('leaves the reference null when no competitor is strictly better', () => {
+    const comps = [rival('Tiny Co', { googleData: buildGoogleData({ reviewCount: 6 }) })];
+    expect(ref(applyTemplates(lowReviews(), comps).actions, 'low_review_count')).toBeNull();
+  });
+
+  it('lists competitors that have a missing feature, skipping ones whose crawl failed', () => {
+    const own = noPhone();
+    const comps = [
+      rival('Alpha'),
+      rival('Beta'),
+      rival('Gamma', { enrichmentErrors: { crawl: 'timeout' } }),
+    ];
+    expect(ref(applyTemplates(own, comps).actions, 'no_phone_on_homepage')).toBe(
+      'Alpha and Beta both show their phone number on their homepage.',
+    );
+  });
+
+  it('reports the Google photo cap as "10 or more"', () => {
+    const own = buildBusiness({ googleData: buildGoogleData({ photos: 2 }) });
+    const comps = [rival('Snappy', { googleData: buildGoogleData({ photos: 10 }) })];
+    expect(ref(applyTemplates(own, comps).actions, 'low_gbp_photos')).toBe(
+      'Snappy has 10 or more photos on Google; you have 2.',
+    );
+  });
+
+  it('personalises steps but never the headline', () => {
+    const s = buildSignals();
+    s.seo = { ...s.seo, homepageH1Count: 0 };
+    s.content = { ...s.content, servicesListed: ['Boiler repair'] };
+    const own = buildBusiness({ signals: s });
+    const plain = applyTemplates(own).actions.find((a) => a.templateId === 'missing_h1')!;
+    const filled = applyTemplates(own, [], { location: 'Bristol' }).actions.find(
+      (a) => a.templateId === 'missing_h1',
+    )!;
+    expect(filled.action).toBe(plain.action);
+    expect(filled.steps.join(' ')).toContain('"Boiler repair in Bristol"');
+  });
+
+  it('rendered copy has no dashes or arrows and never trips the validator weakness check', () => {
+    // Every gap open, every competitor stronger, so every template fires with a comparison.
+    const own = buildBusiness({
+      signals: {
+        seo: {
+          ...buildSignals().seo,
+          homepageH1Count: 0,
+          metaDescription: '',
+          schemaMarkupTypes: [],
+          altTagCoverage: 'none',
+        },
+        trust: { ...buildSignals().trust, teamPageExists: false, reviewPlatformsLinked: [] },
+        content: {
+          ...buildSignals().content,
+          servicesListed: [],
+          serviceAreasMentioned: [],
+          hasFAQ: false,
+        },
+        engagement: {
+          ...buildSignals().engagement,
+          hasPhoneNumberProminent: false,
+          hasContactForm: false,
+          hasCallToAction: false,
+        },
+      },
+      googleData: buildGoogleData({
+        reviewCount: 0,
+        photos: 0,
+        openingHours: [],
+        recentReviews: [],
+      }),
+      serpData: { ...buildBusiness().serpData!, localPackPresent: false },
+      pagespeedData: { mobile: { performanceScore: 20 } } as never,
+      aiVisibility: { aiPresenceScore: 0 } as never,
+    });
+    const comps = [
+      rival('Rival One', {
+        googleData: buildGoogleData({ reviewCount: 90, photos: 10 }),
+        serpData: { ...buildBusiness().serpData!, localPackPresent: true },
+        pagespeedData: { mobile: { performanceScore: 85 } } as never,
+        aiVisibility: { aiPresenceScore: 70 } as never,
+      }),
+    ];
+    for (const id of PRIORITY_TEMPLATES.map((t) => t.id)) {
+      const tpl = PRIORITY_TEMPLATES.find((t) => t.id === id)!;
+      const refText = tpl.compare?.(own, comps) ?? null;
+      const copy = [
+        tpl.action,
+        tpl.reason,
+        tpl.whyItMattersTemplate,
+        ...tpl.steps,
+        tpl.outcome,
+        refText,
+      ]
+        .filter(Boolean)
+        .join(' ');
+      expect(copy, id).not.toMatch(/[—–→]| - /);
+      if (refText) expect(refText, id).not.toMatch(/\b(zero|lack|none)\b|\bno\s|\b0\s/i);
+    }
+    for (const a of applyTemplates(own, comps, { location: 'Bristol' }).actions) {
+      const copy = [a.whyItMatters, ...a.steps, a.competitorReference].join(' ');
+      expect(copy, a.templateId ?? '').not.toMatch(/[—–→]|\[\[|\]\]|\{|\}| - /);
+    }
   });
 });
 

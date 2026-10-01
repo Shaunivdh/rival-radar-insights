@@ -1,8 +1,22 @@
-import type { Business, PriorityAction } from '@/types';
+import type { AIHealthScore, Business, PriorityAction } from '@/types';
 import { asPriorityActionId } from '@/types';
+
+type ScoreKey = keyof Pick<
+  AIHealthScore,
+  | 'reputationScore'
+  | 'localVisibilityScore'
+  | 'websiteHealthScore'
+  | 'gbpCompletenessScore'
+  | 'aiPresenceScore'
+  | 'reviewVelocityScore'
+>;
 
 export type PriorityTemplate = {
   id: string;
+  /** How much closing this gap moves enquiries or local ranking, 1 (minor) to 5 (major). */
+  impactWeight: 1 | 2 | 3 | 4 | 5;
+  /** The health score this gap feeds; a weaker score ranks the template higher. */
+  scoreKey: ScoreKey;
   trigger: (b: Business) => boolean;
   category: PriorityAction['category'];
   effort: PriorityAction['effort'];
@@ -31,6 +45,8 @@ export type PriorityTemplate = {
 export const PRIORITY_TEMPLATES: PriorityTemplate[] = [
   {
     id: 'no_phone_on_homepage',
+    impactWeight: 4,
+    scoreKey: 'websiteHealthScore',
     trigger: (b) => b.signals?.engagement?.hasPhoneNumberProminent === false,
     category: 'Conversion',
     effort: 'low',
@@ -49,6 +65,8 @@ export const PRIORITY_TEMPLATES: PriorityTemplate[] = [
   },
   {
     id: 'no_recent_reviews',
+    impactWeight: 4,
+    scoreKey: 'reviewVelocityScore',
     trigger: (b) => {
       const reviews = b.googleData?.recentReviews;
       const totalCount = b.googleData?.reviewCount ?? 0;
@@ -78,6 +96,8 @@ export const PRIORITY_TEMPLATES: PriorityTemplate[] = [
   },
   {
     id: 'missing_h1',
+    impactWeight: 3,
+    scoreKey: 'websiteHealthScore',
     trigger: (b) => {
       // Homepage-only signal: `h1Tags` is a site-wide union, so a site with an h1 on
       // /services but none on / must still fire. null = root page unusable → do not fire.
@@ -104,6 +124,8 @@ export const PRIORITY_TEMPLATES: PriorityTemplate[] = [
   },
   {
     id: 'no_business_hours',
+    impactWeight: 3,
+    scoreKey: 'gbpCompletenessScore',
     trigger: (b) => {
       const hours = b.googleData?.openingHours;
       return !hours || hours.length === 0;
@@ -128,6 +150,8 @@ export const PRIORITY_TEMPLATES: PriorityTemplate[] = [
   },
   {
     id: 'no_gbp_description',
+    impactWeight: 2,
+    scoreKey: 'gbpCompletenessScore',
     // googleData.description is Google's own summary (editorialSummary / generativeSummary),
     // not the owner's description, so the copy asks for a check rather than claiming a gap.
     trigger: (b) => {
@@ -154,6 +178,8 @@ export const PRIORITY_TEMPLATES: PriorityTemplate[] = [
   },
   {
     id: 'no_website_meta_description',
+    impactWeight: 3,
+    scoreKey: 'websiteHealthScore',
     trigger: (b) => {
       const meta = b.signals?.seo?.metaDescription;
       return meta != null && meta.trim().length < 50;
@@ -176,6 +202,8 @@ export const PRIORITY_TEMPLATES: PriorityTemplate[] = [
   },
   {
     id: 'no_schema_markup',
+    impactWeight: 2,
+    scoreKey: 'websiteHealthScore',
     trigger: (b) => {
       const types = b.signals?.seo?.schemaMarkupTypes;
       return types != null && types.length === 0;
@@ -198,6 +226,8 @@ export const PRIORITY_TEMPLATES: PriorityTemplate[] = [
   },
   {
     id: 'low_gbp_photos',
+    impactWeight: 3,
+    scoreKey: 'gbpCompletenessScore',
     trigger: (b) => {
       const photos = b.googleData?.photos;
       return photos != null && photos < 5;
@@ -222,6 +252,8 @@ export const PRIORITY_TEMPLATES: PriorityTemplate[] = [
   },
   {
     id: 'missing_alt_tags',
+    impactWeight: 2,
+    scoreKey: 'websiteHealthScore',
     trigger: (b) => b.signals?.seo?.altTagCoverage === 'none',
     category: 'Website',
     effort: 'low',
@@ -241,6 +273,8 @@ export const PRIORITY_TEMPLATES: PriorityTemplate[] = [
   },
   {
     id: 'no_contact_form',
+    impactWeight: 4,
+    scoreKey: 'websiteHealthScore',
     trigger: (b) => b.signals?.engagement?.hasContactForm === false,
     category: 'Conversion',
     effort: 'low',
@@ -260,6 +294,8 @@ export const PRIORITY_TEMPLATES: PriorityTemplate[] = [
   },
   {
     id: 'no_services_listed',
+    impactWeight: 5,
+    scoreKey: 'websiteHealthScore',
     trigger: (b) => {
       const services = b.signals?.content?.servicesListed;
       return services != null && services.length === 0;
@@ -282,6 +318,8 @@ export const PRIORITY_TEMPLATES: PriorityTemplate[] = [
   },
   {
     id: 'no_service_areas',
+    impactWeight: 4,
+    scoreKey: 'localVisibilityScore',
     trigger: (b) => {
       const areas = b.signals?.content?.serviceAreasMentioned;
       return areas != null && areas.length === 0;
@@ -304,6 +342,8 @@ export const PRIORITY_TEMPLATES: PriorityTemplate[] = [
   },
   {
     id: 'no_faq',
+    impactWeight: 2,
+    scoreKey: 'websiteHealthScore',
     trigger: (b) => b.signals?.content?.hasFAQ === false,
     category: 'Website',
     effort: 'medium',
@@ -323,6 +363,8 @@ export const PRIORITY_TEMPLATES: PriorityTemplate[] = [
   },
   {
     id: 'no_team_page',
+    impactWeight: 2,
+    scoreKey: 'websiteHealthScore',
     trigger: (b) => b.signals?.trust?.teamPageExists === false,
     category: 'Trust',
     effort: 'medium',
@@ -342,6 +384,8 @@ export const PRIORITY_TEMPLATES: PriorityTemplate[] = [
   },
   {
     id: 'no_review_links',
+    impactWeight: 2,
+    scoreKey: 'reputationScore',
     trigger: (b) => {
       const platforms = b.signals?.trust?.reviewPlatformsLinked;
       return platforms != null && platforms.length === 0;
@@ -364,6 +408,8 @@ export const PRIORITY_TEMPLATES: PriorityTemplate[] = [
   },
   {
     id: 'not_in_local_pack',
+    impactWeight: 5,
+    scoreKey: 'localVisibilityScore',
     trigger: (b) => b.serpData?.localPackPresent === false,
     category: 'Local SEO',
     effort: 'high',
@@ -385,6 +431,8 @@ export const PRIORITY_TEMPLATES: PriorityTemplate[] = [
   },
   {
     id: 'low_review_count',
+    impactWeight: 5,
+    scoreKey: 'reputationScore',
     trigger: (b) => {
       const count = b.googleData?.reviewCount;
       return count != null && count < 10;
@@ -409,6 +457,8 @@ export const PRIORITY_TEMPLATES: PriorityTemplate[] = [
   },
   {
     id: 'slow_mobile_site',
+    impactWeight: 4,
+    scoreKey: 'websiteHealthScore',
     trigger: (b) => {
       const score = b.pagespeedData?.mobile?.performanceScore;
       return score != null && score < 50;
@@ -432,6 +482,8 @@ export const PRIORITY_TEMPLATES: PriorityTemplate[] = [
   },
   {
     id: 'low_ai_visibility',
+    impactWeight: 2,
+    scoreKey: 'aiPresenceScore',
     trigger: (b) => {
       const score = b.aiVisibility?.aiPresenceScore;
       return score != null && score < 30;
@@ -455,6 +507,8 @@ export const PRIORITY_TEMPLATES: PriorityTemplate[] = [
   },
   {
     id: 'no_cta',
+    impactWeight: 4,
+    scoreKey: 'websiteHealthScore',
     trigger: (b) => b.signals?.engagement?.hasCallToAction === false,
     category: 'Conversion',
     effort: 'low',
@@ -474,51 +528,77 @@ export const PRIORITY_TEMPLATES: PriorityTemplate[] = [
   },
 ];
 
-export type ApplyResult = { actions: PriorityAction[]; firedIds: string[] };
+const EFFORT_FACTOR: Record<PriorityAction['effort'], number> = { low: 1, medium: 0.7, high: 0.4 };
 
 /**
- * Run all Tier-1 priority templates against a business and return matching
- * PriorityAction objects (at most 3, numbered starting at 1) along with the
- * `firedIds` array listing every template that triggered — useful for
- * observability and understanding which templates pull weight over time.
+ * Rank score: impactWeight × weakness × effortFactor. Weakness has a 0.3 floor so
+ * a strong overall score cannot bury a real, cheap gap; a missing score counts as 0.5.
  */
-export function applyTemplates(b: Business): ApplyResult {
-  const actions: PriorityAction[] = [];
-  const firedIds: string[] = [];
+export function rankScore(tpl: PriorityTemplate, b: Business): number {
+  const score = b.aiScore?.[tpl.scoreKey];
+  const weakness = score == null ? 0.5 : 0.3 + (0.7 * (100 - score)) / 100;
+  return tpl.impactWeight * weakness * EFFORT_FACTOR[tpl.effort];
+}
+
+/**
+ * Evaluate every template that has the data it needs, and return the ones that
+ * fired, highest rank first (ties broken on id so the order is stable).
+ */
+function evaluateTemplates(b: Business): {
+  ranked: PriorityTemplate[];
+  evaluatedIds: Set<string>;
+} {
   // When on-site extraction failed, signal-dependent triggers are unreliable
   // (empty arrays look the same as "missing" vs "truly absent"), so skip them.
   const extractFailed = Boolean(b.enrichmentErrors?.extract);
   const googleMissing = !b.googleData || Boolean(b.enrichmentErrors?.google);
+  const evaluatedIds = new Set<string>();
+  const fired: { tpl: PriorityTemplate; score: number }[] = [];
 
   for (const tpl of PRIORITY_TEMPLATES) {
     if (extractFailed && tpl.requiresSiteSignals !== false) continue;
     if (googleMissing && tpl.requiresGoogleData) continue;
-    if (!tpl.trigger(b)) continue;
-
-    firedIds.push(tpl.id);
-
-    if (actions.length < 5) {
-      actions.push({
-        id: asPriorityActionId(''),
-        status: 'active',
-        priority: (actions.length + 1) as PriorityAction['priority'],
-        category: tpl.category,
-        effort: tpl.effort,
-        estimatedImpact: tpl.estimatedImpact,
-        timeframe: tpl.timeframe,
-        action: tpl.action,
-        reason: tpl.reason,
-        whyItMatters: tpl.whyItMattersTemplate,
-        steps: tpl.steps,
-        outcome: tpl.outcome,
-        competitorReference: null,
-        templateId: tpl.id,
-        _source: 'template',
-      });
-    }
+    evaluatedIds.add(tpl.id);
+    if (tpl.trigger(b)) fired.push({ tpl, score: rankScore(tpl, b) });
   }
 
-  return { actions, firedIds };
+  fired.sort((x, y) => y.score - x.score || x.tpl.id.localeCompare(y.tpl.id));
+  return { ranked: fired.map((f) => f.tpl), evaluatedIds };
+}
+
+function toAction(tpl: PriorityTemplate, index: number): PriorityAction {
+  return {
+    id: asPriorityActionId(''),
+    status: 'active',
+    priority: (index + 1) as PriorityAction['priority'],
+    category: tpl.category,
+    effort: tpl.effort,
+    estimatedImpact: tpl.estimatedImpact,
+    timeframe: tpl.timeframe,
+    action: tpl.action,
+    reason: tpl.reason,
+    whyItMatters: tpl.whyItMattersTemplate,
+    steps: tpl.steps,
+    outcome: tpl.outcome,
+    competitorReference: null,
+    templateId: tpl.id,
+    _source: 'template',
+  };
+}
+
+export type ApplyResult = { actions: PriorityAction[]; firedIds: string[] };
+
+/**
+ * Run all Tier-1 priority templates against a business and return the top 5
+ * by rank as PriorityAction objects (numbered from 1), along with `firedIds`:
+ * every template that triggered, in rank order.
+ */
+export function applyTemplates(b: Business): ApplyResult {
+  const { ranked } = evaluateTemplates(b);
+  return {
+    actions: ranked.slice(0, 5).map(toAction),
+    firedIds: ranked.map((t) => t.id),
+  };
 }
 
 export type ApplyWithHistoryResult = {
@@ -540,44 +620,14 @@ export function applyTemplatesWithHistory(
   b: Business,
   previousActions: PriorityAction[],
 ): ApplyWithHistoryResult {
-  const actions: PriorityAction[] = [];
-  const firedIds: string[] = [];
-  const evaluatedIds = new Set<string>();
+  const { ranked, evaluatedIds } = evaluateTemplates(b);
+  const firedIds = ranked.map((t) => t.id);
   const previousIds = new Set(previousActions.map((p) => p.templateId).filter(Boolean));
-  const extractFailed = Boolean(b.enrichmentErrors?.extract);
-  const googleMissing = !b.googleData || Boolean(b.enrichmentErrors?.google);
 
-  for (const tpl of PRIORITY_TEMPLATES) {
-    if (extractFailed && tpl.requiresSiteSignals !== false) continue;
-    if (googleMissing && tpl.requiresGoogleData) continue;
-    evaluatedIds.add(tpl.id);
-    if (!tpl.trigger(b)) continue;
-
-    firedIds.push(tpl.id);
-
-    if (actions.length < 5) {
-      const wasPresent = previousIds.has(tpl.id);
-
-      actions.push({
-        id: asPriorityActionId(''),
-        status: 'active',
-        priority: (actions.length + 1) as PriorityAction['priority'],
-        category: tpl.category,
-        effort: tpl.effort,
-        estimatedImpact: tpl.estimatedImpact,
-        timeframe: tpl.timeframe,
-        action: tpl.action,
-        reason: tpl.reason,
-        whyItMatters: tpl.whyItMattersTemplate,
-        steps: tpl.steps,
-        outcome: tpl.outcome,
-        competitorReference: null,
-        continuityNote: wasPresent ? 'Still outstanding from last week.' : null,
-        templateId: tpl.id,
-        _source: 'template',
-      });
-    }
-  }
+  const actions = ranked.slice(0, 5).map((tpl, i) => ({
+    ...toAction(tpl, i),
+    continuityNote: previousIds.has(tpl.id) ? 'Still outstanding from last week.' : null,
+  }));
 
   const closedFromLastWeek: string[] = previousActions
     .filter(

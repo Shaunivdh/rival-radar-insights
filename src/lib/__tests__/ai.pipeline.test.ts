@@ -346,10 +346,14 @@ describe('Priority action pipeline (integration)', () => {
 
     expect(result).toHaveLength(5);
     expect(result.map((a) => a.priority)).toEqual([1, 2, 3, 4, 5]);
-    // First three templates by definition order: no_phone_on_homepage, missing_h1, no_business_hours
-    expect(result[0].action).toContain('phone number');
-    expect(result[1].action).toContain('heading');
-    expect(result[2].action).toContain('hours');
+    // Ranked by impactWeight × weakness × effort, not by definition order.
+    expect(result.map((a) => a.action)).toEqual([
+      'List your services clearly on your website',
+      'Tell Google and visitors where you work',
+      'Add a contact form to your website',
+      'Add a clear "next step" button to your homepage',
+      'Add your phone number to the homepage',
+    ]);
     // No LLM call should have been made
     expect(mockCreate).not.toHaveBeenCalled();
     // _source should be stripped

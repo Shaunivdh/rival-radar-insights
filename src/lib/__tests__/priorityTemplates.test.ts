@@ -147,6 +147,70 @@ describe('applyTemplates', () => {
   });
 });
 
+describe('template ranking', () => {
+  // Fires no_faq, no_team_page, missing_alt_tags, no_schema_markup, no_review_links (all
+  // early in file order) plus no_services_listed and no_phone_on_homepage (later or first).
+  const manyGaps = () => {
+    const s = buildSignals();
+    s.content = { ...s.content, hasFAQ: false, servicesListed: [] };
+    s.trust = { ...s.trust, teamPageExists: false, reviewPlatformsLinked: [] };
+    s.seo = { ...s.seo, altTagCoverage: 'none', schemaMarkupTypes: [] };
+    s.engagement = { ...s.engagement, hasPhoneNumberProminent: false };
+    return buildBusiness({ signals: s });
+  };
+
+  it('every template declares a weight from 1 to 5 and a score key', () => {
+    for (const t of PRIORITY_TEMPLATES) {
+      expect(t.impactWeight, t.id).toBeGreaterThanOrEqual(1);
+      expect(t.impactWeight, t.id).toBeLessThanOrEqual(5);
+      expect(t.scoreKey, t.id).toBeTruthy();
+    }
+  });
+
+  it('picks the top 5 by score, not by position in the file', () => {
+    const { actions, firedIds } = applyTemplates(manyGaps());
+    expect(firedIds.length).toBeGreaterThan(5);
+    expect(actions.map((a) => a.templateId)).toEqual(firedIds.slice(0, 5));
+    expect(actions[0].templateId).toBe('no_services_listed');
+    expect(actions[1].templateId).toBe('no_phone_on_homepage');
+    // weight 2, medium effort: the lowest scorers drop out
+    expect(actions.map((a) => a.templateId)).not.toContain('no_faq');
+    expect(actions.map((a) => a.templateId)).not.toContain('no_team_page');
+  });
+
+  it('a weak score in a category lifts its templates', () => {
+    const b = manyGaps();
+    b.googleData = buildGoogleData({ reviewCount: 3 });
+    const base = {
+      overallScore: 50,
+      weeklyDelta: null,
+      localVisibilityScore: 50,
+      gbpCompletenessScore: 90,
+      aiPresenceScore: null,
+      reviewVelocityScore: null,
+      generatedAt: '2026-09-30T00:00:00Z',
+    };
+    b.aiScore = { ...base, reputationScore: 95, websiteHealthScore: 20 };
+    const strongReviews = applyTemplates(b).actions.map((a) => a.templateId);
+    b.aiScore = { ...base, reputationScore: 10, websiteHealthScore: 95 };
+    const weakReviews = applyTemplates(b).actions.map((a) => a.templateId);
+    expect(weakReviews.indexOf('low_review_count')).toBeLessThan(
+      strongReviews.includes('low_review_count') ? strongReviews.indexOf('low_review_count') : 99,
+    );
+    expect(weakReviews[0]).toBe('low_review_count');
+  });
+
+  it('breaks ties on template id so the order is stable', () => {
+    const ids = applyTemplates(manyGaps()).firedIds;
+    expect(applyTemplates(manyGaps()).firedIds).toEqual(ids);
+    // no_schema_markup, no_review_links and missing_alt_tags all score 2.0 × 0.5
+    const tied = ids.filter((id) =>
+      ['missing_alt_tags', 'no_review_links', 'no_schema_markup'].includes(id),
+    );
+    expect(tied).toEqual(['missing_alt_tags', 'no_review_links', 'no_schema_markup']);
+  });
+});
+
 describe('applyTemplatesWithHistory', () => {
   it('tags every template action with its template id', () => {
     const { actions } = applyTemplates(noPhone());

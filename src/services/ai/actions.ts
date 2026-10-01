@@ -9,8 +9,8 @@ import {
   type JsonSchema,
 } from '../aiSchemas';
 import { logger } from '@/lib/logger';
-import { AIUnavailableError, AI_MODEL_SMART, SKIP_AI, askClaude, errorTypeOf } from './client';
-import { CATEGORY_SCORE_MAP_FULL, summariseBiz } from './businessView';
+import { AIUnavailableError, AI_MODEL_INSIGHT, SKIP_AI, askClaude, errorTypeOf } from './client';
+import { CATEGORY_SCORE_MAP_FULL, summariseForInsight } from './businessView';
 import { SCOUTLY_SYSTEM } from './prompts';
 import { dropUngroundedActions } from './evidence';
 import { validateActionsHybrid } from './validation';
@@ -42,6 +42,14 @@ const FIELD_RULES = `Field rules:
 - timeframe: realistic time-to-result, written without a dash (e.g. "2 to 3 weeks")
 - competitorReference: plain-English note naming a specific competitor and what they have that this business lacks, or null. Must be consistent with whyItMatters.
 - evidence: 1 to 4 data paths you relied on, each written as path=value exactly as it appears in the JSON below. Paths start with "own." or "competitor.<name>." and walk the object keys, e.g. "own.signals.engagement.hasContactForm=false", "own.scores.reputation=70", "competitor.Acme Ltd.reviewCount=140". Every path must exist in the data. Actions whose evidence does not resolve are discarded.`;
+
+const INSIGHT_RULE = `Prefer a gap where a specific named competitor is ahead of this business and that the automatic checks above do not cover. If no competitor is ahead anywhere, pick the single most valuable gap in the data.`;
+
+/** Own and competitor data for the prompt: identical signals are dropped (see summariseForInsight). */
+function insightPayload(own: Business, competitors: Business[]): string {
+  const view = summariseForInsight(own, competitors);
+  return `Own business: ${JSON.stringify(view.own)}\nCompetitors: ${JSON.stringify(view.competitors)}`;
+}
 
 const PRIORITY_SCHEMA_BASE = `{"actions":[{"priority":1,"category":"string","effort":"low"|"medium"|"high","action":"string","reason":"string","whyItMatters":"string","steps":["string"],"outcome":"string","competitorReference":"string|null","estimatedImpact":"high"|"medium","timeframe":"string","evidence":["string"]}]}`;
 
@@ -79,7 +87,7 @@ function ownDataWarnings(own: Business): string {
 function coveredSlotsNote(templateActions: PriorityAction[], remainingSlots: number): string {
   if (templateActions.length === 0) return '';
   const names = templateActions.map((a) => `"${a.action.replace(/"/g, "'")}"`).join(', ');
-  return `\nThese priority slots are already covered by automatic checks: ${names}. Fill the remaining ${remainingSlots} slots with different gaps.\n`;
+  return `\nThese priority slots are already covered by automatic checks: ${names}. Fill the remaining ${remainingSlots} slot${remainingSlots === 1 ? '' : 's'} with different gaps.\n`;
 }
 
 /**
@@ -181,7 +189,7 @@ async function generateWithDistributionCheck(
     askClaude<{ actions: PriorityAction[] }>(p, schema, {
       maxTokens,
       system: SCOUTLY_SYSTEM,
-      model: AI_MODEL_SMART,
+      model: AI_MODEL_INSIGHT,
     }).then((r) => (Array.isArray(r.actions) ? r.actions : []));
 
   let sorted = sortTop5(await ask(prompt));
@@ -216,36 +224,48 @@ async function generateWithDistributionCheck(
   return sorted;
 }
 
+/** Skip the LLM when at least this many fresh templates fire (env AI_FILL_THRESHOLD). */
+export const AI_FILL_THRESHOLD = Math.min(5, Number(process.env.AI_FILL_THRESHOLD) || 3);
+/** The LLM adds at most this many actions: a competitor insight templates cannot express. */
+const INSIGHT_SLOTS = 1;
+
+export type PriorityActionOptions = {
+  /** Project location, used to personalise template copy. */
+  location?: string | null;
+  /** Template ids already live on the plan, so the next best fresh gaps are chosen instead. */
+  excludeTemplateIds?: readonly string[];
+};
+
 /**
- * Generate the top 5 priority actions for a business.
+ * Generate priority actions for a business.
  *
- * **Template-first pipeline:** Before calling the LLM, deterministic Tier-1
- * templates are evaluated against the business signals. Any templates that
- * fire fill priority slots first. If all 5 slots are filled by templates the
- * LLM call is skipped entirely. Otherwise the LLM is told which gaps are
- * already covered and asked to fill the remaining slots.
+ * **Template-first pipeline:** deterministic templates are ranked and the top
+ * fresh ones (not already live) fill the plan. When at least AI_FILL_THRESHOLD
+ * fire, the LLM is skipped entirely. Otherwise it is asked for a single
+ * competitor insight the templates do not cover, from a trimmed payload that
+ * keeps only the signals where the business and its competitors differ.
  */
 export async function generatePriorityActions(
   own: Business,
   competitors: Business[],
   serviceCategory?: ServiceCategory,
-  /** Project location, used to personalise template copy. */
-  location?: string | null,
+  opts: PriorityActionOptions = {},
 ): Promise<PriorityAction[]> {
   if (SKIP_AI) return [];
 
   // ── Tier-1 templates ────────────────────────────────────────────────
   const { actions: templateActions, firedIds } = applyTemplates(own, competitors, {
-    location,
+    location: opts.location,
     serviceCategory,
+    excludeTemplateIds: opts.excludeTemplateIds,
   });
   const templatesUsed = templateActions.length;
 
-  if (templatesUsed >= 5) {
-    logger.info('priority', '5 templates fired, skipping LLM');
+  if (templatesUsed >= AI_FILL_THRESHOLD) {
+    logger.info('priority', `${templatesUsed} fresh templates fired, skipping LLM`);
     logAIEvent({
       event: 'generation',
-      model: AI_MODEL_SMART,
+      model: AI_MODEL_INSIGHT,
       success: true,
       durationMs: 0,
       serviceCategory,
@@ -255,8 +275,8 @@ export async function generatePriorityActions(
     return await validateActionsHybrid(templateActions.slice(0, 5), own, competitors);
   }
 
-  // ── Build LLM prompt for remaining slots ────────────────────────────
-  const remainingSlots = 5 - templatesUsed;
+  // ── Build LLM prompt for the insight slot ───────────────────────────
+  const remainingSlots = Math.min(INSIGHT_SLOTS, 5 - templatesUsed);
 
   const catConfig = serviceCategory ? SERVICE_CATEGORIES[serviceCategory] : null;
   const industryFocus = catConfig
@@ -277,7 +297,8 @@ ${TONE_RULES}
 ${DATA_INTEGRITY_RULES}
 
 PRIORITISATION RULES:
-- Return exactly ${remainingSlots} action${remainingSlots > 1 ? 's' : ''}, not more. ${remainingSlots < 5 ? `(${templatesUsed} slot${templatesUsed > 1 ? 's are' : ' is'} already filled by automatic checks.)` : 'Five forces real prioritisation.'}
+- Return exactly ${remainingSlots} action${remainingSlots > 1 ? 's' : ''}, not more.${templatesUsed > 0 ? ` (${templatesUsed} slot${templatesUsed > 1 ? 's are' : ' is'} already filled by automatic checks.)` : ''}
+- ${INSIGHT_RULE}
 - Only include an action if it reflects a genuine gap. If the business is already strong in a category (score ≥ 85 and no specific deficit in the data), do not invent a problem there.
 - Every action must have estimatedImpact of "high" or "medium". No "low impact" actions.
 - Each action must address a genuinely different gap. No two from the same root cause unless the gaps are clearly distinct.
@@ -290,8 +311,7 @@ Priority numbering: Unique integers 1 to ${remainingSlots} ordered by impact. No
 Schema (JSON object only, no markdown):
 ${PRIORITY_SCHEMA_BASE}
 
-Own business: ${JSON.stringify(summariseBiz(own, true))}
-Competitors: ${JSON.stringify(competitors.map((b) => summariseBiz(b, false)))}`;
+${insightPayload(own, competitors)}`;
 
   // 900 truncated in practice once site signals fed more evidence into each action.
   const tokensPerSlot = 1500;
@@ -321,7 +341,7 @@ Competitors: ${JSON.stringify(competitors.map((b) => summariseBiz(b, false)))}`;
 
     logAIEvent({
       event: 'generation',
-      model: AI_MODEL_SMART,
+      model: AI_MODEL_INSIGHT,
       success: true,
       durationMs: Date.now() - t0,
       serviceCategory,
@@ -332,7 +352,7 @@ Competitors: ${JSON.stringify(competitors.map((b) => summariseBiz(b, false)))}`;
   } catch (e) {
     logAIEvent({
       event: 'generation',
-      model: AI_MODEL_SMART,
+      model: AI_MODEL_INSIGHT,
       success: false,
       durationMs: Date.now() - t0,
       serviceCategory,
@@ -352,8 +372,7 @@ export async function generatePriorityActionsWithHistory(
   previousSignals: ExtractedSignals | null,
   currentSignals: ExtractedSignals,
   serviceCategory?: ServiceCategory,
-  /** Project location, used to personalise template copy. */
-  location?: string | null,
+  opts: PriorityActionOptions = {},
 ): Promise<PriorityAction[]> {
   if (SKIP_AI) return [];
 
@@ -362,11 +381,15 @@ export async function generatePriorityActionsWithHistory(
     actions: templateActions,
     firedIds: firedIds2,
     closedFromLastWeek,
-  } = applyTemplatesWithHistory(own, previousActions, competitors, { location, serviceCategory });
+  } = applyTemplatesWithHistory(own, previousActions, competitors, {
+    location: opts.location,
+    serviceCategory,
+    excludeTemplateIds: opts.excludeTemplateIds,
+  });
   const templatesUsed = templateActions.length;
 
-  if (templatesUsed >= 5) {
-    logger.info('priority', '5 templates fired, skipping LLM (with-history)');
+  if (templatesUsed >= AI_FILL_THRESHOLD) {
+    logger.info('priority', `${templatesUsed} fresh templates fired, skipping LLM (with-history)`);
     // Acknowledge up to 3 closed items from last week in the first template's whyItMatters
     if (closedFromLastWeek.length > 0) {
       const wins = closedFromLastWeek
@@ -381,7 +404,7 @@ export async function generatePriorityActionsWithHistory(
     }
     logAIEvent({
       event: 'generation',
-      model: AI_MODEL_SMART,
+      model: AI_MODEL_INSIGHT,
       success: true,
       durationMs: 0,
       serviceCategory,
@@ -391,7 +414,7 @@ export async function generatePriorityActionsWithHistory(
     return await validateActionsHybrid(templateActions.slice(0, 5), own, competitors);
   }
 
-  const remainingSlots = 5 - templatesUsed;
+  const remainingSlots = Math.min(INSIGHT_SLOTS, 5 - templatesUsed);
 
   const catConfig = serviceCategory ? SERVICE_CATEGORIES[serviceCategory] : null;
   const industryFocus = catConfig
@@ -438,6 +461,7 @@ INTERNAL COHERENCE CHECK (do this before returning):
 
 PRIORITISATION RULES:
 - Return exactly ${remainingSlots} action${remainingSlots > 1 ? 's' : ''}. ${templatesUsed > 0 ? `(${templatesUsed} slot${templatesUsed > 1 ? 's are' : ' is'} already filled by automatic checks.)` : ''}
+- ${INSIGHT_RULE}
 - Every action must have estimatedImpact "high" or "medium".
 - Each action must address a genuinely different gap. No two from the same root cause unless the gaps are clearly distinct.
 - ${effortNote}
@@ -452,8 +476,7 @@ What changed in this business's signals since last week: ${Object.keys(changedSi
 Schema (JSON object only, no markdown):
 ${PRIORITY_SCHEMA_WITH_CONTINUITY}
 
-Own business: ${JSON.stringify(summariseBiz(own, true))}
-Competitors: ${JSON.stringify(competitors.map((b) => summariseBiz(b, false)))}`;
+${insightPayload(own, competitors)}`;
 
   // 900 truncated in practice once site signals fed more evidence into each action.
   const tokensPerSlot = 1500;
@@ -483,7 +506,7 @@ Competitors: ${JSON.stringify(competitors.map((b) => summariseBiz(b, false)))}`;
 
     logAIEvent({
       event: 'generation',
-      model: AI_MODEL_SMART,
+      model: AI_MODEL_INSIGHT,
       success: true,
       durationMs: Date.now() - t0,
       serviceCategory,
@@ -494,7 +517,7 @@ Competitors: ${JSON.stringify(competitors.map((b) => summariseBiz(b, false)))}`;
   } catch (e) {
     logAIEvent({
       event: 'generation',
-      model: AI_MODEL_SMART,
+      model: AI_MODEL_INSIGHT,
       success: false,
       durationMs: Date.now() - t0,
       serviceCategory,

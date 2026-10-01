@@ -76,6 +76,8 @@ export const SKIP_AI = process.env.SKIP_AI_CALLS === 'true';
 // SMART: advice generation + validation (accuracy plan §4.4) and AI-visibility queries.
 export const AI_MODEL_FAST = process.env.AI_MODEL_FAST?.trim() || 'claude-haiku-4-5-20251001';
 export const AI_MODEL_SMART = process.env.AI_MODEL_SMART?.trim() || 'claude-sonnet-5';
+/** Model for the single competitor-insight action (env AI_MODEL_INSIGHT, defaults to SMART). */
+export const AI_MODEL_INSIGHT = process.env.AI_MODEL_INSIGHT?.trim() || AI_MODEL_SMART;
 
 let _client: Anthropic | null = null;
 function getClient(): Anthropic {

@@ -1084,6 +1084,8 @@ function evaluateTemplates(
 export type TemplateOptions = {
   location?: string | null;
   serviceCategory?: ServiceCategory;
+  /** Templates already live on the plan: still evaluated (for continuity), never re-selected. */
+  excludeTemplateIds?: readonly string[];
 };
 
 function toAction(
@@ -1115,6 +1117,12 @@ function toAction(
   };
 }
 
+/** Top 5 ranked templates that are not already live. */
+function fresh(ranked: PriorityTemplate[], opts: TemplateOptions): PriorityTemplate[] {
+  const exclude = new Set(opts.excludeTemplateIds ?? []);
+  return ranked.filter((t) => !exclude.has(t.id)).slice(0, 5);
+}
+
 export type ApplyResult = { actions: PriorityAction[]; firedIds: string[] };
 
 /**
@@ -1134,7 +1142,7 @@ export function applyTemplates(
   };
   const { ranked } = evaluateTemplates(b, ctx);
   return {
-    actions: ranked.slice(0, 5).map((tpl, i) => toAction(tpl, i, b, competitors, ctx)),
+    actions: fresh(ranked, opts).map((tpl, i) => toAction(tpl, i, b, competitors, ctx)),
     firedIds: ranked.map((t) => t.id),
   };
 }
@@ -1168,7 +1176,7 @@ export function applyTemplatesWithHistory(
   const firedIds = ranked.map((t) => t.id);
   const previousIds = new Set(previousActions.map((p) => p.templateId).filter(Boolean));
 
-  const actions = ranked.slice(0, 5).map((tpl, i) => ({
+  const actions = fresh(ranked, opts).map((tpl, i) => ({
     ...toAction(tpl, i, b, competitors, ctx),
     continuityNote: previousIds.has(tpl.id) ? 'Still outstanding from last week.' : null,
   }));

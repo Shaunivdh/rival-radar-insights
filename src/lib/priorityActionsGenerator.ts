@@ -132,42 +132,8 @@ export async function generateAndPersistProjectActions(
   const useHistory = previousActions.length > 0 && !!ownRaw.signals;
   const previousSignals = useHistory ? await fetchPreviousSignals(ownRaw.id) : null;
 
-  let rawActions: PriorityAction[];
-  try {
-    rawActions =
-      useHistory && ownRaw.signals
-        ? await generatePriorityActionsWithHistory(
-            ownBusiness,
-            competitorBusinesses,
-            previousActions,
-            previousSignals,
-            ownRaw.signals,
-            projRow?.primary_service as ServiceCategory,
-            projRow?.location,
-          )
-        : await generatePriorityActions(
-            ownBusiness,
-            competitorBusinesses,
-            projRow?.primary_service as ServiceCategory,
-            projRow?.location,
-          );
-  } catch (e) {
-    if (e instanceof AIUnavailableError) {
-      logger.warn('priorityActions', 'AI unavailable', { projectId, kind: e.kind });
-      return {
-        inserted: 0,
-        reason: 'AI temporarily unavailable',
-        ownBusinessId: ownRaw.id,
-        retryAt: e.retryAt,
-      };
-    }
-    throw e;
-  }
-
-  if (!rawActions.length)
-    return { inserted: 0, reason: 'generation returned 0 actions', ownBusinessId: ownRaw.id };
-
-  // Deduplicate against actions that are still live or recently completed.
+  // Actions still live or recently completed. Loaded before generation so live
+  // templates are skipped and the next best fresh gaps are chosen instead.
   const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
   const { data: existingActions } = await supabaseAdmin
     .from('priority_actions')
@@ -185,6 +151,45 @@ export async function generateAndPersistProjectActions(
   const existingTemplateIds = new Set(
     liveExisting.map((e) => e.template_id).filter((id): id is string => id != null),
   );
+  const genOpts = {
+    location: projRow?.location,
+    excludeTemplateIds: [...existingTemplateIds],
+  };
+
+  let rawActions: PriorityAction[];
+  try {
+    rawActions =
+      useHistory && ownRaw.signals
+        ? await generatePriorityActionsWithHistory(
+            ownBusiness,
+            competitorBusinesses,
+            previousActions,
+            previousSignals,
+            ownRaw.signals,
+            projRow?.primary_service as ServiceCategory,
+            genOpts,
+          )
+        : await generatePriorityActions(
+            ownBusiness,
+            competitorBusinesses,
+            projRow?.primary_service as ServiceCategory,
+            genOpts,
+          );
+  } catch (e) {
+    if (e instanceof AIUnavailableError) {
+      logger.warn('priorityActions', 'AI unavailable', { projectId, kind: e.kind });
+      return {
+        inserted: 0,
+        reason: 'AI temporarily unavailable',
+        ownBusinessId: ownRaw.id,
+        retryAt: e.retryAt,
+      };
+    }
+    throw e;
+  }
+
+  if (!rawActions.length)
+    return { inserted: 0, reason: 'generation returned 0 actions', ownBusinessId: ownRaw.id };
 
   const newActions = rawActions.filter(
     (a) => !existingSet.has(a.action) && !(a.templateId && existingTemplateIds.has(a.templateId)),

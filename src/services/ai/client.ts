@@ -124,6 +124,10 @@ export async function callLLMRaw(
  * (`stop_reason === 'max_tokens'`) throws `TruncatedOutputError` rather than
  * being parsed.
  */
+/** Thinking depth levels askClaude passes as output_config.effort. */
+export const EFFORTS = ['low', 'medium', 'high'] as const;
+export type Effort = (typeof EFFORTS)[number];
+
 export async function askClaude<T>(
   prompt: string,
   schema: JsonSchema,
@@ -132,7 +136,7 @@ export async function askClaude<T>(
     system?: string;
     model?: string;
     /** Thinking depth on models that support it; ignored on Haiku 4.5, which rejects it. */
-    effort?: 'low' | 'medium' | 'high';
+    effort?: Effort;
   } = {},
 ): Promise<T> {
   const maxTokens = opts.maxTokens ?? 512;

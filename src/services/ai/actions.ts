@@ -9,7 +9,15 @@ import {
   type JsonSchema,
 } from '../aiSchemas';
 import { logger } from '@/lib/logger';
-import { AIUnavailableError, AI_MODEL_INSIGHT, SKIP_AI, askClaude, errorTypeOf } from './client';
+import {
+  AIUnavailableError,
+  AI_MODEL_INSIGHT,
+  EFFORTS,
+  SKIP_AI,
+  askClaude,
+  errorTypeOf,
+  type Effort,
+} from './client';
 import { CATEGORY_SCORE_MAP_FULL, summariseForInsight } from './businessView';
 import { SCOUTLY_SYSTEM } from './prompts';
 import { dropUngroundedActions } from './evidence';
@@ -167,10 +175,10 @@ export function checkCategoryDistribution(
   return { overrepresented, shouldRegenerate: overrepresented.length > 0 };
 }
 
-function sortTop5(raw: PriorityAction[]): PriorityAction[] {
+function sortTopN(raw: PriorityAction[], n: number): PriorityAction[] {
   return raw
     .sort((a, b) => a.priority - b.priority)
-    .slice(0, 5)
+    .slice(0, n)
     .map((action, i) => ({ ...action, priority: (i + 1) as PriorityAction['priority'] }));
 }
 
@@ -178,22 +186,41 @@ function sortTop5(raw: PriorityAction[]): PriorityAction[] {
  * Generate actions via askClaude, then check for over-represented categories
  * on strong scores. If detected, regenerate once with an explicit instruction.
  */
-async function generateWithDistributionCheck(
-  prompt: string,
-  ownScores: NonNullable<Business['aiScore']> | null,
-  label: string,
-  maxTokens: number,
-  schema: JsonSchema,
-): Promise<PriorityAction[]> {
+async function generateWithDistributionCheck({
+  prompt,
+  own,
+  competitors,
+  label,
+  maxTokens,
+  schema,
+  slots,
+}: {
+  prompt: string;
+  own: Business;
+  competitors: Business[];
+  label: string;
+  maxTokens: number;
+  schema: JsonSchema;
+  /** How many actions are kept. Ungrounded ones are dropped first, so a later one can take a slot. */
+  slots: number;
+}): Promise<PriorityAction[]> {
+  const ownScores = own.aiScore;
   const ask = (p: string) =>
     askClaude<{ actions: PriorityAction[] }>(p, schema, {
       maxTokens,
       system: SCOUTLY_SYSTEM,
       model: AI_MODEL_INSIGHT,
       effort: INSIGHT_EFFORT,
-    }).then((r) => (Array.isArray(r.actions) ? r.actions : []));
+    }).then((r) =>
+      // Grounding and the slot cut happen before the category check, so one kept
+      // insight can never trigger a paid regeneration.
+      sortTopN(
+        dropUngroundedActions(Array.isArray(r.actions) ? r.actions : [], own, competitors),
+        slots,
+      ),
+    );
 
-  let sorted = sortTop5(await ask(prompt));
+  let sorted = await ask(prompt);
 
   const dist = checkCategoryDistribution(sorted, ownScores);
   if (dist.shouldRegenerate) {
@@ -212,7 +239,7 @@ async function generateWithDistributionCheck(
     const retryPrompt =
       prompt +
       `\n\nPREVIOUS ATTEMPT DUPLICATE: Your last attempt returned ${dupeNote}. Spread your actions across at least 2 different categories.`;
-    sorted = sortTop5(await ask(retryPrompt));
+    sorted = await ask(retryPrompt);
 
     const retryDist = checkCategoryDistribution(sorted, ownScores);
     if (retryDist.shouldRegenerate) {
@@ -225,8 +252,29 @@ async function generateWithDistributionCheck(
   return sorted;
 }
 
-/** Skip the LLM when at least this many fresh templates fire (env AI_FILL_THRESHOLD). */
-export const AI_FILL_THRESHOLD = Math.min(5, Number(process.env.AI_FILL_THRESHOLD) || 3);
+/** Integer 0 to 5 from env, else the default (with a warning for a bad value). */
+function envThreshold(raw: string | undefined, fallback: number): number {
+  if (raw == null || raw.trim() === '') return fallback;
+  const n = Number(raw);
+  if (Number.isInteger(n) && n >= 0 && n <= 5) return n;
+  logger.warn('priority', 'Invalid AI_FILL_THRESHOLD, using default', { raw, fallback });
+  return fallback;
+}
+
+/** One of EFFORTS from env, else the default (with a warning for a bad value). */
+function envEffort(raw: string | undefined, fallback: Effort): Effort {
+  const v = raw?.trim();
+  if (!v) return fallback;
+  if ((EFFORTS as readonly string[]).includes(v)) return v as Effort;
+  logger.warn('priority', 'Invalid AI_INSIGHT_EFFORT, using default', { raw, fallback });
+  return fallback;
+}
+
+/**
+ * Skip the LLM when at least this many fresh templates fire (env AI_FILL_THRESHOLD,
+ * 0 to 5; 0 means never call it).
+ */
+export const AI_FILL_THRESHOLD = envThreshold(process.env.AI_FILL_THRESHOLD, 3);
 /** The LLM adds at most this many actions: a competitor insight templates cannot express. */
 const INSIGHT_SLOTS = 1;
 /**
@@ -236,10 +284,7 @@ const INSIGHT_SLOTS = 1;
  */
 const INSIGHT_MAX_TOKENS = 4000;
 /** Thinking depth for the insight (env AI_INSIGHT_EFFORT). Ignored on Haiku. */
-const INSIGHT_EFFORT = (process.env.AI_INSIGHT_EFFORT?.trim() || 'low') as
-  | 'low'
-  | 'medium'
-  | 'high';
+const INSIGHT_EFFORT = envEffort(process.env.AI_INSIGHT_EFFORT, 'low');
 
 export type PriorityActionOptions = {
   /** Project location, used to personalise template copy. */
@@ -329,17 +374,15 @@ ${insightPayload(own, competitors)}`;
 
   const t0 = Date.now();
   try {
-    const llmActions = dropUngroundedActions(
-      await generateWithDistributionCheck(
-        prompt,
-        own.aiScore,
-        'generatePriorityActions',
-        maxTokens,
-        PRIORITY_ACTIONS_SCHEMA,
-      ),
+    const llmActions = await generateWithDistributionCheck({
+      prompt,
       own,
       competitors,
-    );
+      label: 'generatePriorityActions',
+      maxTokens,
+      schema: PRIORITY_ACTIONS_SCHEMA,
+      slots: remainingSlots,
+    });
 
     // Combine: templates first, then LLM actions, renumber 1–5
     const combined = [
@@ -492,17 +535,15 @@ ${insightPayload(own, competitors)}`;
 
   const t0 = Date.now();
   try {
-    const sorted = dropUngroundedActions(
-      await generateWithDistributionCheck(
-        prompt,
-        own.aiScore,
-        'generatePriorityActionsWithHistory',
-        maxTokens,
-        PRIORITY_ACTIONS_WITH_CONTINUITY_SCHEMA,
-      ),
+    const sorted = await generateWithDistributionCheck({
+      prompt,
       own,
       competitors,
-    );
+      label: 'generatePriorityActionsWithHistory',
+      maxTokens,
+      schema: PRIORITY_ACTIONS_WITH_CONTINUITY_SCHEMA,
+      slots: remainingSlots,
+    });
 
     // Combine: templates first, then LLM actions, renumber 1–5
     const combined = [

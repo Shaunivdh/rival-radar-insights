@@ -445,6 +445,42 @@ describe('Priority action pipeline (integration)', () => {
     expect(mockCreate).toHaveBeenCalledTimes(1);
   });
 
+  it('never makes a second call for category balance when only one insight is kept', async () => {
+    // Strong reputation (90) and the model returns three Reviews actions: with five
+    // slots this used to trigger a paid regeneration.
+    const own = buildBusiness({
+      aiScore: { ...buildBusiness().aiScore!, reputationScore: 90 },
+    });
+    const reviews = cannedLLMActions(3).map((a, i) => ({
+      ...a,
+      category: 'Reviews',
+      action: `Reviews idea ${i + 1}`,
+    }));
+    mockCreate.mockResolvedValueOnce(llmResponse(reviews));
+
+    const result = await generatePriorityActions(own, competitors);
+
+    expect(mockCreate).toHaveBeenCalledTimes(1);
+    expect(result).toHaveLength(1);
+  });
+
+  it('falls back to safe defaults for invalid AI env settings', async () => {
+    vi.stubEnv('AI_INSIGHT_EFFORT', 'hgih');
+    vi.stubEnv('AI_FILL_THRESHOLD', '0');
+    vi.resetModules();
+    const ai = await import('@/services/ai');
+    // 0 is a valid threshold: never call the AI.
+    expect(ai.AI_FILL_THRESHOLD).toBe(0);
+    mockCreate.mockResolvedValueOnce(llmResponse(cannedLLMActions(1)));
+    vi.stubEnv('AI_FILL_THRESHOLD', '1');
+    vi.resetModules();
+    const ai2 = await import('@/services/ai');
+    await ai2.generatePriorityActions(buildBusiness(), competitors);
+    expect(mockCreate.mock.calls[0][0].output_config?.effort).toBe('low');
+    vi.unstubAllEnvs();
+    vi.resetModules();
+  });
+
   it('sends only the signals that differ between the business and its competitors', async () => {
     const s = buildBusiness().signals!;
     const own = buildBusiness({

@@ -6,6 +6,7 @@ import {
 } from '@/services/ai';
 import { mapPriorityActionRow } from '@/lib/priorityActionRow';
 import { businessJson, rowToSignals } from '@/lib/supabase/mappers';
+import { fetchReviewGrowth } from '@/lib/supabase/reviewHistory';
 import type { Business, ExtractedSignals, PriorityAction } from '@/types';
 import { asBusinessId, type BusinessId, type ProjectId } from '@/types';
 
@@ -74,6 +75,7 @@ export async function generateAndPersistProjectActions(
         .limit(1)
         .maybeSingle();
       const json = businessJson(b);
+      const reviewGrowth = await fetchReviewGrowth(supabaseAdmin, b.id);
       return {
         id: asBusinessId(b.id),
         name: b.name,
@@ -85,6 +87,7 @@ export async function generateAndPersistProjectActions(
         serpData: json.serpData,
         aiVisibility: json.aiVisibility,
         enrichmentErrors: json.enrichmentErrors,
+        reviewGrowth,
       };
     }),
   );
@@ -117,6 +120,7 @@ export async function generateAndPersistProjectActions(
     aiVisibility: b.aiVisibility,
     reviewSentiment: null,
     enrichmentErrors: b.enrichmentErrors,
+    reviewGrowth: b.reviewGrowth,
     previousSignals: null,
     changeEvents: [],
   });

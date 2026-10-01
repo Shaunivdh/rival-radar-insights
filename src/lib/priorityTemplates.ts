@@ -52,7 +52,12 @@ export type PriorityTemplate = {
    * our side as "0", "no" or "none": the validator flags those as contradictions.
    */
   compare?: (own: Business, competitors: Business[]) => string | null;
+  /** Optional factual opening sentence for whyItMatters, built from the own business data. */
+  detail?: (own: Business) => string | null;
 };
+
+/** Days of review count history needed before saying reviews have gone quiet. */
+export const QUIET_REVIEW_MIN_DAYS = 60;
 
 // ── Competitor comparison helpers ──────────────────────────────────────
 
@@ -125,34 +130,38 @@ export const PRIORITY_TEMPLATES: PriorityTemplate[] = [
     id: 'no_recent_reviews',
     impactWeight: 4,
     scoreKey: 'reviewVelocityScore',
+    // Places returns 5 "most relevant" reviews, not the newest, so their dates
+    // cannot prove a business has gone quiet. Only google_data count history can.
     compare: (_own, competitors) => {
-      let best: { name: string; time: number } | null = null;
+      let best: { name: string; gained: number; days: number } | null = null;
       for (const c of competitors) {
-        if (!googleOk(c)) continue;
-        for (const r of c.googleData!.recentReviews ?? [])
-          if (!best || r.time > best.time) best = { name: c.name, time: r.time };
+        const g = c.reviewGrowth;
+        if (g && g.gained > 0 && (!best || g.gained > best.gained))
+          best = { name: c.name, gained: g.gained, days: g.days };
       }
       if (!best) return null;
-      const days = Math.floor((Date.now() - best.time) / 86_400_000);
-      if (days > 90) return null;
-      const when = days <= 0 ? 'today' : days === 1 ? 'yesterday' : `${days} days ago`;
-      return `${best.name} had a new Google review ${when}.`;
+      return `${best.name} gained ${plural(best.gained, 'Google review')} in the last ${plural(best.days, 'day')}.`;
+    },
+    detail: (b) => {
+      const g = b.reviewGrowth;
+      if (!g) return null;
+      const date = new Date(g.since).toLocaleDateString('en-GB', { day: 'numeric', month: 'long' });
+      return `Your Google review count has stayed at ${g.baselineCount} since ${date}.`;
     },
     trigger: (b) => {
-      const reviews = b.googleData?.recentReviews;
-      const totalCount = b.googleData?.reviewCount ?? 0;
-      if (totalCount <= 5) return false;
-      if (!reviews || reviews.length === 0) return true;
-      const ninetyDaysAgo = Date.now() - 90 * 24 * 60 * 60 * 1000;
-      // r.time is stored in milliseconds (see scores.ts) — do NOT multiply by 1000.
-      return !reviews.some((r) => r.time > ninetyDaysAgo);
+      if ((b.googleData?.reviewCount ?? 0) <= 5) return false;
+      // A sampled review inside 90 days proves activity. r.time is in milliseconds.
+      const ninetyDaysAgo = Date.now() - 90 * 86_400_000;
+      if (b.googleData?.recentReviews?.some((r) => r.time > ninetyDaysAgo)) return false;
+      const g = b.reviewGrowth;
+      return g != null && g.days >= QUIET_REVIEW_MIN_DAYS && g.gained === 0;
     },
     category: 'Reviews',
     effort: 'medium',
     estimatedImpact: 'high',
     timeframe: '2 to 4 weeks',
     action: 'Get fresh reviews: yours have gone quiet',
-    reason: 'No new reviews in the last 90 days',
+    reason: 'Your Google review count has not grown in over two months',
     whyItMattersTemplate:
       'You have reviews, but none are recent. Google and potential customers both notice when the last review is months old. A steady trickle of new reviews signals that you are active and people are still choosing you.',
     steps: [
@@ -744,7 +753,9 @@ function toAction(
     // Headline stays static: dedup and continuity match on it for LLM rows.
     action: tpl.action,
     reason: tpl.reason,
-    whyItMatters: fillTemplate(tpl.whyItMattersTemplate, ctx),
+    whyItMatters: [tpl.detail?.(own), fillTemplate(tpl.whyItMattersTemplate, ctx)]
+      .filter(Boolean)
+      .join(' '),
     steps: tpl.steps.map((s) => fillTemplate(s, ctx)).filter(Boolean),
     outcome: tpl.outcome,
     competitorReference: tpl.compare?.(own, competitors) ?? null,

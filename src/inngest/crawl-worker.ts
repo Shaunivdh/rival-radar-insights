@@ -10,6 +10,7 @@ import {
 import { fetchPageDirect } from '@/services/crawl';
 import { supabaseAdmin } from '@/lib/supabase/server';
 import { jsonColumn, rowToSignals, rowToSignalsUnchecked, toJson } from '@/lib/supabase/mappers';
+import { fetchReviewGrowth } from '@/lib/supabase/reviewHistory';
 import { fetchGoogleData, fetchSerpData } from '@/actions/enrichment';
 import {
   generateChangeSummary,
@@ -807,7 +808,7 @@ export const crawlBusinessFunction = inngest.createFunction(
 
     // Step 9: Calculate deterministic health score
     await step.run('calculate-scores', async () => {
-      const [{ data: biz }, { data: sig }, { data: googleHistory }] = await Promise.all([
+      const [{ data: biz }, { data: sig }, growth] = await Promise.all([
         supabaseAdmin
           .from('businesses')
           .select('google_data, serp_data, ai_visibility, pagespeed_data')
@@ -820,27 +821,15 @@ export const crawlBusinessFunction = inngest.createFunction(
           .order('scanned_at', { ascending: false })
           .limit(1)
           .maybeSingle(),
-        supabaseAdmin
-          .from('google_data')
-          .select('review_count, fetched_at')
-          .eq('business_id', businessId)
-          .order('fetched_at', { ascending: false })
-          .limit(2),
+        // Velocity over the review window, not the last two fetches (often a day apart).
+        fetchReviewGrowth(supabaseAdmin, businessId),
       ]);
 
       if (!biz) return;
 
       const signals = rowToSignals(sig);
-
-      let previousReviewCount: number | undefined;
-      let daysBetween: number | undefined;
-      if (googleHistory && googleHistory.length >= 2) {
-        const msApart =
-          new Date(googleHistory[0].fetched_at as string).getTime() -
-          new Date(googleHistory[1].fetched_at as string).getTime();
-        previousReviewCount = googleHistory[1].review_count as number;
-        daysBetween = msApart / 86400000;
-      }
+      const previousReviewCount = growth?.baselineCount;
+      const daysBetween = growth?.days;
 
       logger.info('calculate-scores', 'Source data presence', {
         businessId,

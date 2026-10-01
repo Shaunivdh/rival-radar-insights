@@ -90,20 +90,65 @@ describe('applyTemplates', () => {
     }
   });
 
-  it('no_recent_reviews fires only with >5 reviews and none in the last 90 days', () => {
+  describe('no_recent_reviews (review count history)', () => {
     const stale = buildGoogleData({
-      reviewCount: 20,
+      reviewCount: 96,
       recentReviews: [
         { rating: 5, text: 'old', time: Date.now() - 200 * 86400_000, authorName: 'X' },
       ],
     });
-    expect(applyTemplates(buildBusiness({ googleData: stale })).firedIds).toContain(
-      'no_recent_reviews',
-    );
-    expect(
-      applyTemplates(buildBusiness({ googleData: { ...stale, reviewCount: 4 } })).firedIds,
-    ).not.toContain('no_recent_reviews');
-    expect(applyTemplates(buildBusiness()).firedIds).not.toContain('no_recent_reviews');
+    const growth = (gained: number, days: number) => ({
+      gained,
+      days,
+      baselineCount: 96 - gained,
+      since: '2026-08-03T09:00:00Z',
+    });
+    const fires = (overrides: Parameters<typeof buildBusiness>[0]) =>
+      applyTemplates(buildBusiness({ googleData: stale, ...overrides })).firedIds.includes(
+        'no_recent_reviews',
+      );
+
+    it('fires only after 60+ days of history with no new reviews', () => {
+      expect(fires({ reviewGrowth: growth(0, 75) })).toBe(true);
+      expect(fires({ reviewGrowth: growth(0, 59) })).toBe(false);
+      expect(fires({ reviewGrowth: growth(2, 75) })).toBe(false);
+    });
+
+    it('stays silent without history, however old the sampled reviews look', () => {
+      expect(fires({ reviewGrowth: null })).toBe(false);
+      expect(fires({})).toBe(false);
+    });
+
+    it('stays silent when a sampled review proves recent activity', () => {
+      const recent = buildGoogleData({ reviewCount: 96 });
+      expect(
+        applyTemplates(buildBusiness({ googleData: recent, reviewGrowth: growth(0, 75) })).firedIds,
+      ).not.toContain('no_recent_reviews');
+    });
+
+    it('stays silent for businesses with 5 or fewer reviews', () => {
+      expect(fires({ googleData: { ...stale, reviewCount: 4 }, reviewGrowth: growth(0, 75) })).toBe(
+        false,
+      );
+    });
+
+    it('states the stalled count and date, and names a competitor that is gaining', () => {
+      const own = buildBusiness({ googleData: stale, reviewGrowth: growth(0, 75) });
+      const rival = buildBusiness({
+        id: asBusinessId('c_pro'),
+        name: 'Pro beauty clinic',
+        reviewGrowth: { gained: 4, days: 20, baselineCount: 146, since: '2026-09-11T00:00:00Z' },
+      });
+      const a = applyTemplates(own, [rival]).actions.find(
+        (x) => x.templateId === 'no_recent_reviews',
+      )!;
+      expect(
+        a.whyItMatters.startsWith('Your Google review count has stayed at 96 since 3 August.'),
+      ).toBe(true);
+      expect(a.competitorReference).toBe(
+        'Pro beauty clinic gained 4 Google reviews in the last 20 days.',
+      );
+    });
   });
 
   const GOOGLE_TEMPLATES = [

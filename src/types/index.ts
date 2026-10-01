@@ -1,4 +1,5 @@
 import type { BusinessId, PriorityActionId, ProjectId } from './ids';
+import type { ReviewGrowth } from '@/lib/reviewGrowth';
 
 export type { BusinessId, PriorityActionId, ProjectId } from './ids';
 export { asBusinessId, asPriorityActionId, asProjectId } from './ids';
@@ -58,6 +59,8 @@ export interface Business {
   } | null;
   previousSignals: ExtractedSignals | null;
   changeEvents: ChangeEvent[];
+  /** Review count growth from google_data history (null = not enough history). Set by the action generator. */
+  reviewGrowth?: ReviewGrowth | null;
 }
 
 export interface ExtractedSignals {

@@ -107,6 +107,9 @@ export function computeGBPCompletenessScore(googleData: GoogleData | null): numb
   return score;
 }
 
+/** Shortest count-history gap worth extrapolating to a monthly rate. */
+export const MIN_VELOCITY_DAYS = 14;
+
 /**
  * Review velocity score: new reviews per 30 days, scaled so 5/30d = 100.
  * Falls back to counting recentReviews timestamps within last 90 days when no historical data.
@@ -121,7 +124,11 @@ export function computeReviewVelocityScore(
 ): number | null {
   let base: number | null = null;
 
-  if (previousReviewCount !== undefined && daysBetween !== undefined && daysBetween > 0) {
+  if (
+    previousReviewCount !== undefined &&
+    daysBetween !== undefined &&
+    daysBetween >= MIN_VELOCITY_DAYS
+  ) {
     const newReviews = Math.max(0, currentReviewCount - previousReviewCount);
     const velocityPer30d = (newReviews / daysBetween) * 30;
     base = Math.round((velocityPer30d / 5) * 100);

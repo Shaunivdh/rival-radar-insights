@@ -609,7 +609,7 @@ export const crawlBusinessFunction = inngest.createFunction(
       }
     });
 
-    // Step 6: AI search visibility check (skip if checked within 24h)
+    // Step 6: AI search visibility check (first scan, then every AI_VISIBILITY_INTERVAL_DAYS)
     await step.run('check-ai-visibility', async () => {
       if (!meta.primaryService || !meta.location) {
         logCrawlStep(
@@ -653,7 +653,7 @@ export const crawlBusinessFunction = inngest.createFunction(
             jobId,
             'check-ai-visibility',
             'skipped',
-            'Still fresh (checked within 24h)',
+            'Still fresh (checked within the last two weeks)',
           );
           return;
         }

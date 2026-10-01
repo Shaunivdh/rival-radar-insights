@@ -228,6 +228,9 @@ export async function runVisibilityQuery(query: string): Promise<string> {
  * 6. Track position, recommended-vs-mentioned context, and which businesses
  *    appear ahead of the target in each response.
  */
+/** Days between AI visibility checks after the first scan. */
+export const AI_VISIBILITY_INTERVAL_DAYS = 14;
+
 export async function checkAIVisibility(
   primaryService: string,
   location: string,
@@ -250,12 +253,15 @@ export async function checkAIVisibility(
     };
   }
 
-  // Skip if already checked within the last 24 hours
+  // Runs on the first scan, then every AI_VISIBILITY_INTERVAL_DAYS. Web-search
+  // queries are ~90% of the Claude bill, and the score is a 3-run average that
+  // moves slowly, so weekly checks cost twice as much for little signal.
   if (existingVisibility?.tested_at) {
-    const lastTested = new Date(existingVisibility.tested_at).getTime();
-    const hoursAgo = (Date.now() - lastTested) / (1000 * 60 * 60);
-    if (hoursAgo < 24) {
-      logger.info('ai-presence', 'Skipping — recently tested', { hoursAgo: hoursAgo.toFixed(1) });
+    const daysAgo = (Date.now() - new Date(existingVisibility.tested_at).getTime()) / 86_400_000;
+    // One day of slack: weekly scans drift by hours, and a strict 14 days would
+    // push every other check out to three weeks.
+    if (daysAgo < AI_VISIBILITY_INTERVAL_DAYS - 1) {
+      logger.info('ai-presence', 'Skipping, checked recently', { daysAgo: daysAgo.toFixed(1) });
       return null;
     }
   }

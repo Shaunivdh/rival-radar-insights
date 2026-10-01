@@ -235,7 +235,10 @@ export async function generatePriorityActions(
   if (SKIP_AI) return [];
 
   // ── Tier-1 templates ────────────────────────────────────────────────
-  const { actions: templateActions, firedIds } = applyTemplates(own, competitors, { location });
+  const { actions: templateActions, firedIds } = applyTemplates(own, competitors, {
+    location,
+    serviceCategory,
+  });
   const templatesUsed = templateActions.length;
 
   if (templatesUsed >= 5) {
@@ -359,7 +362,7 @@ export async function generatePriorityActionsWithHistory(
     actions: templateActions,
     firedIds: firedIds2,
     closedFromLastWeek,
-  } = applyTemplatesWithHistory(own, previousActions, competitors, { location });
+  } = applyTemplatesWithHistory(own, previousActions, competitors, { location, serviceCategory });
   const templatesUsed = templateActions.length;
 
   if (templatesUsed >= 5) {

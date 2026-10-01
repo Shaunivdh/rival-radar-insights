@@ -102,6 +102,7 @@ function buildBusiness(overrides: Partial<Business> = {}): Business {
       photos: 5,
       priceLevel: null,
       description: 'Professional plumbing services in Manchester with over 20 years experience.',
+      website: 'https://acme-plumbing.co.uk',
     },
     serpData: null,
     aiScore: {

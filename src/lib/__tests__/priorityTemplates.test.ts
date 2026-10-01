@@ -7,6 +7,7 @@ import {
 } from '@/lib/priorityTemplates';
 import { buildBusiness, buildSignals, buildGoogleData, buildAction } from '@/test/builders';
 import { asBusinessId } from '@/types';
+import { resolveTemplateContext } from '@/lib/templateContext';
 
 const noPhone = () =>
   buildBusiness({
@@ -358,7 +359,8 @@ describe('competitor comparison and personalisation', () => {
     ];
     for (const id of PRIORITY_TEMPLATES.map((t) => t.id)) {
       const tpl = PRIORITY_TEMPLATES.find((t) => t.id === id)!;
-      const refText = tpl.compare?.(own, comps) ?? null;
+      const refText =
+        tpl.compare?.(own, comps, resolveTemplateContext(own, 'Bristol', 'trades')) ?? null;
       const copy = [
         tpl.action,
         tpl.reason,
@@ -425,5 +427,134 @@ describe('applyTemplatesWithHistory', () => {
     extractFailed.enrichmentErrors = { extract: 'timeout' };
     const prevPhone = [buildAction({ templateId: 'no_phone_on_homepage' })];
     expect(applyTemplatesWithHistory(extractFailed, prevPhone).closedFromLastWeek).toEqual([]);
+  });
+});
+
+describe('catalogue batch 1', () => {
+  const sig = (patch: (s: ReturnType<typeof buildSignals>) => void) => {
+    const s = buildSignals();
+    patch(s);
+    return s;
+  };
+  const fired = (
+    b: ReturnType<typeof buildBusiness>,
+    opts: Parameters<typeof applyTemplates>[2] = {},
+    comps: ReturnType<typeof buildBusiness>[] = [],
+  ) => applyTemplates(b, comps, opts).firedIds;
+  const rival = (name: string, overrides: Parameters<typeof buildBusiness>[0] = {}) =>
+    buildBusiness({ id: asBusinessId(`c_${name}`), name, ...overrides });
+  const refFor = (
+    id: string,
+    b: ReturnType<typeof buildBusiness>,
+    comps: ReturnType<typeof buildBusiness>[],
+    opts: Parameters<typeof applyTemplates>[2] = {},
+  ) => {
+    const tpl = PRIORITY_TEMPLATES.find((t) => t.id === id)!;
+    return tpl.compare?.(b, comps, {
+      ...resolveTemplateContext(b, opts.location, opts.serviceCategory),
+    });
+  };
+
+  it('title_missing_town fires only when a known town is absent from the title', () => {
+    const b = buildBusiness({ signals: sig((s) => (s.seo.title = 'Acme Plumbing')) });
+    expect(fired(b, { location: 'Bristol' })).toContain('title_missing_town');
+    expect(fired(buildBusiness(), { location: 'bristol' })).not.toContain('title_missing_town');
+    expect(fired(buildBusiness({ googleData: null, signals: b.signals }))).not.toContain(
+      'title_missing_town',
+    );
+    expect(refFor('title_missing_town', b, [rival('Pipes Co')], { location: 'Bristol' })).toBe(
+      'Pipes Co includes Bristol in their homepage title.',
+    );
+  });
+
+  it('title_missing_town accepts the town without a direction prefix', () => {
+    const b = buildBusiness({
+      signals: sig((s) => (s.seo.title = 'Polished Dulwich | Nail Salon')),
+    });
+    expect(fired(b, { location: 'East Dulwich' })).not.toContain('title_missing_town');
+    expect(fired(b, { location: 'North Finchley' })).toContain('title_missing_town');
+  });
+
+  it('no_sitemap needs robots.txt reachable, so a failed check never fires it', () => {
+    expect(fired(buildBusiness({ signals: sig((s) => (s.seo.hasSitemap = false)) }))).toContain(
+      'no_sitemap',
+    );
+    const unreachable = sig((s) => {
+      s.seo.hasSitemap = false;
+      s.seo.hasRobotsTxt = false;
+    });
+    expect(fired(buildBusiness({ signals: unreachable }))).not.toContain('no_sitemap');
+  });
+
+  it('no_booking_competitor_has fires only when a rival takes bookings, naming the provider', () => {
+    const booker = rival('Dr Boo', {
+      signals: sig((s) => {
+        s.engagement.hasBookingSystem = true;
+        s.engagement.bookingProvider = 'Fresha';
+      }),
+    });
+    expect(fired(buildBusiness())).not.toContain('no_booking_competitor_has');
+    expect(fired(buildBusiness(), {}, [booker])).toContain('no_booking_competitor_has');
+    expect(refFor('no_booking_competitor_has', buildBusiness(), [booker])).toBe(
+      'Dr Boo takes bookings online through Fresha.',
+    );
+  });
+
+  it('gbp_missing_website fires when the Google listing has no website link', () => {
+    const b = buildBusiness({ googleData: buildGoogleData({ website: undefined }) });
+    expect(fired(b)).toContain('gbp_missing_website');
+    expect(fired(buildBusiness())).not.toContain('gbp_missing_website');
+  });
+
+  it('no_accreditations_shown is limited to regulated categories', () => {
+    const none = buildBusiness({ signals: sig((s) => (s.trust.accreditations = [])) });
+    expect(fired(none, { serviceCategory: 'trades' })).toContain('no_accreditations_shown');
+    expect(fired(none, { serviceCategory: 'retail' })).not.toContain('no_accreditations_shown');
+    expect(fired(buildBusiness(), { serviceCategory: 'trades' })).not.toContain(
+      'no_accreditations_shown',
+    );
+  });
+
+  it('no_social_links fires when no social profiles are linked', () => {
+    expect(
+      fired(buildBusiness({ signals: sig((s) => (s.engagement.socialLinksPresent = [])) })),
+    ).toContain('no_social_links');
+    expect(fired(buildBusiness())).not.toContain('no_social_links');
+  });
+
+  it('vague_cta fires only when every button label is vague', () => {
+    const vague = sig((s) => (s.engagement.ctaText = ['Submit', 'Learn more']));
+    const mixed = sig((s) => (s.engagement.ctaText = ['Get a free quote', 'Submit']));
+    const empty = sig((s) => (s.engagement.ctaText = []));
+    expect(fired(buildBusiness({ signals: vague }))).toContain('vague_cta');
+    expect(fired(buildBusiness({ signals: mixed }))).not.toContain('vague_cta');
+    expect(fired(buildBusiness({ signals: empty }))).not.toContain('vague_cta');
+  });
+
+  it('no_guarantee and no_insurance_mentioned are limited to hands-on trades', () => {
+    const b = buildBusiness({ signals: sig((s) => (s.trust.insuranceMentioned = false)) });
+    expect(fired(b, { serviceCategory: 'trades' })).toEqual(
+      expect.arrayContaining(['no_guarantee', 'no_insurance_mentioned']),
+    );
+    expect(fired(b, { serviceCategory: 'legal' })).not.toContain('no_guarantee');
+    expect(fired(b, { serviceCategory: 'legal' })).not.toContain('no_insurance_mentioned');
+  });
+
+  it('thin_portfolio fires for visual categories with under 3 examples', () => {
+    const few = buildBusiness({
+      signals: sig((s) => {
+        s.content.hasPortfolio = true;
+        s.content.portfolioItemCount = 2;
+      }),
+    });
+    const many = buildBusiness({
+      signals: sig((s) => {
+        s.content.hasPortfolio = true;
+        s.content.portfolioItemCount = 5;
+      }),
+    });
+    expect(fired(few, { serviceCategory: 'beauty' })).toContain('thin_portfolio');
+    expect(fired(many, { serviceCategory: 'beauty' })).not.toContain('thin_portfolio');
+    expect(fired(few, { serviceCategory: 'accounting' })).not.toContain('thin_portfolio');
   });
 });

@@ -73,3 +73,20 @@ describe('joinNames', () => {
     expect(joinNames(['A', 'B', 'C', 'D', 'E'])).toBe('A, B and 3 others');
   });
 });
+
+describe('resolveTemplateContext extras', () => {
+  it('carries the business name and service category', () => {
+    const ctx = resolveTemplateContext(buildBusiness({ name: 'Acme Plumbing' }), null, 'trades');
+    expect(ctx).toMatchObject({ name: 'Acme Plumbing', serviceCategory: 'trades' });
+  });
+
+  it('fills {name} tokens', () => {
+    expect(
+      fillTemplate('[["{Service} in {town} | {name}"||x]]', {
+        service: 'plumber',
+        town: 'Bristol',
+        name: 'Acme',
+      }),
+    ).toBe('"Plumber in Bristol | Acme"');
+  });
+});

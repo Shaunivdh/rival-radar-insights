@@ -1,5 +1,6 @@
 import type { AIHealthScore, Business, PriorityAction } from '@/types';
 import { asPriorityActionId } from '@/types';
+import type { ServiceCategory } from '@/lib/serviceCategories';
 import {
   fillTemplate,
   joinNames,
@@ -23,7 +24,7 @@ export type PriorityTemplate = {
   impactWeight: 1 | 2 | 3 | 4 | 5;
   /** The health score this gap feeds; a weaker score ranks the template higher. */
   scoreKey: ScoreKey;
-  trigger: (b: Business) => boolean;
+  trigger: (b: Business, ctx: TemplateContext) => boolean;
   category: PriorityAction['category'];
   effort: PriorityAction['effort'];
   estimatedImpact: 'high' | 'medium';
@@ -51,7 +52,7 @@ export type PriorityTemplate = {
    * unless a named competitor is strictly better on this exact gap. Never phrase
    * our side as "0", "no" or "none": the validator flags those as contradictions.
    */
-  compare?: (own: Business, competitors: Business[]) => string | null;
+  compare?: (own: Business, competitors: Business[], ctx: TemplateContext) => string | null;
   /** Optional factual opening sentence for whyItMatters, built from the own business data. */
   detail?: (own: Business) => string | null;
 };
@@ -100,6 +101,47 @@ function strongest(
 }
 
 const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? '' : 's'}`;
+
+/** Categories where customers expect proof of regulation or trade body membership. */
+const REGULATED_CATEGORIES = new Set<ServiceCategory>([
+  'trades',
+  'construction',
+  'dental',
+  'healthcare',
+  'legal',
+  'accounting',
+  'childcare',
+  'veterinary',
+]);
+/** Categories that work in or on customer property, where guarantees and insurance matter. */
+const HANDS_ON_CATEGORIES = new Set<ServiceCategory>([
+  'trades',
+  'construction',
+  'cleaning',
+  'automotive',
+  'petcare',
+]);
+/** Categories where customers choose on the look of past work. */
+const VISUAL_CATEGORIES = new Set<ServiceCategory>([
+  'construction',
+  'trades',
+  'beauty',
+  'tattoo',
+  'photography',
+  'events',
+  'marketing',
+]);
+/** True when the text names the town, with or without a direction prefix ("East Dulwich" matches "Dulwich"). */
+function mentionsTown(text: string, town: string): boolean {
+  const t = text.toLowerCase();
+  const full = town.toLowerCase();
+  const core = full.replace(/^(east|west|north|south|upper|lower|central|greater|old|new)\s+/, '');
+  return t.includes(full) || (core.length >= 4 && t.includes(core));
+}
+
+/** Button labels that do not say what happens next. */
+const VAGUE_CTA =
+  /^(submit|send|go|enter|continue|learn more|read more|find out more|click here|more info|more information)$/i;
 
 export const PRIORITY_TEMPLATES: PriorityTemplate[] = [
   {
@@ -692,6 +734,309 @@ export const PRIORITY_TEMPLATES: PriorityTemplate[] = [
     ],
     outcome: 'More calls and enquiries from the same number of visitors',
   },
+  // ── Catalogue batch 1 ────────────────────────────────────────────────
+  {
+    id: 'title_missing_town',
+    impactWeight: 4,
+    scoreKey: 'websiteHealthScore',
+    compare: (_own, competitors, ctx) => {
+      const town = ctx.town;
+      if (!town) return null;
+      return competitorsWith(
+        competitors,
+        siteOk,
+        (c) => mentionsTown(c.signals!.seo.title ?? '', town),
+        [`includes ${town} in their homepage title`, `include ${town} in their homepage titles`],
+      );
+    },
+    trigger: (b, ctx) => {
+      const title = b.signals?.seo?.title;
+      if (title == null || !ctx.town) return false;
+      return !mentionsTown(title, ctx.town);
+    },
+    category: 'Local SEO',
+    effort: 'low',
+    estimatedImpact: 'high',
+    timeframe: '1 to 2 weeks',
+    action: 'Put your town in your homepage title',
+    reason: 'Your homepage title does not mention the town you serve',
+    whyItMattersTemplate:
+      'Your homepage title is the blue link people see in Google, and one of the strongest clues Google uses to decide which local searches you appear in. If your town is not in it, you are leaving easy local rankings to competitors who include theirs.',
+    steps: [
+      'Open your website editor or SEO settings and find the "page title" or "SEO title" for your homepage.',
+      '[[Change it to something like: "{Service} in {town} | {name}".||Change it to your main service, your town and your business name, for example "Plumber in Bristol | Acme Plumbing".]]',
+      'Keep it under 60 characters so Google shows it in full.',
+      'If you use WordPress, the Yoast or Rank Math box below the editor has an "SEO title" field.',
+    ],
+    outcome: 'Rank for searches in your town',
+  },
+  {
+    id: 'no_sitemap',
+    impactWeight: 2,
+    scoreKey: 'websiteHealthScore',
+    compare: siteFeature(
+      (c) => c.signals!.seo.hasSitemap,
+      [
+        'has a sitemap that lists every page for Google',
+        'have a sitemap that lists every page for Google',
+      ],
+    ),
+    // hasSitemap is false when the check itself fails, so require robots.txt to
+    // have been reached before treating a missing sitemap as real.
+    trigger: (b) => b.signals?.seo?.hasSitemap === false && b.signals.seo.hasRobotsTxt === true,
+    category: 'Website',
+    effort: 'low',
+    estimatedImpact: 'medium',
+    timeframe: '1 to 2 weeks',
+    action: 'Give Google a map of your website',
+    reason: 'Your website has no sitemap telling Google which pages exist',
+    whyItMattersTemplate:
+      'A sitemap is a simple list of every page on your site that Google reads to find your pages. Without one, newer or deeper pages such as individual services can take much longer to show up in search.',
+    steps: [
+      'If you use WordPress, install Yoast or Rank Math: both create a sitemap automatically.',
+      'Wix, Squarespace and Shopify create one for you. Check it exists by adding /sitemap.xml to the end of your web address.',
+      'Sign in to Google Search Console (free), open "Sitemaps" and submit your sitemap address.',
+    ],
+    outcome: 'Every page found by Google',
+  },
+  {
+    id: 'no_booking_competitor_has',
+    impactWeight: 3,
+    scoreKey: 'websiteHealthScore',
+    compare: (_own, competitors) => {
+      const bookers = competitors.filter(
+        (c) => siteOk(c) && c.signals!.engagement.hasBookingSystem,
+      );
+      if (bookers.length === 0) return null;
+      if (bookers.length === 1) {
+        const provider = bookers[0].signals!.engagement.bookingProvider;
+        return `${bookers[0].name} takes bookings online${provider ? ` through ${provider}` : ''}.`;
+      }
+      const names = bookers.map((c) => c.name);
+      return `${joinNames(names)} ${names.length === 2 ? 'both' : 'all'} take bookings online.`;
+    },
+    trigger: (b, ctx) =>
+      b.signals?.engagement?.hasBookingSystem === false &&
+      (ctx.competitors ?? []).some((c) => siteOk(c) && c.signals!.engagement.hasBookingSystem),
+    category: 'Conversion',
+    effort: 'medium',
+    estimatedImpact: 'high',
+    timeframe: '1 to 2 weeks',
+    action: 'Let customers book online like your rivals',
+    reason: 'Competitors take online bookings and you do not yet',
+    whyItMattersTemplate:
+      'Many customers would rather pick a time on their phone than call during working hours. When a competitor lets them book in a few taps and you do not, the enquiry often goes to them, especially in the evenings and at weekends.',
+    steps: [
+      'Choose a booking tool that suits your work, for example Fresha, Booksy, Calendly, Square Appointments or Setmore. Most have a free plan.',
+      'Add your services, prices and the hours you are available.',
+      'Put a "Book online" button at the top of your homepage and on your Google Business Profile.',
+      'Make a test booking yourself from your phone before you share it.',
+    ],
+    outcome: 'More bookings outside working hours',
+  },
+  {
+    id: 'gbp_missing_website',
+    impactWeight: 4,
+    scoreKey: 'gbpCompletenessScore',
+    compare: (_own, competitors) =>
+      competitorsWith(competitors, googleOk, (c) => !!c.googleData!.website?.trim(), [
+        'links their Google listing to their website',
+        'link their Google listings to their websites',
+      ]),
+    trigger: (b) => !b.googleData?.website?.trim(),
+    category: 'Local SEO',
+    effort: 'low',
+    estimatedImpact: 'high',
+    timeframe: '10 minutes',
+    action: 'Add your website to your Google listing',
+    reason: 'Your Google Business Profile does not link to your website',
+    whyItMattersTemplate:
+      'People who find you on Google Maps often want to check your website before they call. Without a link they have to search again, and many will click a competitor instead. The link also helps Google connect your listing to your site, which supports your local ranking.',
+    steps: [
+      'Go to business.google.com and click "Edit profile".',
+      'Under "Contact", add your website address, starting with https://.',
+      'Open your listing on your phone and check the link goes to your homepage.',
+    ],
+    outcome: 'More visits from your Google listing',
+    requiresSiteSignals: false,
+    requiresGoogleData: true,
+  },
+  {
+    id: 'no_accreditations_shown',
+    impactWeight: 3,
+    scoreKey: 'websiteHealthScore',
+    compare: (_own, competitors) => {
+      const shown = competitors.filter(
+        (c) => siteOk(c) && (c.signals!.trust.accreditations?.length ?? 0) > 0,
+      );
+      if (shown.length === 0) return null;
+      if (shown.length === 1) {
+        const badges = joinNames(shown[0].signals!.trust.accreditations.slice(0, 2));
+        return `${shown[0].name} shows ${badges} on their website.`;
+      }
+      const names = shown.map((c) => c.name);
+      return `${joinNames(names)} ${names.length === 2 ? 'both' : 'all'} show their accreditations on their websites.`;
+    },
+    trigger: (b, ctx) => {
+      const t = b.signals?.trust;
+      if (!t || !ctx.serviceCategory || !REGULATED_CATEGORIES.has(ctx.serviceCategory))
+        return false;
+      return t.accreditations?.length === 0 && (t.certifications?.length ?? 0) === 0;
+    },
+    category: 'Trust',
+    effort: 'low',
+    estimatedImpact: 'high',
+    timeframe: '1 hour',
+    action: 'Show your trade body memberships',
+    reason: 'Your website does not show any accreditations or memberships',
+    whyItMattersTemplate:
+      'In your line of work, customers look for proof that you are qualified and regulated before they get in touch. Badges from recognised bodies are a quick way to build that trust, and they help you stand out against competitors who show theirs.',
+    steps: [
+      'List every accreditation, registration, trade body and certification you hold, for example Gas Safe, NICEIC, Which? Trusted Trader, the GDC or the SRA.',
+      'Download the official logo or badge from the member area of each body.',
+      'Add the badges near the top of your homepage and in your website footer, linking each one to your entry on the official register where possible.',
+      'Mention them in your Google Business description too.',
+    ],
+    outcome: 'Instant trust from new visitors',
+  },
+  {
+    id: 'no_social_links',
+    impactWeight: 2,
+    scoreKey: 'websiteHealthScore',
+    compare: siteFeature(
+      (c) => (c.signals!.engagement.socialLinksPresent?.length ?? 0) > 0,
+      [
+        'links to their social media profiles from their website',
+        'link to their social media profiles from their websites',
+      ],
+    ),
+    trigger: (b) => b.signals?.engagement?.socialLinksPresent?.length === 0,
+    category: 'Trust',
+    effort: 'low',
+    estimatedImpact: 'medium',
+    timeframe: '30 minutes',
+    action: 'Link your website to your social profiles',
+    reason: 'Your website does not link to any social media profiles',
+    whyItMattersTemplate:
+      'Links to your Facebook, Instagram or LinkedIn pages show visitors you are active and real, and they give Google and AI assistants more ways to confirm who you are. It is one of the quickest ways to make a small business look established.',
+    steps: [
+      'Pick the profiles you actually keep up to date. One active profile is better than three empty ones.',
+      'Add small icons linking to them in your website footer. Most builders have a "Social links" option.',
+      'Make sure each profile links back to your website and uses the same business name, address and phone number.',
+    ],
+    outcome: 'A business that looks active and established',
+  },
+  {
+    id: 'vague_cta',
+    impactWeight: 3,
+    scoreKey: 'websiteHealthScore',
+    trigger: (b) => {
+      const e = b.signals?.engagement;
+      if (!e?.hasCallToAction) return false;
+      const labels = (e.ctaText ?? []).map((t) => t.trim()).filter(Boolean);
+      return labels.length > 0 && labels.every((t) => VAGUE_CTA.test(t));
+    },
+    category: 'Conversion',
+    effort: 'low',
+    estimatedImpact: 'medium',
+    timeframe: '30 minutes',
+    action: 'Make your main button say what happens next',
+    reason: 'Your website buttons use vague labels like "Submit" or "Learn more"',
+    whyItMattersTemplate:
+      'Buttons that say "Submit" or "Learn more" make visitors guess what happens when they click. A label that names the result, such as "Get a free quote" or "Book a visit", tells them exactly what they get and is one of the cheapest ways to turn more visitors into enquiries.',
+    steps: [
+      'Find the main button on your homepage and the button on your contact form.',
+      '[[Rename them to say what the visitor gets, for example "Book your {service}" or "Call for a quote".||Rename them to say what the visitor gets, for example "Book a visit" or "Call for a quote".]]',
+      'Use the same wording on every page so the next step is always clear.',
+    ],
+    outcome: 'More clicks on your main button',
+  },
+  {
+    id: 'no_guarantee',
+    impactWeight: 3,
+    scoreKey: 'websiteHealthScore',
+    compare: siteFeature(
+      (c) => (c.signals!.trust.guaranteesMentioned?.length ?? 0) > 0,
+      ['states a guarantee on their website', 'state a guarantee on their websites'],
+    ),
+    trigger: (b, ctx) =>
+      !!ctx.serviceCategory &&
+      HANDS_ON_CATEGORIES.has(ctx.serviceCategory) &&
+      b.signals?.trust?.guaranteesMentioned?.length === 0,
+    category: 'Trust',
+    effort: 'low',
+    estimatedImpact: 'medium',
+    timeframe: '30 minutes',
+    action: 'Tell customers what you guarantee',
+    reason: 'Your website does not mention any guarantee on your work',
+    whyItMattersTemplate:
+      'Hiring someone new feels risky. A clear promise, such as a workmanship guarantee or a "we will put it right" policy, removes that worry and gives people a reason to pick you over a similar business that does not offer one.',
+    steps: [
+      'Write down the promise you already keep in practice, for example how long your work is guaranteed or what happens if something is not right.',
+      'Add it in one plain sentence near the top of your homepage and on your quotes and invoices.',
+      'Only promise what you can stand behind. A short, honest guarantee beats a vague one.',
+    ],
+    outcome: 'More confidence to choose you',
+  },
+  {
+    id: 'no_insurance_mentioned',
+    impactWeight: 2,
+    scoreKey: 'websiteHealthScore',
+    compare: siteFeature(
+      (c) => c.signals!.trust.insuranceMentioned,
+      ['mentions being insured on their website', 'mention being insured on their websites'],
+    ),
+    trigger: (b, ctx) =>
+      !!ctx.serviceCategory &&
+      HANDS_ON_CATEGORIES.has(ctx.serviceCategory) &&
+      b.signals?.trust?.insuranceMentioned === false,
+    category: 'Trust',
+    effort: 'low',
+    estimatedImpact: 'medium',
+    timeframe: '15 minutes',
+    action: 'Say that you are fully insured',
+    reason: 'Your website does not mention your insurance',
+    whyItMattersTemplate:
+      'When someone lets you into their home or onto their property, they want to know they are covered if something goes wrong. A short line saying you are fully insured answers that question before they have to ask.',
+    steps: [
+      'Check what cover you hold, for example public liability insurance, and the amount.',
+      'Add a line such as "Fully insured with £2 million public liability cover" to your homepage and contact page, using your real figure.',
+      'Keep a copy of your certificate ready to send when customers ask.',
+    ],
+    outcome: 'Fewer doubts before customers call',
+  },
+  {
+    id: 'thin_portfolio',
+    impactWeight: 3,
+    scoreKey: 'websiteHealthScore',
+    compare: (own, competitors) => {
+      const count = (b: Business) =>
+        b.signals?.content?.hasPortfolio ? (b.signals.content.portfolioItemCount ?? 0) : 0;
+      const s = strongest(own, competitors.filter(siteOk), count);
+      if (!s || s.value < 3) return null;
+      return `${s.name} shows ${plural(s.value, 'example')} of their work.`;
+    },
+    trigger: (b, ctx) => {
+      const c = b.signals?.content;
+      if (!c || !ctx.serviceCategory || !VISUAL_CATEGORIES.has(ctx.serviceCategory)) return false;
+      return c.hasPortfolio === false || (c.portfolioItemCount ?? 0) < 3;
+    },
+    category: 'Website',
+    effort: 'medium',
+    estimatedImpact: 'high',
+    timeframe: '2 to 3 hours',
+    action: 'Show off your recent work',
+    reason: 'Your website shows fewer than 3 examples of your work',
+    whyItMattersTemplate:
+      'People want to see what you can do before they get in touch. A gallery of real jobs is the most convincing proof you can offer, and photos with a short caption also give Google more to understand about your services and area.',
+    steps: [
+      'Pick 6 to 10 recent jobs you are proud of and take clear photos on your phone, with before and after shots where it makes sense.',
+      '[[Add an "Our work" page or gallery with one line per photo, for example "{Service} in {town}".||Add an "Our work" page or gallery with one short line per photo saying what you did and where.]]',
+      'Ask customers before sharing photos of their homes or faces.',
+      'Add a new example every month to keep it fresh.',
+    ],
+    outcome: 'Visitors see proof before they call',
+  },
 ];
 
 const EFFORT_FACTOR: Record<PriorityAction['effort'], number> = { low: 1, medium: 0.7, high: 0.4 };
@@ -710,7 +1055,10 @@ export function rankScore(tpl: PriorityTemplate, b: Business): number {
  * Evaluate every template that has the data it needs, and return the ones that
  * fired, highest rank first (ties broken on id so the order is stable).
  */
-function evaluateTemplates(b: Business): {
+function evaluateTemplates(
+  b: Business,
+  ctx: TemplateContext,
+): {
   ranked: PriorityTemplate[];
   evaluatedIds: Set<string>;
 } {
@@ -725,7 +1073,7 @@ function evaluateTemplates(b: Business): {
     if (extractFailed && tpl.requiresSiteSignals !== false) continue;
     if (googleMissing && tpl.requiresGoogleData) continue;
     evaluatedIds.add(tpl.id);
-    if (tpl.trigger(b)) fired.push({ tpl, score: rankScore(tpl, b) });
+    if (tpl.trigger(b, ctx)) fired.push({ tpl, score: rankScore(tpl, b) });
   }
 
   fired.sort((x, y) => y.score - x.score || x.tpl.id.localeCompare(y.tpl.id));
@@ -733,7 +1081,10 @@ function evaluateTemplates(b: Business): {
 }
 
 /** Inputs that personalise template copy. All optional: templates fall back to generic text. */
-export type TemplateOptions = { location?: string | null };
+export type TemplateOptions = {
+  location?: string | null;
+  serviceCategory?: ServiceCategory;
+};
 
 function toAction(
   tpl: PriorityTemplate,
@@ -758,7 +1109,7 @@ function toAction(
       .join(' '),
     steps: tpl.steps.map((s) => fillTemplate(s, ctx)).filter(Boolean),
     outcome: tpl.outcome,
-    competitorReference: tpl.compare?.(own, competitors) ?? null,
+    competitorReference: tpl.compare?.(own, competitors, ctx) ?? null,
     templateId: tpl.id,
     _source: 'template',
   };
@@ -777,8 +1128,11 @@ export function applyTemplates(
   competitors: Business[] = [],
   opts: TemplateOptions = {},
 ): ApplyResult {
-  const { ranked } = evaluateTemplates(b);
-  const ctx = resolveTemplateContext(b, opts.location);
+  const ctx = {
+    ...resolveTemplateContext(b, opts.location, opts.serviceCategory),
+    competitors,
+  };
+  const { ranked } = evaluateTemplates(b, ctx);
   return {
     actions: ranked.slice(0, 5).map((tpl, i) => toAction(tpl, i, b, competitors, ctx)),
     firedIds: ranked.map((t) => t.id),
@@ -806,8 +1160,11 @@ export function applyTemplatesWithHistory(
   competitors: Business[] = [],
   opts: TemplateOptions = {},
 ): ApplyWithHistoryResult {
-  const { ranked, evaluatedIds } = evaluateTemplates(b);
-  const ctx = resolveTemplateContext(b, opts.location);
+  const ctx = {
+    ...resolveTemplateContext(b, opts.location, opts.serviceCategory),
+    competitors,
+  };
+  const { ranked, evaluatedIds } = evaluateTemplates(b, ctx);
   const firedIds = ranked.map((t) => t.id);
   const previousIds = new Set(previousActions.map((p) => p.templateId).filter(Boolean));
 
@@ -830,5 +1187,8 @@ export function applyTemplatesWithHistory(
 
 /** Diagnostic: which templates would fire for this business? */
 export function diagnoseTemplates(b: Business): { id: string; fired: boolean }[] {
-  return PRIORITY_TEMPLATES.map((tpl) => ({ id: tpl.id, fired: tpl.trigger(b) }));
+  return PRIORITY_TEMPLATES.map((tpl) => ({
+    id: tpl.id,
+    fired: tpl.trigger(b, resolveTemplateContext(b)),
+  }));
 }

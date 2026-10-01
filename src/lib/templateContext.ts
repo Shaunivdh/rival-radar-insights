@@ -1,7 +1,15 @@
 import type { Business } from '@/types';
+import type { ServiceCategory } from '@/lib/serviceCategories';
 
 /** Values a template can personalise with. Missing values fall back to generic copy. */
-export type TemplateContext = { service?: string; town?: string };
+export type TemplateContext = {
+  service?: string;
+  town?: string;
+  name?: string;
+  serviceCategory?: ServiceCategory;
+  /** Set by applyTemplates so triggers can check competitor-relative gaps. */
+  competitors?: Business[];
+};
 
 const UK_POSTCODE = /\s*[A-Z]{1,2}\d[A-Z\d]?\s*\d[A-Z]{2}\s*$/i;
 const COUNTRIES = new Set([
@@ -39,20 +47,27 @@ function lowerFirst(s: string): string {
 export function resolveTemplateContext(
   b: Business,
   projectLocation?: string | null,
+  serviceCategory?: ServiceCategory,
 ): TemplateContext {
   const town = projectLocation?.trim() || townFromAddress(b.googleData?.address);
   const listed = b.signals?.content?.servicesListed?.[0]?.trim();
   const category = b.googleData?.businessCategory?.replace(/_/g, ' ').trim();
   const service =
     (listed && listed.length <= MAX_SERVICE_LENGTH ? listed : undefined) || category || undefined;
-  return { town: town || undefined, service: service && lowerFirst(service) };
+  return {
+    town: town || undefined,
+    service: service && lowerFirst(service),
+    name: b.name || undefined,
+    serviceCategory,
+  };
 }
 
 const SEGMENT = /\[\[(.*?)(?:\|\|(.*?))?\]\]/g;
-const TOKEN = /\{(service|Service|town)\}/g;
+const TOKEN = /\{(service|Service|town|name)\}/g;
 
 function resolveToken(name: string, ctx: TemplateContext): string | undefined {
   if (name === 'town') return ctx.town;
+  if (name === 'name') return ctx.name;
   if (!ctx.service) return undefined;
   return name === 'Service' ? ctx.service[0].toUpperCase() + ctx.service.slice(1) : ctx.service;
 }

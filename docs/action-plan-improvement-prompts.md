@@ -25,6 +25,8 @@ Goal: bite-sized, competitor-aware actions that help customers stand out and imp
 - `priority_actions` has no template id column (`src/types/database.ts:472`). Prompt 3 needs a migration.
 - `src/views/ActionPlan.tsx` renders every PriorityAction field, including `competitorReference` and `steps`. There is no snippet field, so pasteable text goes in `steps` unless a new field and UI are added.
 - Found during prompt 5 (1 Oct 2026): Places API `recentReviews` returns up to 5 "most relevant" reviews, not the newest. In local data every business and competitor shows its newest review 120+ days old, so `no_recent_reviews` likely fires falsely and ranks first. Needs a reliable recency source (e.g. review count delta between scans via `reviewVelocityScore`) before trusting this template.
+- Found during prompt 6 (1 Oct 2026): Places API (New) returns no owner replies (0 of 200 stored reviews have `ownerReply`; stored keys are text, time, rating, authorName). A "reply to reviews" tip is undetectable, and the owner reply bonus in `computeReviewVelocityScore` never applies.
+- Batch 1 templates read parser fields with no accuracy fixtures yet: `title`, `hasSitemap`, `ctaText`, `guaranteesMentioned`, `insuranceMentioned`, `hasPortfolio` / `portfolioItemCount`. Add fixtures for them in prompt 8.
 
 ## 1. Baseline and verification (no code changes)
 

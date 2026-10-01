@@ -23,6 +23,16 @@ export interface ExpectedSignals {
   reviewPlatforms: string[];
   /** Whether /sitemap.xml exists — needs the network, not scored offline. */
   sitemap?: boolean;
+  // Fields read by action plan templates. Optional: unlabelled fixtures are not scored on them.
+  /** Exact homepage <title> text. */
+  title?: string;
+  /** Visible call-to-action button and button-styled link labels (not plain nav links). */
+  ctaText?: string[];
+  insuranceMentioned?: boolean;
+  /** Any explicit guarantee or promise on the work. */
+  hasGuarantee?: boolean;
+  /** A portfolio or gallery of past work exists on the site (a linked page counts). */
+  hasPortfolio?: boolean;
 }
 
 export interface Fixture {
@@ -37,8 +47,17 @@ export const LIST_FIELDS = [
   'socialLinks',
   'accreditations',
   'reviewPlatforms',
+  'title',
+  'ctaText',
 ] as const;
-export const BOOL_FIELDS = ['homepageH1', 'hasContactForm', 'bookingProvider'] as const;
+export const BOOL_FIELDS = [
+  'homepageH1',
+  'hasContactForm',
+  'bookingProvider',
+  'insuranceMentioned',
+  'hasGuarantee',
+  'hasPortfolio',
+] as const;
 export type EvalField = (typeof LIST_FIELDS)[number] | (typeof BOOL_FIELDS)[number];
 
 export interface Counts {
@@ -82,6 +101,13 @@ function boolCounts(expected: boolean, actual: boolean): Counts {
   return { tp: 0, fp: 0, fn: 0 };
 }
 
+const NONE: Counts = { tp: 0, fp: 0, fn: 0 };
+
+/** Score an optional label only when the fixture has it. */
+function optional<T>(expected: T | undefined, score: (e: T) => Counts): Counts {
+  return expected === undefined ? NONE : score(expected);
+}
+
 /** Build the single-page RawCrawlResult the pipeline would see for a fixture homepage. */
 export function fixtureToRawResult(
   fixture: Fixture,
@@ -123,6 +149,19 @@ export function scoreFixture(expected: ExpectedSignals, actual: ExtractedSignals
     socialLinks: listCounts(expected.socialLinks, actual.engagement.socialLinksPresent),
     accreditations: listCounts(expected.accreditations, trustUnion),
     reviewPlatforms: listCounts(expected.reviewPlatforms, actual.trust.reviewPlatformsLinked),
+    title: optional(expected.title, (t) =>
+      listCounts([t], actual.seo.title ? [actual.seo.title] : []),
+    ),
+    ctaText: optional(expected.ctaText, (c) => listCounts(c, actual.engagement.ctaText ?? [])),
+    insuranceMentioned: optional(expected.insuranceMentioned, (e) =>
+      boolCounts(e, actual.trust.insuranceMentioned),
+    ),
+    hasGuarantee: optional(expected.hasGuarantee, (e) =>
+      boolCounts(e, (actual.trust.guaranteesMentioned?.length ?? 0) > 0),
+    ),
+    hasPortfolio: optional(expected.hasPortfolio, (e) =>
+      boolCounts(e, actual.content.hasPortfolio),
+    ),
   };
 }
 
@@ -189,6 +228,16 @@ export function describeMisses(fixture: Fixture, actual: ExtractedSignals): stri
     ],
     ['reviewPlatforms', e.reviewPlatforms, actual.trust.reviewPlatformsLinked],
   ];
+  if (e.title !== undefined)
+    lists.push(['title', [e.title], actual.seo.title ? [actual.seo.title] : []]);
+  if (e.ctaText !== undefined) lists.push(['ctaText', e.ctaText, actual.engagement.ctaText ?? []]);
+  const bools: Array<[string, boolean | undefined, boolean]> = [
+    ['insuranceMentioned', e.insuranceMentioned, actual.trust.insuranceMentioned],
+    ['hasGuarantee', e.hasGuarantee, (actual.trust.guaranteesMentioned?.length ?? 0) > 0],
+    ['hasPortfolio', e.hasPortfolio, actual.content.hasPortfolio],
+  ];
+  for (const [name, exp, act] of bools)
+    if (exp !== undefined && exp !== act) out.push(`${name}: expected ${exp}, got ${act}`);
   for (const [name, exp, act] of lists) {
     const actSet = new Set(act.map(norm));
     const expSet = new Set(exp.map(norm));

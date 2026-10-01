@@ -492,11 +492,17 @@ export function parseHtmlSignals(html: string, baseUrl?: string): Record<string,
   if (foundCerts.length > 0) signals.certifications = foundCerts;
 
   // Guarantees
-  const guaranteeMatches = [
-    ...text.matchAll(
-      /(\d+[\s\-](?:day|month|year)[\s\-](?:money[\s\-]back\s+)?guarantee|satisfaction\s+guarantee|workmanship\s+guarantee)/gi,
-    ),
-  ];
+  // Periods may be digits or words ("Seven-day freshness guarantee"); a named kind
+  // ("price match guarantee") or "guaranteed for N years" also counts. "We cannot
+  // guarantee" does not.
+  const PERIOD = String.raw`(?:\d+|one|two|three|four|five|six|seven|eight|nine|ten|twelve|fourteen|thirty|sixty|ninety)`;
+  const GUARANTEE_RE = new RegExp(
+    String.raw`\b${PERIOD}[\s-](?:day|week|month|year)s?[\s-](?:[a-z]+(?:[\s-][a-z]+)?[\s-])?guarantee` +
+      String.raw`|\b(?:satisfaction|workmanship|price[\s-]match|money[\s-]back|freshness|quality|lifetime|no[\s-]quibble|best[\s-]price)\s+guarantee` +
+      String.raw`|\bguaranteed\s+for\s+${PERIOD}\s+(?:day|week|month|year)s?`,
+    'gi',
+  );
+  const guaranteeMatches = [...text.matchAll(GUARANTEE_RE)];
   const guarantees = [...new Set(guaranteeMatches.map((m) => m[0].trim()))];
   if (guarantees.length > 0) signals.guaranteesMentioned = guarantees;
 
@@ -551,7 +557,7 @@ export function parseHtmlSignals(html: string, baseUrl?: string): Record<string,
   // Call to action — common CTA phrases in buttons, links, or prominent text
   const CTA_RE =
     /\b(book\s*(now|online|an?\s+appointment|a\s+session|today)|get\s*(a\s+)?(free\s+)?(quote|estimate|consultation)|request\s*(a\s+)?(quote|appointment|callback|call back)|schedule\s*(an?\s+)?(appointment|consultation|visit)|reserve\s*(now|your\s+spot)|free\s+consultation|contact\s+us\s+today|call\s+us\s+now|get\s+started|start\s+today|claim\s+offer|try\s+(it\s+)?free)\b/i;
-  const ctaMatches = [...html.matchAll(/<(?:button|a)\b[^>]*>([\s\S]*?)<\/(?:button|a)>/gi)]
+  const ctaMatches = [...html.matchAll(/<(?:button|a)\b[^>]*>([\s\S]*?)<\/(?:button|a)\s*>/gi)]
     .map((m) => {
       let t = m[1].replace(/<[^>]+>/g, ''); // strip inner tags
       // If attribute content leaked in via unescaped > in attribute values, take text after last >

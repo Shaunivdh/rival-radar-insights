@@ -14,5 +14,10 @@
   "socialLinks": ["Instagram", "TikTok", "Facebook"],
   "accreditations": [],
   "reviewPlatforms": ["Feefo"],
-  "sitemap": true
+  "sitemap": true,
+  "title": "Bloom & Bough | Florist in Leeds – Same-day flower delivery",
+  "ctaText": ["Shop bouquets"],
+  "insuranceMentioned": false,
+  "hasGuarantee": true,
+  "hasPortfolio": false
 }

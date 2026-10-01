@@ -139,10 +139,6 @@ function mentionsTown(text: string, town: string): boolean {
   return t.includes(full) || (core.length >= 4 && t.includes(core));
 }
 
-/** Button labels that do not say what happens next. */
-const VAGUE_CTA =
-  /^(submit|send|go|enter|continue|learn more|read more|find out more|click here|more info|more information)$/i;
-
 export const PRIORITY_TEMPLATES: PriorityTemplate[] = [
   {
     id: 'no_phone_on_homepage',
@@ -925,31 +921,6 @@ export const PRIORITY_TEMPLATES: PriorityTemplate[] = [
       'Make sure each profile links back to your website and uses the same business name, address and phone number.',
     ],
     outcome: 'A business that looks active and established',
-  },
-  {
-    id: 'vague_cta',
-    impactWeight: 3,
-    scoreKey: 'websiteHealthScore',
-    trigger: (b) => {
-      const e = b.signals?.engagement;
-      if (!e?.hasCallToAction) return false;
-      const labels = (e.ctaText ?? []).map((t) => t.trim()).filter(Boolean);
-      return labels.length > 0 && labels.every((t) => VAGUE_CTA.test(t));
-    },
-    category: 'Conversion',
-    effort: 'low',
-    estimatedImpact: 'medium',
-    timeframe: '30 minutes',
-    action: 'Make your main button say what happens next',
-    reason: 'Your website buttons use vague labels like "Submit" or "Learn more"',
-    whyItMattersTemplate:
-      'Buttons that say "Submit" or "Learn more" make visitors guess what happens when they click. A label that names the result, such as "Get a free quote" or "Book a visit", tells them exactly what they get and is one of the cheapest ways to turn more visitors into enquiries.',
-    steps: [
-      'Find the main button on your homepage and the button on your contact form.',
-      '[[Rename them to say what the visitor gets, for example "Book your {service}" or "Call for a quote".||Rename them to say what the visitor gets, for example "Book a visit" or "Call for a quote".]]',
-      'Use the same wording on every page so the next step is always clear.',
-    ],
-    outcome: 'More clicks on your main button',
   },
   {
     id: 'no_guarantee',

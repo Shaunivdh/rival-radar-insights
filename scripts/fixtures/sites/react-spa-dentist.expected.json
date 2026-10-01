@@ -16,5 +16,10 @@
   "_accreditations_note": "CQC (Dental) is the parser's sector-specific label for the same CQC registration.",
   "accreditations": ["CQC", "CQC (Dental)", "GDC", "Invisalign Provider"],
   "reviewPlatforms": ["Google Reviews", "Trustpilot"],
-  "sitemap": true
+  "sitemap": true,
+  "title": "Riverside Dental Care | Private Dentist in Reading",
+  "ctaText": ["Book online", "Book an appointment"],
+  "insuranceMentioned": false,
+  "hasGuarantee": false,
+  "hasPortfolio": false
 }

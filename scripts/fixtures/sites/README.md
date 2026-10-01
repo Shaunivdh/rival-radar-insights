@@ -6,6 +6,10 @@ Labelled fields: `homepageH1`, `services` (≥5), `hasContactForm` (native forms
 `bookingProvider`, `socialLinks`, `accreditations` (union of accreditations, certifications,
 awards/memberships), `reviewPlatforms`, `sitemap` (needs the network — not scored offline).
 
+Also labelled for the action plan templates (optional per fixture): `title`, `ctaText` (every visible
+button or button-styled link label; the parser keeps only strong CTA phrases, so recall is low by
+design), `insuranceMentioned`, `hasGuarantee`, `hasPortfolio` (a linked portfolio page counts).
+
 Keys starting with `_` are notes and are ignored by the eval.
 
 ## Runs

@@ -522,15 +522,6 @@ describe('catalogue batch 1', () => {
     expect(fired(buildBusiness())).not.toContain('no_social_links');
   });
 
-  it('vague_cta fires only when every button label is vague', () => {
-    const vague = sig((s) => (s.engagement.ctaText = ['Submit', 'Learn more']));
-    const mixed = sig((s) => (s.engagement.ctaText = ['Get a free quote', 'Submit']));
-    const empty = sig((s) => (s.engagement.ctaText = []));
-    expect(fired(buildBusiness({ signals: vague }))).toContain('vague_cta');
-    expect(fired(buildBusiness({ signals: mixed }))).not.toContain('vague_cta');
-    expect(fired(buildBusiness({ signals: empty }))).not.toContain('vague_cta');
-  });
-
   it('no_guarantee and no_insurance_mentioned are limited to hands-on trades', () => {
     const b = buildBusiness({ signals: sig((s) => (s.trust.insuranceMentioned = false)) });
     expect(fired(b, { serviceCategory: 'trades' })).toEqual(

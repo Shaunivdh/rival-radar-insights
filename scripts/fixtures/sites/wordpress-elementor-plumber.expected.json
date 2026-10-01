@@ -15,5 +15,10 @@
   "socialLinks": ["Facebook", "YouTube"],
   "accreditations": ["Gas Safe", "Checkatrade Approved"],
   "reviewPlatforms": ["Checkatrade"],
-  "sitemap": true
+  "sitemap": true,
+  "title": "Rapid Flow Plumbing & Heating | Plumber in Manchester",
+  "ctaText": ["Call 0161 496 0000", "Get a free quote"],
+  "insuranceMentioned": true,
+  "hasGuarantee": true,
+  "hasPortfolio": false
 }

@@ -7,6 +7,7 @@ import {
   resolveTemplateContext,
   type TemplateContext,
 } from '@/lib/templateContext';
+import { DAY_MS } from '@/lib/reviewGrowth';
 
 type ScoreKey = keyof Pick<
   AIHealthScore,
@@ -183,16 +184,21 @@ export const PRIORITY_TEMPLATES: PriorityTemplate[] = [
     detail: (b) => {
       const g = b.reviewGrowth;
       if (!g) return null;
-      const date = new Date(g.since).toLocaleDateString('en-GB', { day: 'numeric', month: 'long' });
+      const date = new Date(g.since).toLocaleDateString('en-GB', {
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric',
+      });
       return `Your Google review count has stayed at ${g.baselineCount} since ${date}.`;
     },
     trigger: (b) => {
       if ((b.googleData?.reviewCount ?? 0) <= 5) return false;
       // A sampled review inside 90 days proves activity. r.time is in milliseconds.
-      const ninetyDaysAgo = Date.now() - 90 * 86_400_000;
+      const ninetyDaysAgo = Date.now() - 90 * DAY_MS;
       if (b.googleData?.recentReviews?.some((r) => r.time > ninetyDaysAgo)) return false;
       const g = b.reviewGrowth;
-      return g != null && g.days >= QUIET_REVIEW_MIN_DAYS && g.gained === 0;
+      // Unchanged, not merely "no growth": a falling count may hide new reviews.
+      return g != null && g.days >= QUIET_REVIEW_MIN_DAYS && g.latestCount === g.baselineCount;
     },
     category: 'Reviews',
     effort: 'medium',
@@ -747,8 +753,11 @@ export const PRIORITY_TEMPLATES: PriorityTemplate[] = [
     },
     trigger: (b, ctx) => {
       const title = b.signals?.seo?.title;
-      if (title == null || !ctx.town) return false;
-      return !mentionsTown(title, ctx.town);
+      const places = ctx.places ?? (ctx.town ? [ctx.town] : []);
+      if (title == null || places.length === 0) return false;
+      // Any known place counts: a broad project location ("London") must not flag
+      // a title that names the actual area ("Dulwich").
+      return !places.some((p) => mentionsTown(title, p));
     },
     category: 'Local SEO',
     effort: 'low',
@@ -825,7 +834,7 @@ export const PRIORITY_TEMPLATES: PriorityTemplate[] = [
     steps: [
       'Choose a booking tool that suits your work, for example Fresha, Booksy, Calendly, Square Appointments or Setmore. Most have a free plan.',
       'Add your services, prices and the hours you are available.',
-      'Put a "Book online" button at the top of your homepage and on your Google Business Profile.',
+      '[[Put a "Book your {service} online" button at the top of your homepage and on your Google Business Profile.||Put a "Book online" button at the top of your homepage and on your Google Business Profile.]]',
       'Make a test booking yourself from your phone before you share it.',
     ],
     outcome: 'More bookings outside working hours',
@@ -891,6 +900,7 @@ export const PRIORITY_TEMPLATES: PriorityTemplate[] = [
       'List every accreditation, registration, trade body and certification you hold, for example Gas Safe, NICEIC, Which? Trusted Trader, the GDC or the SRA.',
       'Download the official logo or badge from the member area of each body.',
       'Add the badges near the top of your homepage and in your website footer, linking each one to your entry on the official register where possible.',
+      '[[Add a line near the badges such as "{name} is a registered member of", followed by each body you belong to.]]',
       'Mention them in your Google Business description too.',
     ],
     outcome: 'Instant trust from new visitors',
@@ -944,7 +954,7 @@ export const PRIORITY_TEMPLATES: PriorityTemplate[] = [
       'Hiring someone new feels risky. A clear promise, such as a workmanship guarantee or a "we will put it right" policy, removes that worry and gives people a reason to pick you over a similar business that does not offer one.',
     steps: [
       'Write down the promise you already keep in practice, for example how long your work is guaranteed or what happens if something is not right.',
-      'Add it in one plain sentence near the top of your homepage and on your quotes and invoices.',
+      '[[Add it in one plain sentence near the top of your homepage and on your quotes and invoices, for example: "Every {service} job is guaranteed for 12 months. If something is not right, we will put it right."||Add it in one plain sentence near the top of your homepage and on your quotes and invoices.]]',
       'Only promise what you can stand behind. A short, honest guarantee beats a vague one.',
     ],
     outcome: 'More confidence to choose you',
@@ -971,7 +981,7 @@ export const PRIORITY_TEMPLATES: PriorityTemplate[] = [
       'When someone lets you into their home or onto their property, they want to know they are covered if something goes wrong. A short line saying you are fully insured answers that question before they have to ask.',
     steps: [
       'Check what cover you hold, for example public liability insurance, and the amount.',
-      'Add a line such as "Fully insured with £2 million public liability cover" to your homepage and contact page, using your real figure.',
+      '[[Add a line such as "{name} is fully insured with £2 million public liability cover" to your homepage and contact page, using your real figure.||Add a line such as "Fully insured with £2 million public liability cover" to your homepage and contact page, using your real figure.]]',
       'Keep a copy of your certificate ready to send when customers ask.',
     ],
     outcome: 'Fewer doubts before customers call',
@@ -990,14 +1000,16 @@ export const PRIORITY_TEMPLATES: PriorityTemplate[] = [
     trigger: (b, ctx) => {
       const c = b.signals?.content;
       if (!c || !ctx.serviceCategory || !VISUAL_CATEGORIES.has(ctx.serviceCategory)) return false;
-      return c.hasPortfolio === false || (c.portfolioItemCount ?? 0) < 3;
+      // portfolioItemCount is only set from gallery sub-page links, so a single
+      // gallery page reads as 0. Only a missing portfolio is a reliable gap.
+      return c.hasPortfolio === false;
     },
     category: 'Website',
     effort: 'medium',
     estimatedImpact: 'high',
-    timeframe: '2 to 3 hours',
+    timeframe: '1 to 2 hours',
     action: 'Show off your recent work',
-    reason: 'Your website shows fewer than 3 examples of your work',
+    reason: 'Your website does not show examples of your past work',
     whyItMattersTemplate:
       'People want to see what you can do before they get in touch. A gallery of real jobs is the most convincing proof you can offer, and photos with a short caption also give Google more to understand about your services and area.',
     steps: [

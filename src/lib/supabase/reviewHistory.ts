@@ -1,5 +1,5 @@
 import type { TypedSupabaseClient } from './types';
-import { REVIEW_WINDOW_DAYS, reviewGrowth, type ReviewGrowth } from '@/lib/reviewGrowth';
+import { DAY_MS, REVIEW_WINDOW_DAYS, reviewGrowth, type ReviewGrowth } from '@/lib/reviewGrowth';
 
 /**
  * Review growth for one business over the last REVIEW_WINDOW_DAYS, from the
@@ -11,7 +11,7 @@ export async function fetchReviewGrowth(
   businessId: string,
   now = Date.now(),
 ): Promise<ReviewGrowth | null> {
-  const windowStart = new Date(now - REVIEW_WINDOW_DAYS * 86_400_000).toISOString();
+  const windowStart = new Date(now - REVIEW_WINDOW_DAYS * DAY_MS).toISOString();
   const [{ data: before }, { data: inside }] = await Promise.all([
     db
       .from('google_data')

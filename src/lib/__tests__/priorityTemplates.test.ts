@@ -102,6 +102,7 @@ describe('applyTemplates', () => {
       gained,
       days,
       baselineCount: 96 - gained,
+      latestCount: 96,
       since: '2026-08-03T09:00:00Z',
     });
     const fires = (overrides: Parameters<typeof buildBusiness>[0]) =>
@@ -138,13 +139,19 @@ describe('applyTemplates', () => {
       const rival = buildBusiness({
         id: asBusinessId('c_pro'),
         name: 'Pro beauty clinic',
-        reviewGrowth: { gained: 4, days: 20, baselineCount: 146, since: '2026-09-11T00:00:00Z' },
+        reviewGrowth: {
+          gained: 4,
+          days: 20,
+          baselineCount: 146,
+          latestCount: 150,
+          since: '2026-09-11T00:00:00Z',
+        },
       });
       const a = applyTemplates(own, [rival]).actions.find(
         (x) => x.templateId === 'no_recent_reviews',
       )!;
       expect(
-        a.whyItMatters.startsWith('Your Google review count has stayed at 96 since 3 August.'),
+        a.whyItMatters.startsWith('Your Google review count has stayed at 96 since 3 August 2026.'),
       ).toBe(true);
       expect(a.competitorReference).toBe(
         'Pro beauty clinic gained 4 Google reviews in the last 20 days.',
@@ -531,21 +538,95 @@ describe('catalogue batch 1', () => {
     expect(fired(b, { serviceCategory: 'legal' })).not.toContain('no_insurance_mentioned');
   });
 
-  it('thin_portfolio fires for visual categories with under 3 examples', () => {
-    const few = buildBusiness({
+  it('thin_portfolio fires for visual categories without a portfolio', () => {
+    const none = buildBusiness({ signals: sig((s) => (s.content.hasPortfolio = false)) });
+    const some = buildBusiness({
       signals: sig((s) => {
         s.content.hasPortfolio = true;
         s.content.portfolioItemCount = 2;
       }),
     });
-    const many = buildBusiness({
-      signals: sig((s) => {
-        s.content.hasPortfolio = true;
-        s.content.portfolioItemCount = 5;
+    expect(fired(none, { serviceCategory: 'beauty' })).toContain('thin_portfolio');
+    expect(fired(some, { serviceCategory: 'beauty' })).not.toContain('thin_portfolio');
+    expect(fired(none, { serviceCategory: 'accounting' })).not.toContain('thin_portfolio');
+  });
+});
+
+describe('review fixes', () => {
+  const fired = (
+    b: ReturnType<typeof buildBusiness>,
+    opts: Parameters<typeof applyTemplates>[2] = {},
+  ) => applyTemplates(b, [], opts).firedIds;
+
+  it('thin_portfolio only fires when there is no portfolio, not when the item count is unknown', () => {
+    const s = (hasPortfolio: boolean, portfolioItemCount: number) => {
+      const sig = buildSignals();
+      sig.content = { ...sig.content, hasPortfolio, portfolioItemCount };
+      return buildBusiness({ signals: sig });
+    };
+    // A single gallery page: the parser sets hasPortfolio but cannot count items.
+    expect(fired(s(true, 0), { serviceCategory: 'beauty' })).not.toContain('thin_portfolio');
+    expect(fired(s(false, 0), { serviceCategory: 'beauty' })).toContain('thin_portfolio');
+    const tpl = PRIORITY_TEMPLATES.find((t) => t.id === 'thin_portfolio')!;
+    expect(tpl.reason).not.toMatch(/fewer than/);
+  });
+
+  it('no_recent_reviews does not fire when the count dropped, and dates include the year', () => {
+    const stale = buildGoogleData({
+      reviewCount: 96,
+      recentReviews: [
+        { rating: 5, text: 'old', time: Date.now() - 200 * 86400_000, authorName: 'X' },
+      ],
+    });
+    const growth = (baselineCount: number, latestCount: number) => ({
+      gained: Math.max(0, latestCount - baselineCount),
+      days: 75,
+      baselineCount,
+      latestCount,
+      since: '2026-08-03T09:00:00Z',
+    });
+    expect(
+      fired(buildBusiness({ googleData: stale, reviewGrowth: growth(100, 96) })),
+    ).not.toContain('no_recent_reviews');
+    const a = applyTemplates(
+      buildBusiness({ googleData: stale, reviewGrowth: growth(96, 96) }),
+    ).actions.find((x) => x.templateId === 'no_recent_reviews')!;
+    expect(a.whyItMatters).toContain('since 3 August 2026');
+  });
+
+  it('title_missing_town accepts the area from the Google address when the project location is broad', () => {
+    const sig = buildSignals();
+    sig.seo = { ...sig.seo, title: 'Polished Dulwich | Nail Salon' };
+    const b = buildBusiness({
+      signals: sig,
+      googleData: buildGoogleData({
+        address: '12 Lordship Lane, East Dulwich, London SE22 8HN, UK',
       }),
     });
-    expect(fired(few, { serviceCategory: 'beauty' })).toContain('thin_portfolio');
-    expect(fired(many, { serviceCategory: 'beauty' })).not.toContain('thin_portfolio');
-    expect(fired(few, { serviceCategory: 'accounting' })).not.toContain('thin_portfolio');
+    expect(fired(b, { location: 'London' })).not.toContain('title_missing_town');
+    sig.seo = { ...sig.seo, title: 'Polished | Nail Salon' };
+    expect(fired(buildBusiness({ ...b, signals: sig }), { location: 'London' })).toContain(
+      'title_missing_town',
+    );
+  });
+
+  it('bite-sized tips stay under 2 hours and new tips carry a personalised snippet', () => {
+    expect(PRIORITY_TEMPLATES.find((t) => t.id === 'thin_portfolio')!.timeframe).toBe(
+      '1 to 2 hours',
+    );
+    for (const id of [
+      'title_missing_town',
+      'no_booking_competitor_has',
+      'no_accreditations_shown',
+      'no_guarantee',
+      'no_insurance_mentioned',
+      'thin_portfolio',
+    ]) {
+      const t = PRIORITY_TEMPLATES.find((x) => x.id === id)!;
+      expect(
+        t.steps.some((s) => /\[\[.*\{(service|Service|town|name)\}/.test(s)),
+        id,
+      ).toBe(true);
+    }
   });
 });

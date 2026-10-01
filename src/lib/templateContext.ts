@@ -6,6 +6,8 @@ export type TemplateContext = {
   service?: string;
   town?: string;
   name?: string;
+  /** Every place name the business may use: project location, address town, address area. */
+  places?: string[];
   serviceCategory?: ServiceCategory;
   /** Set by applyTemplates so triggers can check competitor-relative gaps. */
   competitors?: Business[];
@@ -22,16 +24,23 @@ const COUNTRIES = new Set([
 ]);
 const MAX_SERVICE_LENGTH = 40;
 
-/** Town from the address's last meaningful segment: "12 Pipe St, Bristol BS1 1AA, UK" gives "Bristol". */
-function townFromAddress(address: string | undefined): string | undefined {
-  if (!address) return undefined;
+/**
+ * Town and area from an address: "12 Lordship Lane, East Dulwich, London SE22 8HN, UK"
+ * gives town "London" and area "East Dulwich". The area is the segment before the
+ * town when the first segment is the street.
+ */
+function placesFromAddress(address: string | undefined): { town?: string; area?: string } {
+  if (!address) return {};
   const parts = address
     .split(',')
     .map((p) => p.trim())
     .filter((p) => p && !COUNTRIES.has(p.toLowerCase()));
-  if (parts.length < 2) return undefined;
-  const town = parts[parts.length - 1].replace(UK_POSTCODE, '').trim();
-  return town && !/\d/.test(town) ? town : undefined;
+  if (parts.length < 2) return {};
+  const last = parts[parts.length - 1].replace(UK_POSTCODE, '').trim();
+  const town = last && !/\d/.test(last) ? last : undefined;
+  const before = parts.length >= 3 ? parts[parts.length - 2] : undefined;
+  const area = before && !/\d/.test(before) ? before : undefined;
+  return { town, area };
 }
 
 /** Lower-case the first letter for mid-sentence use, unless it starts an acronym ("IT repairs"). */
@@ -49,7 +58,11 @@ export function resolveTemplateContext(
   projectLocation?: string | null,
   serviceCategory?: ServiceCategory,
 ): TemplateContext {
-  const town = projectLocation?.trim() || townFromAddress(b.googleData?.address);
+  const fromAddress = placesFromAddress(b.googleData?.address);
+  const town = projectLocation?.trim() || fromAddress.town;
+  const places = [
+    ...new Set([projectLocation?.trim(), fromAddress.town, fromAddress.area].filter(Boolean)),
+  ] as string[];
   const listed = b.signals?.content?.servicesListed?.[0]?.trim();
   const category = b.googleData?.businessCategory?.replace(/_/g, ' ').trim();
   const service =
@@ -58,6 +71,7 @@ export function resolveTemplateContext(
     town: town || undefined,
     service: service && lowerFirst(service),
     name: b.name || undefined,
+    places,
     serviceCategory,
   };
 }

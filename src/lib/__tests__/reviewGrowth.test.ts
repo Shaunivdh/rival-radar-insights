@@ -17,6 +17,7 @@ describe('reviewGrowth', () => {
       gained: 4,
       days: 20,
       baselineCount: 146,
+      latestCount: 150,
       since: daysAgo(20),
     });
   });

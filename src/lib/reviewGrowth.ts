@@ -7,6 +7,8 @@
  * REVIEW_WINDOW_DAYS ago gives a true "gained N reviews in D days".
  */
 export const REVIEW_WINDOW_DAYS = 90;
+/** Milliseconds in a day. */
+export const DAY_MS = 86_400_000;
 
 export type ReviewHistoryRow = { review_count: number | null; fetched_at: string };
 
@@ -16,6 +18,7 @@ export type ReviewGrowth = {
   /** Whole days between the baseline and the latest fetch. */
   days: number;
   baselineCount: number;
+  latestCount: number;
   /** ISO timestamp of the baseline fetch. */
   since: string;
 };
@@ -31,17 +34,16 @@ export function reviewGrowth(rows: ReviewHistoryRow[], now = Date.now()): Review
   if (usable.length < 2) return null;
 
   const latest = usable[usable.length - 1];
-  const windowStart = now - REVIEW_WINDOW_DAYS * 86_400_000;
+  const windowStart = now - REVIEW_WINDOW_DAYS * DAY_MS;
   const beforeWindow = usable.filter((r) => Date.parse(r.fetched_at) <= windowStart);
   const baseline = beforeWindow.length ? beforeWindow[beforeWindow.length - 1] : usable[0];
   if (baseline === latest) return null;
 
   return {
     gained: Math.max(0, latest.review_count - baseline.review_count),
-    days: Math.round(
-      (Date.parse(latest.fetched_at) - Date.parse(baseline.fetched_at)) / 86_400_000,
-    ),
+    days: Math.round((Date.parse(latest.fetched_at) - Date.parse(baseline.fetched_at)) / DAY_MS),
     baselineCount: baseline.review_count,
+    latestCount: latest.review_count,
     since: baseline.fetched_at,
   };
 }

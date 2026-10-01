@@ -8,6 +8,7 @@ import {
 import { buildBusiness, buildSignals, buildGoogleData, buildAction } from '@/test/builders';
 import { asBusinessId } from '@/types';
 import { resolveTemplateContext } from '@/lib/templateContext';
+import { lintCopy } from '@/lib/copyLint';
 
 const noPhone = () =>
   buildBusiness({
@@ -374,16 +375,29 @@ describe('competitor comparison and personalisation', () => {
         tpl.whyItMattersTemplate,
         ...tpl.steps,
         tpl.outcome,
+        tpl.timeframe,
         refText,
+        tpl.detail?.({
+          ...own,
+          reviewGrowth: {
+            gained: 0,
+            days: 75,
+            baselineCount: 96,
+            latestCount: 96,
+            since: '2026-08-03T00:00:00Z',
+          },
+        }),
       ]
         .filter(Boolean)
         .join(' ');
-      expect(copy, id).not.toMatch(/[—–→]| - /);
+      // Full CLAUDE.md copy check, including comparison, detail and timeframe output.
+      expect(lintCopy(copy), id).toEqual([]);
       if (refText) expect(refText, id).not.toMatch(/\b(zero|lack|none)\b|\bno\s|\b0\s/i);
     }
     for (const a of applyTemplates(own, comps, { location: 'Bristol' }).actions) {
-      const copy = [a.whyItMatters, ...a.steps, a.competitorReference].join(' ');
-      expect(copy, a.templateId ?? '').not.toMatch(/[—–→]|\[\[|\]\]|\{|\}| - /);
+      const copy = [a.whyItMatters, ...a.steps, a.competitorReference, a.timeframe].join(' ');
+      expect(lintCopy(copy), a.templateId ?? '').toEqual([]);
+      expect(copy, a.templateId ?? '').not.toMatch(/\[\[|\]\]|\{|\}/);
     }
   });
 });

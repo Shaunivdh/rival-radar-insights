@@ -50,7 +50,7 @@ export function summariseForInsight(
   if (!ownSignals)
     return { own: ownView, competitors: compViews.map((c) => ({ ...c, signals: null })) };
 
-  const keep = (bucket: string, key: string) =>
+  const differsFromACompetitor = (bucket: string, key: string) =>
     compViews.some((c) => {
       const cs = c.signals as Record<string, Record<string, unknown>> | null;
       return (
@@ -59,20 +59,22 @@ export function summariseForInsight(
       );
     });
 
-  const trim = (signals: Summary['signals']) => {
+  const dropSharedFields = (signals: Summary['signals']) => {
     const s = signals as Record<string, Record<string, unknown>> | null;
     if (!s) return null;
     const out: Record<string, Record<string, unknown>> = {};
     for (const [bucket, fields] of Object.entries(s)) {
       if (!fields) continue;
-      const kept = Object.fromEntries(Object.entries(fields).filter(([k]) => keep(bucket, k)));
+      const kept = Object.fromEntries(
+        Object.entries(fields).filter(([k]) => differsFromACompetitor(bucket, k)),
+      );
       if (Object.keys(kept).length) out[bucket] = kept;
     }
     return out as unknown as Summary['signals'];
   };
 
   return {
-    own: { ...ownView, signals: trim(ownView.signals) },
-    competitors: compViews.map((c) => ({ ...c, signals: trim(c.signals) })),
+    own: { ...ownView, signals: dropSharedFields(ownView.signals) },
+    competitors: compViews.map((c) => ({ ...c, signals: dropSharedFields(c.signals) })),
   };
 }

@@ -5,6 +5,7 @@
  *
  * Read-only against the database. Dry runs make no AI calls: when the AI
  * insight would run, the report says so instead. --live makes the real call
+ * (and counts every AI call, including the fact-checker)
  * (about $0.02 per project that needs one) and records its token usage.
  *
  * Usage:
@@ -121,12 +122,15 @@ async function main() {
         ? 'skipped: enough templates'
         : 'would run (dry run)';
 
-    if (live && aiInsight === 'would run (dry run)') {
+    // Live runs always go through the real pipeline, so fact-checker tokens are
+    // counted even when templates fill the plan and the insight is skipped.
+    if (live) {
       const restore = captureUsage(usage);
       try {
         const out = await generatePriorityActions(own, competitors, primaryService, { location });
         generated = out.map((a) => toPlan(a, a.templateId ? 'template' : 'llm'));
-        aiInsight = out.some((a) => !a.templateId) ? 'ran' : 'ran: dropped or empty';
+        if (aiInsight === 'would run (dry run)')
+          aiInsight = out.some((a) => !a.templateId) ? 'ran' : 'ran: dropped or empty';
       } finally {
         restore();
       }

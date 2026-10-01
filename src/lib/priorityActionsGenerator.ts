@@ -5,8 +5,12 @@ import {
   AIUnavailableError,
 } from '@/services/ai';
 import { mapPriorityActionRow } from '@/lib/priorityActionRow';
+import { checkTemplates } from '@/lib/priorityTemplates';
+import { MAX_LIVE_ACTIONS, promoteQueuedActions } from '@/lib/promoteQueuedActions';
+import { DAY_MS } from '@/lib/reviewGrowth';
 import { businessJson, rowToSignals } from '@/lib/supabase/mappers';
 import { fetchReviewGrowth } from '@/lib/supabase/reviewHistory';
+import type { Database } from '@/types/database';
 import type { Business, ExtractedSignals, PriorityAction } from '@/types';
 import { asBusinessId, type BusinessId, type ProjectId } from '@/types';
 
@@ -140,6 +144,14 @@ export async function generateAndPersistProjectActions(
   if ('missing' in loaded) return { inserted: 0, reason: loaded.missing };
   const { own: ownBusiness, competitors: competitorBusinesses, primaryService, location } = loaded;
 
+  // Before generation: resolved gaps free their plan slots and read as fixed even if no
+  // new actions land. Never let the check block the plan itself.
+  try {
+    await checkActionsAgainstScan(projectId, loaded);
+  } catch (e) {
+    logger.warn('priorityActions', 'Verification failed', { projectId, error: e });
+  }
+
   const previousActions = await fetchPreviousActionBatch(projectId);
   const useHistory = previousActions.length > 0 && !!ownBusiness.signals;
   const previousSignals = useHistory ? await fetchPreviousSignals(ownBusiness.id) : null;
@@ -214,7 +226,7 @@ export async function generateAndPersistProjectActions(
     .eq('project_id', projectId)
     .in('status', ['active', 'snoozed']);
 
-  const openSlots = Math.max(0, 15 - (activeCount ?? 0));
+  const openSlots = Math.max(0, MAX_LIVE_ACTIONS - (activeCount ?? 0));
 
   const { error: insertError } = await supabaseAdmin.from('priority_actions').insert(
     newActions.map((a, i) => ({
@@ -246,6 +258,136 @@ export async function generateAndPersistProjectActions(
   }
 
   return { inserted: newActions.length, ownBusinessId: ownBusiness.id };
+}
+
+/** Minimum time between the two scans that must agree before an open action auto-resolves. */
+const MIN_CONFIRM_GAP_MS = 3 * DAY_MS;
+
+/**
+ * Check template actions against the latest scan.
+ *
+ * Completed: 'verified' when the template was evaluated and no longer fires,
+ * 'not_verified' when it still fires. Only actions marked done before the scan count.
+ *
+ * Open (active, queued, snoozed): when the gap is gone the first time, `gone_since`
+ * records that scan; if a scan at least MIN_CONFIRM_GAP_MS later still finds it gone,
+ * the action is resolved as done and verified, and queued actions fill its slot. Two
+ * scans must agree so one glitchy render cannot clear it, and a scan that finds the
+ * gap again resets the count.
+ *
+ * Nothing runs when the own scan failed. Templates are left as they are when their data
+ * is missing, unconfirmed (a pending or discarded site snapshot), stale (a rival not
+ * freshly read) or older than the change (AI visibility). LLM actions have no trigger
+ * and are never checked.
+ */
+export async function checkActionsAgainstScan(
+  projectId: ProjectId,
+  { own, competitors, primaryService, location }: ProjectForActions,
+): Promise<void> {
+  // Business objects from loadProjectForActions carry no crawl state, so read it here.
+  const { data: bizRows } = await supabaseAdmin
+    .from('businesses')
+    .select('id, crawl_status, last_crawled_at')
+    .eq('project_id', projectId);
+  const ownRow = bizRows?.find((b) => b.id === own.id);
+  if (ownRow?.crawl_status !== 'complete' || !ownRow.last_crawled_at) return;
+  const scannedAt = new Date(ownRow.last_crawled_at);
+
+  // A detected site change stays 'pending' until the confirmation re-crawl, and a flaky
+  // render ends up 'unconfirmed': neither can prove a fix, so site triggers wait.
+  const { data: snapshot } = await supabaseAdmin
+    .from('extracted_signals')
+    .select('status')
+    .eq('business_id', own.id)
+    .order('scanned_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  const siteSignalsUnconfirmed = !!snapshot && snapshot.status !== 'confirmed';
+
+  // A rival not freshly scanned alongside us, or whose site could not be read, has
+  // untrustworthy data: competitor triggers wait.
+  const competitorsStale =
+    (bizRows ?? []).some(
+      (b) =>
+        b.id !== own.id &&
+        (b.crawl_status !== 'complete' ||
+          !b.last_crawled_at ||
+          new Date(b.last_crawled_at).getTime() < scannedAt.getTime() - DAY_MS),
+    ) ||
+    competitors.some(
+      (c) => !c.signals || !!c.enrichmentErrors?.crawl || !!c.enrichmentErrors?.extract,
+    );
+
+  const { data: rows } = await supabaseAdmin
+    .from('priority_actions')
+    .select('id, template_id, status, verification, actioned_at, gone_since')
+    .eq('project_id', projectId)
+    .in('status', ['completed', 'active', 'queued', 'snoozed']);
+  const templated = (rows ?? []).flatMap((a) =>
+    a.template_id ? [{ ...a, templateId: a.template_id }] : [],
+  );
+  if (!templated.length) return;
+
+  const { evaluatedIds, firedIds, refreshedAt } = checkTemplates(own, competitors, {
+    location,
+    serviceCategory: primaryService,
+    competitorsStale,
+    siteSignalsUnconfirmed,
+  });
+  type Row = (typeof templated)[number];
+  const gone = (a: Row) => !firedIds.has(a.templateId);
+  // Slow-moving data (AI visibility) must have been refreshed after `since` to count.
+  const freshSince = (a: Row, since: string) => {
+    if (!refreshedAt.has(a.templateId)) return true;
+    const at = refreshedAt.get(a.templateId);
+    return !!at && new Date(at) > new Date(since);
+  };
+  const checked = templated.filter((a) => evaluatedIds.has(a.templateId));
+
+  const done = checked.filter(
+    (a) =>
+      a.status === 'completed' &&
+      a.verification !== 'verified' &&
+      a.actioned_at != null &&
+      new Date(a.actioned_at) < scannedAt &&
+      freshSince(a, a.actioned_at),
+  );
+  const open = checked.filter((a) => a.status !== 'completed');
+  // The confirming scan must be days later, on fresh data: a same-day confirmation
+  // re-crawl or manual rescan can repeat the same glitch.
+  const confirmedGone = open.filter(
+    (a) =>
+      gone(a) &&
+      a.gone_since != null &&
+      scannedAt.getTime() - new Date(a.gone_since).getTime() >= MIN_CONFIRM_GAP_MS &&
+      freshSince(a, a.gone_since),
+  );
+  const firstGone = open.filter((a) => gone(a) && a.gone_since == null);
+  const reappeared = open.filter((a) => !gone(a) && a.gone_since != null);
+
+  const now = new Date().toISOString();
+  const ids = (list: Row[]) => list.map((a) => a.id);
+  const updates: [string[], Database['public']['Tables']['priority_actions']['Update']][] = [
+    [ids(done.filter(gone)), { verification: 'verified', verified_at: now }],
+    [ids(done.filter((a) => !gone(a))), { verification: 'not_verified' }],
+    [
+      ids(confirmedGone),
+      {
+        status: 'completed',
+        actioned_at: now,
+        verification: 'verified',
+        verified_at: now,
+        auto_resolved: true,
+        gone_since: null,
+      },
+    ],
+    [ids(firstGone), { gone_since: scannedAt.toISOString() }],
+    [ids(reappeared), { gone_since: null }],
+  ];
+  for (const [list, patch] of updates) {
+    if (list.length) await supabaseAdmin.from('priority_actions').update(patch).in('id', list);
+  }
+  if (confirmedGone.length) await promoteQueuedActions(projectId);
 }
 
 /** Latest batch of priority actions (all rows sharing the most recent generated_at). */

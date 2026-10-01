@@ -7,6 +7,8 @@ import { supabaseAdmin } from '@/lib/supabase/server';
 import { inngest } from '@/inngest/client';
 import { calculateScores } from '@/services/scores';
 import { mapPriorityActionRow } from '@/lib/priorityActionRow';
+import { promoteQueuedActions } from '@/lib/promoteQueuedActions';
+import { DAY_MS } from '@/lib/reviewGrowth';
 import { CRAWL_INTERVAL_MS } from '@/lib/crawl/config';
 import {
   businessJson,
@@ -508,39 +510,33 @@ export async function fetchPriorityActions(projectId: ProjectId): Promise<Priori
   return queryPriorityActions(projectId);
 }
 
-// ── Action status management ───────────────────────────────────────────────────
-
-async function promoteQueuedActions(projectId: ProjectId): Promise<void> {
-  // Count current active + snoozed
-  const { count } = await supabaseAdmin
-    .from('priority_actions')
-    .select('id', { count: 'exact', head: true })
-    .eq('project_id', projectId)
-    .in('status', ['active', 'snoozed']);
-
-  const slots = Math.max(0, 15 - (count ?? 0));
-  if (slots === 0) return;
-
-  // Fetch oldest queued actions to promote
-  const { data: queued } = await supabaseAdmin
-    .from('priority_actions')
-    .select('id')
-    .eq('project_id', projectId)
-    .eq('status', 'queued')
-    .order('generated_at', { ascending: true })
-    .order('priority', { ascending: true })
-    .limit(slots);
-
-  if (!queued?.length) return;
-
-  await supabaseAdmin
-    .from('priority_actions')
-    .update({ status: 'active' })
-    .in(
-      'id',
-      queued.map((q) => q.id),
-    );
+/**
+ * What the plan page needs beyond live actions: actions marked done in the last 30 days
+ * (newest first, with their scan verification) and how many open gaps wait in the queue.
+ */
+export async function fetchPlanHistory(
+  projectId: ProjectId,
+): Promise<{ completed: PriorityAction[]; queuedCount: number }> {
+  await requireProjectOwnership(projectId);
+  const since = new Date(Date.now() - 30 * DAY_MS).toISOString();
+  const [{ data }, { count }] = await Promise.all([
+    supabaseAdmin
+      .from('priority_actions')
+      .select('*')
+      .eq('project_id', projectId)
+      .eq('status', 'completed')
+      .gte('actioned_at', since)
+      .order('actioned_at', { ascending: false }),
+    supabaseAdmin
+      .from('priority_actions')
+      .select('id', { count: 'exact', head: true })
+      .eq('project_id', projectId)
+      .eq('status', 'queued'),
+  ]);
+  return { completed: (data ?? []).map(mapPriorityActionRow), queuedCount: count ?? 0 };
 }
+
+// ── Action status management ───────────────────────────────────────────────────
 
 export async function updateActionStatus(
   actionId: PriorityActionId,
@@ -555,6 +551,11 @@ export async function updateActionStatus(
       status,
       note: note ?? null,
       actioned_at: status !== 'active' ? new Date().toISOString() : null,
+      // Any status change restarts the scan check.
+      verification: null,
+      verified_at: null,
+      gone_since: null,
+      auto_resolved: false,
     })
     .eq('id', actionId)
     .eq('project_id', projectId);

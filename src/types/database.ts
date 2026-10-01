@@ -486,6 +486,10 @@ export type Database = {
           status: string;
           steps: Json | null;
           template_id: string | null;
+          verification: string | null;
+          verified_at: string | null;
+          gone_since: string | null;
+          auto_resolved: boolean;
           timeframe: string;
           why_it_matters: string | null;
         };
@@ -507,6 +511,10 @@ export type Database = {
           status?: string;
           steps?: Json | null;
           template_id?: string | null;
+          verification?: string | null;
+          verified_at?: string | null;
+          gone_since?: string | null;
+          auto_resolved?: boolean;
           timeframe: string;
           why_it_matters?: string | null;
         };
@@ -528,6 +536,10 @@ export type Database = {
           status?: string;
           steps?: Json | null;
           template_id?: string | null;
+          verification?: string | null;
+          verified_at?: string | null;
+          gone_since?: string | null;
+          auto_resolved?: boolean;
           timeframe?: string;
           why_it_matters?: string | null;
         };

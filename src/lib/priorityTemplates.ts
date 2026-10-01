@@ -49,6 +49,16 @@ export type PriorityTemplate = {
    */
   requiresGoogleData?: boolean;
   /**
+   * True if the trigger reads competitor data. Scan verification skips such templates
+   * while any competitor is stale, so old rival data cannot fake a fix.
+   */
+  readsCompetitors?: boolean;
+  /**
+   * When the data behind the trigger was last refreshed, for data that updates slower
+   * than the weekly scan. Scan verification waits until it is newer than the change.
+   */
+  dataRefreshedAt?: (b: Business) => string | null;
+  /**
    * Deterministic competitor comparison for `competitorReference`. Returns null
    * unless a named competitor is strictly better on this exact gap. Never phrase
    * our side as "0", "no" or "none": the validator flags those as contradictions.
@@ -680,6 +690,8 @@ export const PRIORITY_TEMPLATES: PriorityTemplate[] = [
   },
   {
     id: 'low_ai_visibility',
+    // AI visibility is re-tested every 14 days, not every scan.
+    dataRefreshedAt: (b) => b.aiVisibility?.tested_at ?? null,
     impactWeight: 2,
     scoreKey: 'aiPresenceScore',
     compare: (own, competitors) => {
@@ -806,6 +818,7 @@ export const PRIORITY_TEMPLATES: PriorityTemplate[] = [
   },
   {
     id: 'no_booking_competitor_has',
+    readsCompetitors: true,
     impactWeight: 3,
     scoreKey: 'websiteHealthScore',
     compare: (_own, competitors) => {
@@ -1174,6 +1187,41 @@ export function applyTemplatesWithHistory(
     .map((prev) => prev.action);
 
   return { actions, firedIds, closedFromLastWeek };
+}
+
+/** Data-quality flags for scan verification; each makes the affected templates uncheckable. */
+export type ScanCheckOptions = TemplateOptions & {
+  /** A rival's latest data is old or failed: skip triggers that read competitors. */
+  competitorsStale?: boolean;
+  /** The own site snapshot is awaiting confirmation or was discarded: skip site triggers. */
+  siteSignalsUnconfirmed?: boolean;
+};
+
+/**
+ * Which templates had trustworthy data to be evaluated, and which of those fired.
+ * Used to verify actions: evaluated and not fired means the gap is gone.
+ * `refreshedAt` holds, per evaluated template with slow-moving data, when that data
+ * was last refreshed (null = never), so callers can wait for data newer than a change.
+ */
+export function checkTemplates(
+  b: Business,
+  competitors: Business[] = [],
+  opts: ScanCheckOptions = {},
+): { evaluatedIds: Set<string>; firedIds: Set<string>; refreshedAt: Map<string, string | null> } {
+  const ctx = {
+    ...resolveTemplateContext(b, opts.location, opts.serviceCategory),
+    competitors,
+  };
+  const { ranked, evaluatedIds } = evaluateTemplates(b, ctx);
+  const refreshedAt = new Map<string, string | null>();
+  for (const tpl of PRIORITY_TEMPLATES) {
+    if (opts.competitorsStale && tpl.readsCompetitors) evaluatedIds.delete(tpl.id);
+    if (opts.siteSignalsUnconfirmed && tpl.requiresSiteSignals !== false)
+      evaluatedIds.delete(tpl.id);
+    if (tpl.dataRefreshedAt && evaluatedIds.has(tpl.id))
+      refreshedAt.set(tpl.id, tpl.dataRefreshedAt(b));
+  }
+  return { evaluatedIds, firedIds: new Set(ranked.map((t) => t.id)), refreshedAt };
 }
 
 /** Diagnostic: which templates would fire for this business? */

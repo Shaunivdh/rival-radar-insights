@@ -21,6 +21,10 @@ describe('mapPriorityActionRow', () => {
       actioned_at: '2026-07-01T00:00:00Z',
       continuity_note: 'Still outstanding',
       template_id: 'no_faq',
+      generated_at: '2026-06-28T00:00:00Z',
+      verification: 'verified',
+      verified_at: '2026-07-05T00:00:00Z',
+      auto_resolved: false,
     };
 
     expect(mapPriorityActionRow(row)).toEqual({
@@ -41,6 +45,10 @@ describe('mapPriorityActionRow', () => {
       actionedAt: '2026-07-01T00:00:00Z',
       continuityNote: 'Still outstanding',
       templateId: 'no_faq',
+      generatedAt: '2026-06-28T00:00:00Z',
+      verification: 'verified',
+      verifiedAt: '2026-07-05T00:00:00Z',
+      autoResolved: false,
     });
   });
 

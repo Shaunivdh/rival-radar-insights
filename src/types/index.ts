@@ -202,6 +202,13 @@ export interface PriorityAction {
   continuityNote?: string | null; // e.g. "Still outstanding from last week" or "You completed this"
   /** Deterministic template that produced this action (null = LLM). Stable across copy edits. */
   templateId?: string | null;
+  /** When this action was first added to the plan. */
+  generatedAt?: string | null;
+  /** Scan re-check of a completed template action; null = not checked yet. */
+  verification?: 'verified' | 'not_verified' | null;
+  verifiedAt?: string | null;
+  /** Resolved by two scans in a row finding the gap gone, without the user ticking it. */
+  autoResolved?: boolean;
   /** Internal: source of this action for deterministic-check skip logic. Stripped before serving to clients. */
   _source?: 'template' | 'llm';
   /** Internal: data paths the LLM cited ("own.signals.engagement.hasContactForm=false"). Verified then stripped. */

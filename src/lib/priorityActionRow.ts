@@ -20,5 +20,9 @@ export function mapPriorityActionRow(r: Record<string, unknown>): PriorityAction
     actionedAt: (r.actioned_at as string | null) ?? null,
     continuityNote: (r.continuity_note as string | null) ?? null,
     templateId: (r.template_id as string | null) ?? null,
+    generatedAt: (r.generated_at as string | null) ?? null,
+    verification: (r.verification as PriorityAction['verification']) ?? null,
+    verifiedAt: (r.verified_at as string | null) ?? null,
+    autoResolved: (r.auto_resolved as boolean | null) ?? false,
   };
 }

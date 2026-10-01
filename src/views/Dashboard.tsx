@@ -143,10 +143,12 @@ const Dashboard = () => {
 
     // Scanning just finished — one trailing poll to catch any in-flight state changes.
     // Delay matches the crawl system's own poll interval so we don't read mid-transition.
+    // A second poll at 90s catches the plan: businesses flip to complete before the
+    // worker's later scoring and action generation steps finish.
     if (wasScanningRef.current) {
       wasScanningRef.current = false;
-      const timer = setTimeout(poll, 5000);
-      return () => clearTimeout(timer);
+      const timers = [setTimeout(poll, 5000), setTimeout(poll, 90000)];
+      return () => timers.forEach(clearTimeout);
     }
   }, [isScanning, projectId, isDemoMode, syncBusinesses, setPriorityActions]);
 

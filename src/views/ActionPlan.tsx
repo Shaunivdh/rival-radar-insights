@@ -1,9 +1,11 @@
 'use client';
 
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useRivalRadarStore } from '@/store/rivalradar';
-import { fetchPriorityActions, updateActionStatus } from '@/actions/projects';
+import { fetchPlanHistory, fetchPriorityActions, updateActionStatus } from '@/actions/projects';
+import { CRAWL_INTERVAL_MS } from '@/lib/crawl/config';
+import { DAY_MS } from '@/lib/reviewGrowth';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -40,7 +42,8 @@ import { MOCK_PRIORITY_ACTIONS } from '@/lib/mockActionPlan';
 const IS_DEV = process.env.NODE_ENV !== 'production';
 
 type Priority = 'critical' | 'high' | 'medium' | 'quick-win';
-type VerificationState = 'pending' | 'verified' | 'not-verified';
+// 'unchecked': an AI-written action has no deterministic check, so no scan promise is made.
+type VerificationState = NonNullable<PriorityAction['verification']> | 'pending' | 'unchecked';
 
 type Recommendation = {
   id: PriorityActionId;
@@ -60,6 +63,10 @@ type Recommendation = {
   effort: 'Low' | 'Medium' | 'High';
   timeframe: string;
   continuityNote: string | null;
+  generatedAt: string | null;
+  verification: VerificationState;
+  verifiedAt: string | null;
+  autoResolved: boolean;
 };
 
 type ActionStatus = {
@@ -89,6 +96,10 @@ function toPriorityBucket(action: PriorityAction): Priority {
   return 'medium';
 }
 
+/** Ticked over two scans ago and still not checkable (e.g. its data keeps failing): stop promising a check. */
+const checkOverdue = (actionedAt?: string | null) =>
+  !!actionedAt && Date.now() - new Date(actionedAt).getTime() > 2 * CRAWL_INTERVAL_MS;
+
 function mapAction(action: PriorityAction): Recommendation {
   return {
     id: action.id,
@@ -111,6 +122,12 @@ function mapAction(action: PriorityAction): Recommendation {
     effort: action.effort === 'low' ? 'Low' : action.effort === 'medium' ? 'Medium' : 'High',
     timeframe: action.timeframe,
     continuityNote: action.continuityNote ?? null,
+    generatedAt: action.generatedAt ?? null,
+    verification: !action.templateId
+      ? 'unchecked'
+      : (action.verification ?? (checkOverdue(action.actionedAt) ? 'unchecked' : 'pending')),
+    verifiedAt: action.verifiedAt ?? null,
+    autoResolved: action.autoResolved ?? false,
   };
 }
 
@@ -150,15 +167,28 @@ const effortColor: Record<string, string> = {
   High: 'bg-red-50 text-red-700 border-red-200',
 };
 
-const formatDoneAt = (iso?: string) => {
+const formatDaysAgo = (iso?: string) => {
   if (!iso) return '';
-  const days = Math.floor((Date.now() - new Date(iso).getTime()) / (1000 * 60 * 60 * 24));
+  const days = Math.floor((Date.now() - new Date(iso).getTime()) / DAY_MS);
   if (days === 0) return 'today';
   if (days === 1) return 'yesterday';
   return `${days} days ago`;
 };
 
+/** "Last scan 3 days ago · next in about 4 days". The daily cron re-queues a scan once it is due. */
+const scanTimingLabel = (lastScanAt: number) => {
+  const daysToNext = Math.ceil((lastScanAt + CRAWL_INTERVAL_MS - Date.now()) / DAY_MS);
+  const next =
+    daysToNext > 1
+      ? `next in about ${daysToNext} days`
+      : daysToNext === 1
+        ? 'next scan tomorrow'
+        : 'next scan due today';
+  return `Last scan ${formatDaysAgo(new Date(lastScanAt).toISOString())} · ${next}`;
+};
+
 const VerificationBadge = ({ state }: { state: VerificationState }) => {
+  if (state === 'unchecked') return null;
   if (state === 'verified') {
     return (
       <Badge
@@ -169,7 +199,7 @@ const VerificationBadge = ({ state }: { state: VerificationState }) => {
       </Badge>
     );
   }
-  if (state === 'not-verified') {
+  if (state === 'not_verified') {
     return (
       <Badge
         variant="outline"
@@ -187,6 +217,14 @@ const VerificationBadge = ({ state }: { state: VerificationState }) => {
       <Hourglass className="w-3 h-3" /> We'll check on the next scan
     </Badge>
   );
+};
+
+// Look of the "done" panel per verification state.
+const DONE_PANEL: Record<VerificationState, { className: string; icon: React.ElementType }> = {
+  verified: { className: 'bg-success/10 text-success-strong', icon: CheckCircle2 },
+  not_verified: { className: 'bg-warning/10 text-warning-strong', icon: AlertTriangle },
+  pending: { className: 'bg-muted/50 text-muted-foreground', icon: Hourglass },
+  unchecked: { className: 'bg-muted/50 text-muted-foreground', icon: CheckCircle2 },
 };
 
 const RecommendationCard = ({
@@ -211,6 +249,10 @@ const RecommendationCard = ({
   const [note, setNote] = useState('');
   const isDone = rec.dbStatus === 'completed' || !!status?.done;
   const isDismissed = rec.dbStatus === 'snoozed' || !!status?.dismissed;
+  const verification: VerificationState =
+    rec.verification === 'unchecked' ? 'unchecked' : (status?.verification ?? rec.verification);
+  const doneWhen = formatDaysAgo(status?.doneAt ?? rec.dbActionedAt ?? undefined);
+  const DoneIcon = DONE_PANEL[verification].icon;
 
   const handleQuickDone = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -254,7 +296,7 @@ const RecommendationCard = ({
                 <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
                   {rec.category}
                 </span>
-                {isDone && <VerificationBadge state={status?.verification ?? 'pending'} />}
+                {isDone && <VerificationBadge state={verification} />}
                 {isDismissed && (
                   <Badge
                     variant="outline"
@@ -324,56 +366,36 @@ const RecommendationCard = ({
                     <p className="text-muted-foreground leading-relaxed">{rec.dataPoint}</p>
                   </div>
                 )}
+                {!isDone && !isDismissed && rec.generatedAt && (
+                  <p className="text-xs text-muted-foreground mt-2 pl-1">
+                    First spotted {formatDaysAgo(rec.generatedAt)}
+                  </p>
+                )}
                 {isDismissed && (
                   <div className="flex items-start gap-2 p-3 rounded-lg bg-muted/50 text-sm text-muted-foreground">
                     <EyeOff className="w-4 h-4 shrink-0 mt-0.5" />
                     <p className="leading-relaxed">
                       You marked this as not a priority{' '}
-                      {formatDoneAt(status?.dismissedAt ?? rec.dbActionedAt ?? undefined)}. We'll
+                      {formatDaysAgo(status?.dismissedAt ?? rec.dbActionedAt ?? undefined)}. We'll
                       keep monitoring and flag it again if it gets worse.
                     </p>
                   </div>
                 )}
                 {isDone && (
                   <div
-                    className={`flex items-start gap-2 p-3 rounded-lg text-sm ${
-                      (status?.verification ?? 'pending') === 'verified'
-                        ? 'bg-green-50 text-green-800'
-                        : (status?.verification ?? 'pending') === 'not-verified'
-                          ? 'bg-amber-50 text-amber-800'
-                          : 'bg-muted/50 text-muted-foreground'
-                    }`}
+                    className={`flex items-start gap-2 p-3 rounded-lg text-sm ${DONE_PANEL[verification].className}`}
                   >
-                    {(status?.verification ?? 'pending') === 'verified' && (
-                      <CheckCircle2 className="w-4 h-4 shrink-0 mt-0.5" />
-                    )}
-                    {(status?.verification ?? 'pending') === 'not-verified' && (
-                      <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
-                    )}
-                    {(status?.verification ?? 'pending') === 'pending' && (
-                      <Hourglass className="w-4 h-4 shrink-0 mt-0.5" />
-                    )}
+                    <DoneIcon className="w-4 h-4 shrink-0 mt-0.5" />
                     <p className="leading-relaxed">
-                      {(status?.verification ?? 'pending') === 'verified' && (
-                        <>
-                          Our latest scan confirms this is sorted. Marked done{' '}
-                          {formatDoneAt(status?.doneAt ?? rec.dbActionedAt ?? undefined)}.
-                        </>
-                      )}
-                      {(status?.verification ?? 'pending') === 'not-verified' && (
-                        <>
-                          You marked this done{' '}
-                          {formatDoneAt(status?.doneAt ?? rec.dbActionedAt ?? undefined)}, but our
-                          last scan hasn't picked up a change yet. Worth a quick double-check.
-                        </>
-                      )}
-                      {(status?.verification ?? 'pending') === 'pending' && (
-                        <>
-                          Marked done{' '}
-                          {formatDoneAt(status?.doneAt ?? rec.dbActionedAt ?? undefined)}. We'll
-                          re-check on the next weekly scan.
-                        </>
-                      )}
+                      {verification === 'verified' &&
+                        (rec.autoResolved
+                          ? "We spotted you'd sorted this: your last two scans both confirm it. Nice work."
+                          : `Our latest scan confirms this is sorted. Marked done ${doneWhen}.`)}
+                      {verification === 'not_verified' &&
+                        `You marked this done ${doneWhen}, but our last scan hasn't picked up a change yet. Worth a quick double-check.`}
+                      {verification === 'pending' &&
+                        `Marked done ${doneWhen}. We'll re-check on the next weekly scan.`}
+                      {verification === 'unchecked' && `Marked done ${doneWhen}. Nice one.`}
                     </p>
                   </div>
                 )}
@@ -545,26 +567,46 @@ const ActionPlan = () => {
   // Local state only for optimistic updates + verification tracking (not persisted)
   const [statuses, setStatuses] = useState<Record<string, ActionStatus>>({});
 
-  // Load from DB on mount if store is empty (e.g. direct page navigation)
-  useEffect(() => {
-    if (priorityActions.length || !project?.id) return;
-    fetchPriorityActions(project.id)
-      .then((actions) => {
-        if (actions.length) setPriorityActions(actions);
+  // Done in the last 30 days, with their scan verification. Kept out of the store so
+  // the sidebar badge and dashboard panel still count live actions only.
+  const [completedActions, setCompletedActions] = useState<PriorityAction[]>([]);
+  const [queuedCount, setQueuedCount] = useState(0);
+  const projectId = project?.id;
+
+  const reload = useCallback(() => {
+    if (!projectId) return;
+    Promise.all([fetchPriorityActions(projectId), fetchPlanHistory(projectId)])
+      .then(([live, history]) => {
+        setPriorityActions(live);
+        setCompletedActions(history.completed);
+        setQueuedCount(history.queuedCount);
       })
       .catch((err) => {
         console.error('[ActionPlan] Failed to fetch priority actions:', err);
       });
-  }, [project?.id, priorityActions.length, setPriorityActions]);
+  }, [projectId, setPriorityActions]);
+
+  // Reload on mount and when the tab comes back into view: the weekly scan can
+  // rebuild the plan while this page sits open.
+  useEffect(() => {
+    reload();
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') reload();
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => document.removeEventListener('visibilitychange', onVisible);
+  }, [reload]);
 
   // Fall back to sample data in dev so the page can be previewed when empty.
-  const usingMock = !priorityActions.length && IS_DEV;
+  const usingMock = !priorityActions.length && !completedActions.length && IS_DEV;
   const effectiveActions = usingMock ? MOCK_PRIORITY_ACTIONS : priorityActions;
 
-  const recommendations = useMemo(
-    () => effectiveActions.map((a) => mapAction(a)),
-    [effectiveActions],
-  );
+  const recommendations = useMemo(() => {
+    const liveIds = new Set(effectiveActions.map((a) => a.id));
+    return [...effectiveActions, ...completedActions.filter((a) => !liveIds.has(a.id))].map((a) =>
+      mapAction(a),
+    );
+  }, [effectiveActions, completedActions]);
 
   const handleMarkDone = (id: PriorityActionId, note?: string) => {
     // Optimistic update
@@ -573,9 +615,7 @@ const ActionPlan = () => {
       [id]: { done: true, doneAt: new Date().toISOString(), note, verification: 'pending' },
     }));
     if (usingMock || !project?.id) return;
-    updateActionStatus(id, project.id, 'completed', note).then((updated) => {
-      setPriorityActions(updated);
-    });
+    updateActionStatus(id, project.id, 'completed', note).then(reload);
   };
 
   const handleUndo = (id: PriorityActionId) => {
@@ -585,9 +625,7 @@ const ActionPlan = () => {
       return next;
     });
     if (usingMock || !project?.id) return;
-    updateActionStatus(id, project.id, 'active').then((updated) => {
-      setPriorityActions(updated);
-    });
+    updateActionStatus(id, project.id, 'active').then(reload);
   };
 
   const handleDismiss = (id: PriorityActionId) => {
@@ -602,9 +640,7 @@ const ActionPlan = () => {
       },
     }));
     if (usingMock || !project?.id) return;
-    updateActionStatus(id, project.id, 'snoozed').then((updated) => {
-      setPriorityActions(updated);
-    });
+    updateActionStatus(id, project.id, 'snoozed').then(reload);
   };
 
   const handleRestore = (id: PriorityActionId) => {
@@ -614,9 +650,7 @@ const ActionPlan = () => {
       return next;
     });
     if (usingMock || !project?.id) return;
-    updateActionStatus(id, project.id, 'active').then((updated) => {
-      setPriorityActions(updated);
-    });
+    updateActionStatus(id, project.id, 'active').then(reload);
   };
 
   const { active, completed, dismissed } = useMemo(() => {
@@ -635,11 +669,22 @@ const ActionPlan = () => {
   }, [recommendations, statuses]);
 
   const aiError = project?.ownBusiness?.enrichmentErrors?.ai_actions;
-  if (!effectiveActions.length) return <EmptyState aiError={aiError} />;
+  if (!recommendations.length) return <EmptyState aiError={aiError} />;
   const showAiWarning = !!aiError && !usingMock;
 
   const priorities: Priority[] = ['critical', 'high', 'medium', 'quick-win'];
-  const verifiedCount = completed.filter((r) => statuses[r.id]?.verification === 'verified').length;
+  const verifiedCount = completed.filter((r) => r.verification === 'verified').length;
+
+  const weekAgo = Date.now() - 7 * DAY_MS;
+  const inLastWeek = (iso: string | null) => !!iso && new Date(iso).getTime() >= weekAgo;
+  const newThisWeek = active.filter((r) => inLastWeek(r.generatedAt)).length;
+  const fixedThisWeek = completed.filter(
+    (r) => r.verification === 'verified' && inLastWeek(r.verifiedAt),
+  ).length;
+  const waitingForScan = completed.filter((r) => r.verification === 'pending').length;
+  // Queued actions are open gaps too, just not shown until a slot frees up.
+  const openTotal = active.length + queuedCount;
+  const lastScanAt = project?.ownBusiness.lastCrawledAt ?? null;
   const businessName = project?.ownBusiness.name ?? 'your business';
 
   return (
@@ -694,9 +739,33 @@ const ActionPlan = () => {
                 variant="outline"
                 className="text-[11px] gap-1 bg-accent/10 text-accent-strong border-accent/30"
               >
-                <Clock className="w-3 h-3" /> Re-checked each scan
+                <Clock className="w-3 h-3" />
+                {lastScanAt == null ? 'Re-checked each scan' : scanTimingLabel(lastScanAt)}
               </Badge>
             </div>
+            {!usingMock && (
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4 p-3 rounded-xl bg-muted/40">
+                {[
+                  {
+                    value: fixedThisWeek,
+                    label: 'Confirmed fixed this week',
+                    tone: 'text-success-strong',
+                  },
+                  {
+                    value: waitingForScan,
+                    label: 'Ticked, waiting for next scan',
+                    tone: 'text-muted-foreground',
+                  },
+                  { value: newThisWeek, label: 'New this week', tone: 'text-primary' },
+                  { value: openTotal, label: 'Open in total', tone: 'text-foreground' },
+                ].map((s) => (
+                  <div key={s.label}>
+                    <p className={`font-display text-xl font-extrabold ${s.tone}`}>{s.value}</p>
+                    <p className="text-xs text-muted-foreground">{s.label}</p>
+                  </div>
+                ))}
+              </div>
+            )}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
               {priorities.map((p) => {
                 const config = priorityConfig[p];
@@ -751,7 +820,7 @@ const ActionPlan = () => {
               <CheckCircle2 className="w-5 h-5 text-primary" />
               <h2 className="font-display text-lg font-semibold">Nice work, you've sorted these</h2>
               <span className="text-xs text-muted-foreground ml-1">
-                · {verifiedCount} confirmed · {completed.length - verifiedCount} pending next scan
+                · {verifiedCount} confirmed · {waitingForScan} waiting for next scan
               </span>
             </div>
             <div className="space-y-4">

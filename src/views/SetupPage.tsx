@@ -1,6 +1,6 @@
 'use client';
 
-import { useRivalRadarStore } from '@/store/rivalradar';
+import { useScoutlyStore } from '@/store/scoutly';
 import { useRouter } from 'next/navigation';
 import { Logo } from '@/components/Logo';
 import { useEffect, useState } from 'react';
@@ -84,7 +84,7 @@ const STATUS_LABELS: Record<string, string> = {
 // ---------------------------------------------------------------------------
 
 const SetupPage = () => {
-  const { user, project, login, signup, setProject, setSettings, initAuth } = useRivalRadarStore();
+  const { user, project, login, signup, setProject, setSettings, initAuth } = useScoutlyStore();
   const router = useRouter();
 
   const [tab, setTab] = useState<'login' | 'signup'>('login');
@@ -176,7 +176,7 @@ const SetupPage = () => {
       return;
     }
     await initAuth();
-    const { project: fetched } = useRivalRadarStore.getState();
+    const { project: fetched } = useScoutlyStore.getState();
     router.push(fetched ? '/dashboard' : '/setup');
   };
 

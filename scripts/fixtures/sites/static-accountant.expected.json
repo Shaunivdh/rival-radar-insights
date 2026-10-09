@@ -14,5 +14,10 @@
   "socialLinks": ["LinkedIn"],
   "accreditations": ["ICO", "Cyber Essentials"],
   "reviewPlatforms": ["Google Reviews"],
-  "sitemap": false
+  "sitemap": false,
+  "title": "Hartley & Co Chartered Accountants, Norwich",
+  "ctaText": ["Book a free 30-minute call", "Send"],
+  "insuranceMentioned": false,
+  "hasGuarantee": false,
+  "hasPortfolio": false
 }

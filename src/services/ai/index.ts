@@ -7,18 +7,20 @@
  */
 export { AIUnavailableError, TruncatedOutputError, callLLMRaw, classifyAIFailure } from './client';
 export type { AIFailureKind } from './client';
-export {
-  prepareHtmlForExtraction,
-  extractPageSignals,
-  generateReviewSentiment,
-} from './extraction';
+export { generateReviewSentiment } from './extraction';
 export { resolveEvidence, dropUngroundedActions } from './evidence';
 // Type-only, so it does not widen the runtime surface the barrel test locks.
 export type { EvidenceResolution } from './evidence';
 export {
+  AI_FILL_THRESHOLD,
   checkCategoryDistribution,
   generatePriorityActions,
   generatePriorityActionsWithHistory,
 } from './actions';
 export { generateChangeSummary } from './summary';
-export { clearMentionsCache, checkAIVisibility, AI_PRESENCE_WINDOW } from './visibility';
+export {
+  clearMentionsCache,
+  checkAIVisibility,
+  runVisibilityQuery,
+  AI_PRESENCE_WINDOW,
+} from './visibility';

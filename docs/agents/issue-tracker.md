@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-**RivalRadar** is a local competitor intelligence SaaS that scores businesses (primary + up to 5 competitors) across reputation, local SEO visibility, website quality, Google Business Profile completeness, AI visibility, and review velocity.
+**Scoutly** is a local competitor intelligence SaaS that scores businesses (primary + up to 5 competitors) across reputation, local SEO visibility, website quality, Google Business Profile completeness, AI visibility, and review velocity.
 
 ## Core Features Spec
 

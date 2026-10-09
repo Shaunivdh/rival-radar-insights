@@ -15,5 +15,10 @@
   "socialLinks": ["Instagram", "Facebook"],
   "accreditations": [],
   "reviewPlatforms": ["Trustpilot"],
-  "sitemap": true
+  "sitemap": true,
+  "title": "Glow Beauty Studio | Beauty Salon in Brighton",
+  "ctaText": ["Book Now", "Book online", "Subscribe"],
+  "insuranceMentioned": false,
+  "hasGuarantee": false,
+  "hasPortfolio": false
 }

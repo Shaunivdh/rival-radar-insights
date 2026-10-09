@@ -1,5 +1,5 @@
 /**
- * Default msw handlers for every external provider RivalRadar calls.
+ * Default msw handlers for every external provider Scoutly calls.
  * Each handler validates the outgoing request against the zod contract and
  * validates the fixture it returns, so a bad request or stale fixture fails
  * the test via `contractViolations`.

@@ -1,4 +1,4 @@
-import { useRivalRadarStore } from '@/store/rivalradar';
+import { useScoutlyStore } from '@/store/scoutly';
 import { ChevronRight } from 'lucide-react';
 
 const IMPACT: Record<string, { label: string; badge: string; pts: number }> = {
@@ -8,7 +8,7 @@ const IMPACT: Record<string, { label: string; badge: string; pts: number }> = {
 };
 
 export const PriorityActionsPanel = () => {
-  const { priorityActions } = useRivalRadarStore();
+  const { priorityActions } = useScoutlyStore();
 
   if (!priorityActions.length) return null;
 

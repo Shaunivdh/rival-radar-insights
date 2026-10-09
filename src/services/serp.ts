@@ -40,6 +40,34 @@ function nameMatches(title: string, normalizedName: string): boolean {
   return remainingMatches >= 1 || nameWords.length <= 2;
 }
 
+/** Thrown for a failed SerpAPI response (already logged), so it is never cached. */
+class SerpResponseError extends Error {}
+
+async function fetchLocalPack(url: string): Promise<SerpApiResponse> {
+  const localRes = await fetch(url);
+  if (!localRes.ok) {
+    logger.error('serp', 'HTTP error', {
+      status: localRes.status,
+      statusText: localRes.statusText,
+    });
+    throw new SerpResponseError(`HTTP ${localRes.status}`);
+  }
+  const json = (await localRes.json()) as SerpApiResponse;
+  if (json.error) {
+    logger.error('serp', 'API error', { error: json.error });
+    throw new SerpResponseError(json.error);
+  }
+  return json;
+}
+
+/**
+ * Wraps the live local-pack fetch. `requestKey` identifies the request without
+ * credentials, so a caller can share one response across a project's businesses.
+ */
+export type LocalPackFetcher = <T>(requestKey: string, fetchLive: () => Promise<T>) => Promise<T>;
+
+const liveFetcher: LocalPackFetcher = (_key, fetchLive) => fetchLive();
+
 export async function getRankingData(
   businessName: string,
   primaryService: string,
@@ -47,6 +75,7 @@ export async function getRankingData(
   apiKey: string,
   domain: string,
   ll?: { lat: number; lng: number },
+  fetcher: LocalPackFetcher = liveFetcher,
 ): Promise<SerpData> {
   const base = 'https://serpapi.com/search.json';
   const common = `&engine=google_maps&api_key=${apiKey}&gl=gb&hl=en`;
@@ -61,24 +90,14 @@ export async function getRankingData(
   // businesses out of the local pack so nobody ranks. Without coords, fall back to the place name.
   const searchTerm = ll ? service.trim() : `${service} ${location}`.replace(/\s+/g, ' ').trim();
 
+  const q = `q=${encodeURIComponent(searchTerm)}`;
   let localJson: SerpApiResponse;
   try {
-    const localRes = await fetch(`${base}?q=${encodeURIComponent(searchTerm)}${common}${llParam}`);
-    if (!localRes.ok) {
-      logger.error('serp', 'HTTP error', {
-        status: localRes.status,
-        statusText: localRes.statusText,
-      });
-      return emptyResult(searchTerm);
-    }
-    localJson = (await localRes.json()) as SerpApiResponse;
+    localJson = await fetcher(`${base}?${q}&engine=google_maps&gl=gb&hl=en${llParam}`, () =>
+      fetchLocalPack(`${base}?${q}${common}${llParam}`),
+    );
   } catch (err) {
-    logger.error('serp', 'fetch failed', { error: err });
-    return emptyResult(searchTerm);
-  }
-
-  if (localJson.error) {
-    logger.error('serp', 'API error', { error: localJson.error });
+    if (!(err instanceof SerpResponseError)) logger.error('serp', 'fetch failed', { error: err });
     return emptyResult(searchTerm);
   }
 

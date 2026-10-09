@@ -2,13 +2,15 @@ import { inngest } from './client';
 import { supabaseAdmin } from '@/lib/supabase/server';
 import { logCrawlStep } from '@/lib/crawl/crawl-logger';
 import { markCrawlFailed } from '@/lib/crawl/orchestrator';
-import { CRAWL_INTERVAL_MS, CRAWL_INTERVAL_DAYS } from '@/lib/crawl/config';
+import { CRAWL_INTERVAL_MS, CRAWL_INTERVAL_DAYS, DAY_MS } from '@/lib/crawl/config';
 import { logger } from '@/lib/logger';
+import { runProjectActionGeneration } from './crawl-worker';
 
 /**
  * Daily health check cron — runs at 8 AM UTC.
  *
  * 1. Detects and recovers stale crawls (stuck in 'running' > 30 min)
+ * 1b. Builds the plan for projects whose own scan finished but a competitor never did
  * 2. Computes 24h success/failure rates from crawl_logs
  * 3. Re-queues due businesses (last_crawled_at older than CRAWL_INTERVAL_DAYS) — the sole crawl scheduler
  * 4. Writes a summary row to crawl_health_reports
@@ -18,7 +20,7 @@ export const crawlHealthCheckFunction = inngest.createFunction(
   { cron: '0 8 * * *' },
   async ({ step }) => {
     // Step 1: Detect stale crawls (running > 30 min)
-    const staleRecovered = await step.run('recover-stale-crawls', async () => {
+    const recoveredIds = await step.run('recover-stale-crawls', async () => {
       const thirtyMinAgo = new Date(Date.now() - 30 * 60 * 1000).toISOString();
 
       // Use crawl_jobs.started_at as source of truth (aligned with syncProject's stale detection)
@@ -45,7 +47,7 @@ export const crawlHealthCheckFunction = inngest.createFunction(
           .filter((b) => !staleBusinessIds.has(b.id))
           .map((b) => ({ id: b.id, crawl_job_id: undefined })),
       ];
-      if (!allStale.length) return 0;
+      if (!allStale.length) return [] as string[];
 
       for (const biz of allStale) {
         await markCrawlFailed(biz.id, biz.crawl_job_id ?? undefined);
@@ -59,8 +61,64 @@ export const crawlHealthCheckFunction = inngest.createFunction(
       }
 
       logger.info('crawl-health-check', 'Recovered stale crawls', { count: allStale.length });
-      return allStale.length;
+      return allStale.map((b) => b.id as string);
     });
+    const staleRecovered = recoveredIds.length;
+
+    // Step 1b: Build the plan when a competitor never finished. The worker only generates once
+    // every business is complete or failed, so one stuck competitor would hold back the plan for
+    // the owner. Each own scan lands in the 2h to 26h window exactly once (the cron is daily),
+    // so this runs at most once per scan.
+    const stuckProjectIds = await step.run('find-projects-missing-plan', async () => {
+      const HOUR_MS = DAY_MS / 24;
+      const now = Date.now();
+      const { data: owns } = await supabaseAdmin
+        .from('businesses')
+        .select('project_id, last_crawled_at')
+        .eq('is_own_business', true)
+        .eq('crawl_status', 'complete')
+        .gte('last_crawled_at', new Date(now - 26 * HOUR_MS).toISOString())
+        .lt('last_crawled_at', new Date(now - 2 * HOUR_MS).toISOString());
+
+      const ids: string[] = [];
+      for (const own of owns ?? []) {
+        const projectId = own.project_id as string;
+        const { data: latest } = await supabaseAdmin
+          .from('priority_actions')
+          .select('generated_at')
+          .eq('project_id', projectId)
+          .order('generated_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        if (latest?.generated_at && latest.generated_at >= (own.last_crawled_at as string))
+          continue;
+        // Complete or failed rivals mean the worker already ran generation for this scan (it
+        // may simply have added nothing). Only a rival still unfinished, or one this run just
+        // marked failed in step 1 (which never triggers generation), can have blocked it.
+        const { data: rivals } = await supabaseAdmin
+          .from('businesses')
+          .select('id, crawl_status')
+          .eq('project_id', projectId)
+          .eq('is_own_business', false);
+        const blocked = (rivals ?? []).some(
+          (r) =>
+            (r.crawl_status !== 'complete' && r.crawl_status !== 'failed') ||
+            recoveredIds.includes(r.id as string),
+        );
+        if (!blocked) continue;
+        ids.push(projectId);
+      }
+      if (ids.length)
+        logger.info('crawl-health-check', 'Generating fallback plans', { count: ids.length });
+      return ids;
+    });
+    // One step per project so a slow generation cannot time out the others.
+    for (const projectId of stuckProjectIds) {
+      await step.run(`fallback-plan-${projectId}`, () =>
+        runProjectActionGeneration(projectId, 'health-check-plan'),
+      );
+    }
+    const fallbackPlans = stuckProjectIds.length;
 
     // Step 2: Compute 24h failure/success rates from crawl_logs
     const stats = await step.run('compute-failure-rates', async () => {
@@ -178,6 +236,7 @@ export const crawlHealthCheckFunction = inngest.createFunction(
       failed: stats.failed,
       staleRecovered,
       overdueRequeued,
+      fallbackPlans,
     };
   },
 );

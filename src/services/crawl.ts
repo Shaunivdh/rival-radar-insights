@@ -111,7 +111,6 @@ const MAX_CONSECUTIVE_POLL_ERRORS = 3;
  */
 export async function crawlSinglePage(
   url: string,
-  prompt: string,
   credentials: CrawlCredentials,
   extraOptions?: Pick<CrawlOptions, 'gotoOptions' | 'waitForSelector'>,
   pollOptions?: { attempts?: number; intervalMs?: number },
@@ -126,7 +125,6 @@ export async function crawlSinglePage(
       {
         maxPages: 1,
         render: true,
-        jsonOptions: { prompt },
         // Per CLAUDE.md §6, all crawls must use networkidle0+30s. Spread last so
         // a caller-supplied gotoOptions still overrides.
         gotoOptions: { waitUntil: 'networkidle0', timeout: 30000 },
@@ -221,7 +219,6 @@ export async function startCrawl(
     url,
     render: options.render ?? false,
     limit: options.maxPages ?? 20,
-    ...(options.jsonOptions ? { jsonOptions: options.jsonOptions } : {}),
     ...(options.modifiedSince ? { modifiedSince: Math.floor(options.modifiedSince / 1000) } : {}),
     ...(options.gotoOptions ? { gotoOptions: options.gotoOptions } : {}),
     ...(options.waitForSelector ? { waitForSelector: options.waitForSelector } : {}),
@@ -326,7 +323,7 @@ export async function fetchPageDirect(url: string): Promise<string | null> {
   try {
     const res = await fetch(url, {
       headers: {
-        'User-Agent': 'Mozilla/5.0 (compatible; RivalRadar/1.0)',
+        'User-Agent': 'Mozilla/5.0 (compatible; Scoutly/1.0)',
         Accept: 'text/html',
       },
       redirect: 'follow',

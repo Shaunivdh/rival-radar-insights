@@ -1,6 +1,6 @@
 'use client';
 
-import { useRivalRadarStore } from '@/store/rivalradar';
+import { useScoutlyStore } from '@/store/scoutly';
 import { ChangeEventCard, SeverityBadge } from '@/components/Badges';
 import { Bell, Filter, Building2, Users } from 'lucide-react';
 import { useState } from 'react';
@@ -8,7 +8,7 @@ import type { ChangeEvent as CE } from '@/types';
 import { cn } from '@/lib/utils';
 
 const ChangesPage = () => {
-  const { project } = useRivalRadarStore();
+  const { project } = useScoutlyStore();
   const [severityFilter, setSeverityFilter] = useState<string | null>(null);
   const [competitorFilter, setCompetitorFilter] = useState<string | null>(null);
 

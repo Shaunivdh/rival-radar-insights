@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect } from 'react';
-import { useRivalRadarStore } from '@/store/rivalradar';
+import { useScoutlyStore } from '@/store/scoutly';
 import AppShell from '@/components/AppShell';
 
 /**
@@ -10,7 +10,7 @@ import AppShell from '@/components/AppShell';
  * so a signed-in visitor never waits on a spinner for public content.
  */
 export default function AppShellWithAuth({ children }: { children: React.ReactNode }) {
-  const initAuth = useRivalRadarStore((s) => s.initAuth);
+  const initAuth = useScoutlyStore((s) => s.initAuth);
 
   useEffect(() => {
     initAuth();

@@ -17,7 +17,6 @@ export const CfCrawlStartRequest = z
       waitUntil: z.literal('networkidle0'),
       timeout: z.number().int().positive().optional(),
     }),
-    jsonOptions: z.object({ prompt: z.string() }).optional(),
     waitForSelector: z
       .object({
         selector: z.string(),

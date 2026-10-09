@@ -14,5 +14,11 @@
   "socialLinks": ["Instagram", "LinkedIn"],
   "accreditations": [],
   "reviewPlatforms": ["Google Reviews"],
-  "sitemap": true
+  "sitemap": true,
+  "title": "Elm & Ivy Photography — Wedding Photographer in Bath",
+  "ctaText": ["Get in touch", "Send enquiry"],
+  "insuranceMentioned": false,
+  "hasGuarantee": false,
+  "hasPortfolio": true,
+  "_hasPortfolio_note": "Nav links to /portfolio; the gallery itself is on that page."
 }

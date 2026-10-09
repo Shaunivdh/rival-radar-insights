@@ -182,3 +182,46 @@ describe('parseHtmlSignals — ld+json schema', () => {
     expect(s.internalLinkCount).toBe(3);
   });
 });
+
+describe('parseHtmlSignals — portfolio', () => {
+  it('counts distinct portfolio item links, ignoring the index page and repeats', () => {
+    const html = `<a href="/projects/">All</a>
+      <a href="/projects/kitchen-refit">A</a><a href="/projects/kitchen-refit/">A again</a>
+      <a href="https://x.test/case-studies/loft?ref=1">B</a><a href='/gallery/garden-01'>C</a>`;
+    const s = parseHtmlSignals(html, 'https://x.test/');
+    expect(s.hasPortfolio).toBe(true);
+    expect(s.portfolioItemCount).toBe(3);
+  });
+
+  it('leaves portfolioItemCount unset when there are no item links', () => {
+    expect(parseHtmlSignals('<a href="/portfolio">Work</a>').portfolioItemCount).toBeUndefined();
+  });
+});
+
+describe('parseHtmlSignals — CTA labels and guarantees', () => {
+  it('reads CTA labels when the closing tag has whitespace before ">"', () => {
+    const html =
+      '<body><a class="btn" href="/book">Book online</a\n   ><button>Get a free quote</button ></body>';
+    expect(parseHtmlSignals(html).ctaText).toEqual(['Book online', 'Get a free quote']);
+  });
+
+  it('detects guarantees written with word numbers or named kinds', () => {
+    const cases = [
+      'Seven-day freshness guarantee on every bouquet.',
+      'All work guaranteed for 10 years.',
+      'Our price match guarantee.',
+      'A 12-month workmanship guarantee on every job.',
+    ];
+    for (const c of cases) {
+      expect(
+        (parseHtmlSignals(`<body><p>${c}</p></body>`).guaranteesMentioned as string[] | undefined)
+          ?.length,
+        c,
+      ).toBeGreaterThan(0);
+    }
+    expect(
+      parseHtmlSignals('<body><p>We cannot guarantee same-day slots.</p></body>')
+        .guaranteesMentioned,
+    ).toBeUndefined();
+  });
+});

@@ -8,7 +8,7 @@ export interface AIEvent {
     | 'sentiment'
     | 'change_summary'
     | 'change_summary_skipped'
-    | 'extract_signals';
+    | 'usage';
   model: string;
   success: boolean;
   durationMs: number;
@@ -19,6 +19,13 @@ export interface AIEvent {
   cacheHits?: number;
   templatesUsed?: number;
   templatesFired?: string[];
+  /** Call-site label passed to callLLMRaw, e.g. 'ai-presence'. */
+  label?: string;
+  // Token counts. Not named "*Tokens": the logger redacts any field matching /token/i.
+  usageIn?: number;
+  usageOut?: number;
+  usageCacheRead?: number;
+  webSearchRequests?: number;
 }
 
 /**

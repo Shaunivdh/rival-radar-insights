@@ -15,8 +15,6 @@ const EXPECTED_EXPORTS: Record<string, 'function' | 'number'> = {
   TruncatedOutputError: 'function',
   callLLMRaw: 'function',
   classifyAIFailure: 'function',
-  prepareHtmlForExtraction: 'function',
-  extractPageSignals: 'function',
   generateReviewSentiment: 'function',
   resolveEvidence: 'function',
   dropUngroundedActions: 'function',
@@ -26,7 +24,9 @@ const EXPECTED_EXPORTS: Record<string, 'function' | 'number'> = {
   generateChangeSummary: 'function',
   clearMentionsCache: 'function',
   checkAIVisibility: 'function',
+  runVisibilityQuery: 'function',
   AI_PRESENCE_WINDOW: 'number',
+  AI_FILL_THRESHOLD: 'number',
 };
 
 describe('@/services/ai barrel', () => {

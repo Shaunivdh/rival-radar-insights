@@ -106,3 +106,30 @@ export function diffSignals(previous: ExtractedSignals, current: ExtractedSignal
     after,
   };
 }
+
+/**
+ * Leaves whose change justifies a confirmation re-crawl (and so a possible alert).
+ * Everything else (CTA wording, h1 text, link counts, social links, ...) is too
+ * noisy scan-to-scan to be worth a second full crawl; a diff touching only those
+ * is accepted silently as the new baseline.
+ */
+export const MATERIAL_CHANGE_PATHS: ReadonlySet<string> = new Set([
+  'content.servicesListed',
+  'content.hasBlog',
+  'content.hasPortfolio',
+  'content.hasFAQ',
+  'trust.accreditations',
+  'trust.certifications',
+  'trust.awardsAndMemberships',
+  'trust.teamPageExists',
+  'trust.insuranceMentioned',
+  'trust.guaranteesMentioned',
+  'engagement.hasBookingSystem',
+  'engagement.bookingProvider',
+  'engagement.hasContactForm',
+  'seo.schemaMarkupTypes',
+]);
+
+export function materialChangePaths(changedPaths: string[]): string[] {
+  return changedPaths.filter((p) => MATERIAL_CHANGE_PATHS.has(p));
+}

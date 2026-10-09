@@ -1,6 +1,6 @@
 'use client';
 
-import { useRivalRadarStore } from '@/store/rivalradar';
+import { useScoutlyStore } from '@/store/scoutly';
 
 function scoreColor(s: number) {
   if (s >= 70) return 'text-green-600';
@@ -17,7 +17,7 @@ function Trend({ delta }: { delta: number | null }) {
 }
 
 export function CompetitorComparisonCard() {
-  const { project } = useRivalRadarStore();
+  const { project } = useScoutlyStore();
   if (!project) return null;
 
   const own = project.ownBusiness;

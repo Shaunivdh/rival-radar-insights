@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { suppressOscillatingChanges } from '@/services/diff';
+import { suppressOscillatingChanges, materialChangePaths } from '@/services/diff';
 import type { ExtractedSignals } from '@/types';
 
 function signals(overrides: {
@@ -111,5 +111,23 @@ describe('suppressOscillatingChanges', () => {
     expect(result.hasChanges).toBe(false);
     expect(result.changedPaths).toEqual([]);
     expect(result.suppressedPaths).toEqual([]);
+  });
+});
+
+describe('materialChangePaths', () => {
+  it('treats a rival adding a blog, FAQ, guarantee or insurance as material', () => {
+    expect(
+      materialChangePaths(['content.hasBlog', 'trust.guaranteesMentioned', 'content.hasFAQ']),
+    ).toHaveLength(3);
+  });
+
+  it('keeps flaky fields non-material', () => {
+    expect(
+      materialChangePaths([
+        'engagement.hasPhoneNumberProminent',
+        'content.serviceAreasMentioned',
+        'trust.reviewPlatformsLinked',
+      ]),
+    ).toEqual([]);
   });
 });

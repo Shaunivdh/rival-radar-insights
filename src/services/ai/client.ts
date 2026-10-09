@@ -1,5 +1,6 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { withRetry } from '@/lib/aiRetry';
+import { logAIEvent } from '@/lib/aiTelemetry';
 import type { JsonSchema } from '../aiSchemas';
 
 export class AIUnavailableError extends Error {
@@ -75,6 +76,8 @@ export const SKIP_AI = process.env.SKIP_AI_CALLS === 'true';
 // SMART: advice generation + validation (accuracy plan §4.4) and AI-visibility queries.
 export const AI_MODEL_FAST = process.env.AI_MODEL_FAST?.trim() || 'claude-haiku-4-5-20251001';
 export const AI_MODEL_SMART = process.env.AI_MODEL_SMART?.trim() || 'claude-sonnet-5';
+/** Model for the single competitor-insight action (env AI_MODEL_INSIGHT, defaults to SMART). */
+export const AI_MODEL_INSIGHT = process.env.AI_MODEL_INSIGHT?.trim() || AI_MODEL_SMART;
 
 let _client: Anthropic | null = null;
 function getClient(): Anthropic {
@@ -94,10 +97,25 @@ export async function callLLMRaw(
   params: Anthropic.MessageCreateParamsNonStreaming,
   retryOpts?: { backoffMs?: number; label?: string },
 ): Promise<Anthropic.Message> {
-  return withRetry(() => getClient().messages.create(params), {
-    label: retryOpts?.label ?? 'callLLMRaw',
+  const label = retryOpts?.label ?? 'callLLMRaw';
+  const t0 = Date.now();
+  const msg = await withRetry(() => getClient().messages.create(params), {
+    label,
     ...(retryOpts?.backoffMs ? { backoffMs: retryOpts.backoffMs } : {}),
   });
+  // Token usage per call, so cost estimates can be measured rather than guessed.
+  logAIEvent({
+    event: 'usage',
+    model: params.model,
+    success: true,
+    durationMs: Date.now() - t0,
+    label,
+    usageIn: msg.usage?.input_tokens,
+    usageOut: msg.usage?.output_tokens,
+    usageCacheRead: msg.usage?.cache_read_input_tokens ?? undefined,
+    webSearchRequests: msg.usage?.server_tool_use?.web_search_requests ?? undefined,
+  });
+  return msg;
 }
 
 /**
@@ -106,18 +124,29 @@ export async function callLLMRaw(
  * (`stop_reason === 'max_tokens'`) throws `TruncatedOutputError` rather than
  * being parsed.
  */
+/** Thinking depth levels askClaude passes as output_config.effort. */
+export const EFFORTS = ['low', 'medium', 'high'] as const;
+export type Effort = (typeof EFFORTS)[number];
+
 export async function askClaude<T>(
   prompt: string,
   schema: JsonSchema,
-  opts: { maxTokens?: number; system?: string; model?: string } = {},
+  opts: {
+    maxTokens?: number;
+    system?: string;
+    model?: string;
+    /** Thinking depth on models that support it; ignored on Haiku 4.5, which rejects it. */
+    effort?: Effort;
+  } = {},
 ): Promise<T> {
   const maxTokens = opts.maxTokens ?? 512;
   const model = opts.model ?? AI_MODEL_FAST;
+  const effort = opts.effort && !model.startsWith('claude-haiku') ? { effort: opts.effort } : {};
   const msg = await callLLMRaw(
     {
       model,
       max_tokens: maxTokens,
-      output_config: { format: { type: 'json_schema', schema } },
+      output_config: { format: { type: 'json_schema', schema }, ...effort },
       ...(opts.system ? { system: opts.system } : {}),
       messages: [{ role: 'user', content: prompt }],
     },

@@ -485,6 +485,11 @@ export type Database = {
           reason: string;
           status: string;
           steps: Json | null;
+          template_id: string | null;
+          verification: string | null;
+          verified_at: string | null;
+          gone_since: string | null;
+          auto_resolved: boolean;
           timeframe: string;
           why_it_matters: string | null;
         };
@@ -505,6 +510,11 @@ export type Database = {
           reason: string;
           status?: string;
           steps?: Json | null;
+          template_id?: string | null;
+          verification?: string | null;
+          verified_at?: string | null;
+          gone_since?: string | null;
+          auto_resolved?: boolean;
           timeframe: string;
           why_it_matters?: string | null;
         };
@@ -525,12 +535,49 @@ export type Database = {
           reason?: string;
           status?: string;
           steps?: Json | null;
+          template_id?: string | null;
+          verification?: string | null;
+          verified_at?: string | null;
+          gone_since?: string | null;
+          auto_resolved?: boolean;
           timeframe?: string;
           why_it_matters?: string | null;
         };
         Relationships: [
           {
             foreignKeyName: 'priority_actions_project_id_fkey';
+            columns: ['project_id'];
+            isOneToOne: false;
+            referencedRelation: 'projects';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
+      project_cache: {
+        Row: {
+          fetched_at: string;
+          key: string;
+          kind: string;
+          payload: Json;
+          project_id: string;
+        };
+        Insert: {
+          fetched_at?: string;
+          key: string;
+          kind: string;
+          payload: Json;
+          project_id: string;
+        };
+        Update: {
+          fetched_at?: string;
+          key?: string;
+          kind?: string;
+          payload?: Json;
+          project_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'project_cache_project_id_fkey';
             columns: ['project_id'];
             isOneToOne: false;
             referencedRelation: 'projects';

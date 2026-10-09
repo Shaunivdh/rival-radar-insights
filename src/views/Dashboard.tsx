@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, Suspense } from 'react';
-import { useRivalRadarStore } from '@/store/rivalradar';
+import { useScoutlyStore } from '@/store/scoutly';
 import { syncProject } from '@/actions/projects';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { DemoBanner } from '@/components/DemoBanner';
@@ -40,7 +40,7 @@ const STATUS_ICON: Record<string, React.ReactNode> = {
 
 const Dashboard = () => {
   const { project, isDemoMode, syncBusinesses, setPriorityActions, addCompetitorToStore } =
-    useRivalRadarStore();
+    useScoutlyStore();
   const router = useRouter();
   const searchParams = useSearchParams();
   const isSetupFlow = searchParams.get('setup') === '1';
@@ -143,10 +143,12 @@ const Dashboard = () => {
 
     // Scanning just finished — one trailing poll to catch any in-flight state changes.
     // Delay matches the crawl system's own poll interval so we don't read mid-transition.
+    // A second poll at 90s catches the plan: businesses flip to complete before the
+    // worker's later scoring and action generation steps finish.
     if (wasScanningRef.current) {
       wasScanningRef.current = false;
-      const timer = setTimeout(poll, 5000);
-      return () => clearTimeout(timer);
+      const timers = [setTimeout(poll, 5000), setTimeout(poll, 90000)];
+      return () => timers.forEach(clearTimeout);
     }
   }, [isScanning, projectId, isDemoMode, syncBusinesses, setPriorityActions]);
 

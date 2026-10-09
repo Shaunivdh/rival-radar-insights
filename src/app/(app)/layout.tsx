@@ -3,10 +3,10 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import AppShell from '@/components/AppShell';
-import { useRivalRadarStore } from '@/store/rivalradar';
+import { useScoutlyStore } from '@/store/scoutly';
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
-  const { user, project, isDemoMode, deleteProject, initAuth } = useRivalRadarStore();
+  const { user, project, isDemoMode, deleteProject, initAuth } = useScoutlyStore();
   const router = useRouter();
   const [mounted, setMounted] = useState(false);
   const [authReady, setAuthReady] = useState(false);
@@ -15,7 +15,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     setMounted(true);
     // A project already in the store means an earlier page primed auth, so the
     // page renders straight away while initAuth revalidates in the background.
-    if (useRivalRadarStore.getState().project) setAuthReady(true);
+    if (useScoutlyStore.getState().project) setAuthReady(true);
     initAuth().finally(() => setAuthReady(true));
   }, [initAuth]);
 

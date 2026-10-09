@@ -3,7 +3,7 @@ const PEEK_BYTES = 2048;
 const TIMEOUT_MS = 8000;
 
 const HEADERS = {
-  'User-Agent': 'RivalRadar/1.0 (+https://rivalradar.com/bot)',
+  'User-Agent': 'Scoutly/1.0 (+https://scoutly.io/bot)',
   Accept: 'text/plain, application/xml, text/xml, */*;q=0.5',
 };
 

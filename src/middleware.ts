@@ -35,7 +35,7 @@ async function verifyUnlockCookie(cookieHex: string, password: string): Promise<
     false,
     ['verify'],
   );
-  return crypto.subtle.verify('HMAC', key, sig, enc.encode('rival-radar-site-unlock'));
+  return crypto.subtle.verify('HMAC', key, sig, enc.encode('scoutly-site-unlock'));
 }
 
 export async function middleware(request: NextRequest) {

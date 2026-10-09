@@ -102,6 +102,7 @@ function buildBusiness(overrides: Partial<Business> = {}): Business {
       photos: 5,
       priceLevel: null,
       description: 'Professional plumbing services in Manchester with over 20 years experience.',
+      website: 'https://acme-plumbing.co.uk',
     },
     serpData: null,
     aiScore: {
@@ -346,10 +347,14 @@ describe('Priority action pipeline (integration)', () => {
 
     expect(result).toHaveLength(5);
     expect(result.map((a) => a.priority)).toEqual([1, 2, 3, 4, 5]);
-    // First three templates by definition order: no_phone_on_homepage, missing_h1, no_business_hours
-    expect(result[0].action).toContain('phone number');
-    expect(result[1].action).toContain('heading');
-    expect(result[2].action).toContain('hours');
+    // Ranked by impactWeight × weakness × effort, not by definition order.
+    expect(result.map((a) => a.action)).toEqual([
+      'List your services clearly on your website',
+      'Tell Google and visitors where you work',
+      'Add a contact form to your website',
+      'Add a clear "next step" button to your homepage',
+      'Add your phone number to the homepage',
+    ]);
     // No LLM call should have been made
     expect(mockCreate).not.toHaveBeenCalled();
     // _source should be stripped
@@ -357,7 +362,7 @@ describe('Priority action pipeline (integration)', () => {
   });
 
   // ── 2. Mixed: 1 template + 4 LLM ───────────────────────────────────
-  it('fills remaining slots with LLM actions when only 1 template fires', async () => {
+  it('adds a single LLM insight when only 1 template fires', async () => {
     const own = buildBusiness({
       signals: {
         ...buildBusiness().signals!,
@@ -365,47 +370,139 @@ describe('Priority action pipeline (integration)', () => {
       },
     });
 
-    // Pad to 4 LLM actions (cannedLLMActions only has 3 templates so repeat the last).
-    const llm = cannedLLMActions(3);
-    llm.push({ ...llm[2], action: 'Add a customer testimonials section' });
-    mockCreate.mockResolvedValueOnce(llmResponse(llm));
+    // The model may return more than asked; only one insight is kept.
+    mockCreate.mockResolvedValueOnce(llmResponse(cannedLLMActions(3)));
 
     const result = await generatePriorityActions(own, competitors);
 
-    expect(result).toHaveLength(5);
-    // First action is the template
+    expect(result).toHaveLength(2);
     expect(result[0].action).toContain('heading');
-    expect(result.map((a) => a.priority)).toEqual([1, 2, 3, 4, 5]);
-    // LLM was called exactly once (generation, no validation flags expected)
+    expect(result.map((a) => a.priority)).toEqual([1, 2]);
     expect(mockCreate).toHaveBeenCalledTimes(1);
-    // Prompt should contain coveredNote
     const callArgs = mockCreate.mock.calls[0][0];
     const prompt = callArgs.messages[0].content;
     expect(prompt).toContain('already covered');
-    // maxTokens should reflect 4 remaining slots (4 * 900 = 3600)
-    expect(callArgs.max_tokens).toBe(3600);
-    // Structured output: the generation schema is sent with every call
+    expect(prompt).toContain('Return exactly 1 action');
+    // One insight slot with headroom for Sonnet thinking, at low effort.
+    expect(callArgs.max_tokens).toBe(4000);
+    expect(callArgs.output_config?.effort).toBe('low');
     expect(callArgs.output_config?.format?.type).toBe('json_schema');
   });
 
   // ── 3. LLM only ────────────────────────────────────────────────────
-  it('uses only LLM when no templates fire', async () => {
+  it('asks for one insight when no templates fire', async () => {
     const own = buildBusiness(); // default business has no template triggers
 
-    const llm = cannedLLMActions(3);
-    llm.push({ ...llm[2], action: 'Add a customer testimonials section' });
-    llm.push({ ...llm[1], action: 'Publish a frequently asked questions page' });
-    mockCreate.mockResolvedValueOnce(llmResponse(llm));
+    mockCreate.mockResolvedValueOnce(llmResponse(cannedLLMActions(3)));
 
     const result = await generatePriorityActions(own, competitors);
 
-    expect(result).toHaveLength(5);
+    expect(result).toHaveLength(1);
     expect(mockCreate).toHaveBeenCalledTimes(1);
-    // Prompt should NOT contain coveredNote
     const prompt = mockCreate.mock.calls[0][0].messages[0].content;
     expect(prompt).not.toContain('already covered');
-    // maxTokens for 5 slots = 5 * 900 = 4500
-    expect(mockCreate.mock.calls[0][0].max_tokens).toBe(4500);
+    expect(mockCreate.mock.calls[0][0].max_tokens).toBe(4000);
+  });
+
+  it('skips the LLM while an AI insight is still open, even when no templates fire', async () => {
+    const result = await generatePriorityActions(buildBusiness(), competitors, undefined, {
+      skipInsight: true,
+    });
+
+    expect(mockCreate).not.toHaveBeenCalled();
+    expect(result).toHaveLength(0);
+  });
+
+  it('skips the LLM entirely when 3 or more fresh templates fire', async () => {
+    const s = buildBusiness().signals!;
+    const own = buildBusiness({
+      signals: {
+        ...s,
+        seo: { ...s.seo, h1Tags: [] },
+        engagement: { ...s.engagement, hasContactForm: false, hasPhoneNumberProminent: false },
+      },
+    });
+
+    const result = await generatePriorityActions(own, competitors);
+
+    expect(mockCreate).not.toHaveBeenCalled();
+    expect(result).toHaveLength(3);
+  });
+
+  it('skips templates that are already live and fills with the next ranked ones', async () => {
+    const s = buildBusiness().signals!;
+    const own = buildBusiness({
+      signals: {
+        ...s,
+        seo: { ...s.seo, h1Tags: [] },
+        engagement: { ...s.engagement, hasContactForm: false, hasPhoneNumberProminent: false },
+        content: { ...s.content, hasFAQ: false },
+      },
+    });
+
+    // no_contact_form and no_phone_on_homepage are live, leaving 2 fresh: below the threshold.
+    mockCreate.mockResolvedValueOnce(llmResponse(cannedLLMActions(1)));
+    const result = await generatePriorityActions(own, competitors, undefined, {
+      excludeTemplateIds: ['no_contact_form', 'no_phone_on_homepage'],
+    });
+
+    const actions = result.map((a) => a.action);
+    expect(actions).not.toContain('Add a contact form to your website');
+    expect(actions).not.toContain('Add your phone number to the homepage');
+    expect(actions).toContain('Add a main heading to your homepage');
+    expect(actions).toContain('Add a FAQ section to your website');
+    expect(mockCreate).toHaveBeenCalledTimes(1);
+  });
+
+  it('never makes a second call for category balance when only one insight is kept', async () => {
+    // Strong reputation (90) and the model returns three Reviews actions: with five
+    // slots this used to trigger a paid regeneration.
+    const own = buildBusiness({
+      aiScore: { ...buildBusiness().aiScore!, reputationScore: 90 },
+    });
+    const reviews = cannedLLMActions(3).map((a, i) => ({
+      ...a,
+      category: 'Reviews',
+      action: `Reviews idea ${i + 1}`,
+    }));
+    mockCreate.mockResolvedValueOnce(llmResponse(reviews));
+
+    const result = await generatePriorityActions(own, competitors);
+
+    expect(mockCreate).toHaveBeenCalledTimes(1);
+    expect(result).toHaveLength(1);
+  });
+
+  it('falls back to safe defaults for invalid AI env settings', async () => {
+    vi.stubEnv('AI_INSIGHT_EFFORT', 'hgih');
+    vi.stubEnv('AI_FILL_THRESHOLD', '0');
+    vi.resetModules();
+    const ai = await import('@/services/ai');
+    // 0 is a valid threshold: never call the AI.
+    expect(ai.AI_FILL_THRESHOLD).toBe(0);
+    mockCreate.mockResolvedValueOnce(llmResponse(cannedLLMActions(1)));
+    vi.stubEnv('AI_FILL_THRESHOLD', '1');
+    vi.resetModules();
+    const ai2 = await import('@/services/ai');
+    await ai2.generatePriorityActions(buildBusiness(), competitors);
+    expect(mockCreate.mock.calls[0][0].output_config?.effort).toBe('low');
+    vi.unstubAllEnvs();
+    vi.resetModules();
+  });
+
+  it('sends only the signals that differ between the business and its competitors', async () => {
+    const s = buildBusiness().signals!;
+    const own = buildBusiness({
+      signals: { ...s, engagement: { ...s.engagement, hasNewsletterSignup: true } },
+    });
+    mockCreate.mockResolvedValueOnce(llmResponse(cannedLLMActions(1)));
+
+    await generatePriorityActions(own, competitors);
+
+    const prompt = mockCreate.mock.calls[0][0].messages[0].content as string;
+    expect(prompt).toContain('hasNewsletterSignup');
+    expect(prompt).not.toContain('hasRobotsTxt');
+    expect(prompt).toContain('"reputation":70');
   });
 
   // ── 4. Validator-flagged: unverified average triggers patch call ────
@@ -461,6 +558,7 @@ describe('Priority action pipeline (integration)', () => {
         category: 'Conversion',
         effort: 'low',
         action: 'Add a phone number to the homepage',
+        templateId: 'no_phone_on_homepage',
         reason: 'No phone number visible',
         whyItMatters: 'Visitors cannot call you easily.',
         steps: ['Add phone to header'],
@@ -525,7 +623,7 @@ describe('Priority action pipeline (integration)', () => {
       currentSignals,
     );
 
-    expect(result).toHaveLength(5);
+    expect(result).toHaveLength(1);
     // LLM prompt should include closedNote about the phone number win
     const prompt = mockCreate.mock.calls[0][0].messages[0].content;
     expect(prompt).toContain('Closed since last week');
@@ -612,7 +710,7 @@ describe('Priority action pipeline (integration)', () => {
     const result = await generatePriorityActions(own, competitors);
 
     expect(result.map((a) => a.action)).not.toContain('Get listed in AI recommendations');
-    expect(result).toHaveLength(2);
+    expect(result).toHaveLength(1);
     // evidence is internal — never returned/persisted
     expect(result.every((a) => !('evidence' in a))).toBe(true);
     warnSpy.mockRestore();
@@ -626,14 +724,14 @@ describe('Priority action pipeline (integration)', () => {
     llm.push({ ...llm[1], action: 'Publish a frequently asked questions page' });
     const withEvidence = llm.map((a, i) => ({
       ...a,
-      evidence: i === 1 ? ['own.reviewCount=3'] : ['own.googleRating=4.6'],
+      evidence: i === 0 ? ['own.reviewCount=3'] : ['own.googleRating=4.6'],
     }));
     mockCreate.mockResolvedValueOnce(llmResponse(withEvidence));
     mockCreate.mockResolvedValueOnce(llmResponse({ patches: [] }));
 
     const result = await generatePriorityActions(own, competitors);
 
-    expect(result).toHaveLength(5);
+    expect(result).toHaveLength(1);
     // The mismatch was flagged, so the fact-checker was called with it
     expect(mockCreate).toHaveBeenCalledTimes(2);
     const validatorPrompt = mockCreate.mock.calls[1][0].messages[0].content as string;
@@ -645,14 +743,16 @@ describe('Priority action pipeline (integration)', () => {
   it('flags an action that recommends adding a feature the business already has', async () => {
     const own = buildBusiness(); // hasContactForm: true, hasFAQ: true
 
-    const llm = cannedLLMActions(3);
-    llm.push({ ...llm[2], action: 'Add a customer testimonials section' });
-    llm.push({
-      ...llm[1],
-      action: 'Add a contact form to your site',
-      whyItMatters:
-        'Visitors have no way to message you. Set up a contact form on your contact page.',
-    });
+    // One insight slot: the offending action is the one the model returns.
+    const llm = [
+      {
+        ...cannedLLMActions(2)[1],
+        priority: 1 as const,
+        action: 'Add a contact form to your site',
+        whyItMatters:
+          'Visitors have no way to message you. Set up a contact form on your contact page.',
+      },
+    ];
     mockCreate.mockResolvedValueOnce(llmResponse(llm));
     mockCreate.mockResolvedValueOnce(llmResponse({ patches: [] }));
 

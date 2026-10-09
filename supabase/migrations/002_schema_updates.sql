@@ -1,5 +1,5 @@
 -- ============================================================
--- RivalRadar Schema Updates
+-- Scoutly Schema Updates
 -- ============================================================
 
 -- businesses: add missing columns

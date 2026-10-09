@@ -4,7 +4,7 @@
  * getProject() read path (scores are computed on first load by calculateScores).
  *
  * Usage:
- *   npx tsx scripts/seed-test-project.ts                 # seeds dev@rivalradar.test
+ *   npx tsx scripts/seed-test-project.ts                 # seeds dev@scoutly.test
  *   npx tsx scripts/seed-test-project.ts you@example.com # seeds another user
  *
  * Idempotent: deletes the user's existing project(s) first, then re-seeds from
@@ -29,7 +29,7 @@ if (!url || !serviceRoleKey) {
   process.exit(1);
 }
 
-const email = process.argv[2] ?? 'dev@rivalradar.test';
+const email = process.argv[2] ?? 'dev@scoutly.test';
 const admin = createClient(url, serviceRoleKey, {
   auth: { autoRefreshToken: false, persistSession: false },
 });

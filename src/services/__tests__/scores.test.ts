@@ -236,6 +236,13 @@ describe('computeReviewVelocityScore', () => {
     expect(computeReviewVelocityScore(50, 40, 30)).toBe(100);
   });
 
+  it('ignores a count delta measured over less than 14 days', () => {
+    // 1 review in 1 day would extrapolate to 30 per month; too noisy to score.
+    expect(computeReviewVelocityScore(41, 40, 1)).toBeNull();
+    expect(computeReviewVelocityScore(41, 40, 13)).toBeNull();
+    expect(computeReviewVelocityScore(41, 40, 14)).not.toBeNull();
+  });
+
   it('falls back to counting recent reviews within 90 days', () => {
     const now = Date.now();
     const recentReviews = [1, 2, 3].map((i) => ({ time: now - i * 86400000 }));

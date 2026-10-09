@@ -13,6 +13,7 @@ import { CF_BASE, cloudflareHandlers, siteProbeHandlers } from '@/test/msw/handl
 import { cfSampleHtml } from '@/test/fixtures/providers/cloudflare';
 import { anthropicResponder } from '@/test/anthropic-mock';
 import { fakeDb as db } from '@/test/supabase-fake';
+import { buildGoogleData } from '@/test/builders';
 
 const { mockCreate } = vi.hoisted(() => {
   // Keep priority-page crawls to one so the multi-page path runs without 5 parallel jobs.
@@ -86,7 +87,7 @@ const runConfirm = (data: Record<string, unknown>) =>
  * execution must get a fresh engine and a fresh list — never reuse either.
  */
 const stepMocks = () => [
-  ...Array.from({ length: 8 }, (_, i) => i + 1).flatMap((n) => [
+  ...Array.from({ length: 16 }, (_, i) => i + 1).flatMap((n) => [
     { id: `poll-wait-${n}`, handler: () => null },
     { id: `confirm-poll-wait-${n}`, handler: () => null },
   ]),
@@ -123,7 +124,7 @@ describe('crawlBusinessFunction — happy path', () => {
     expect(biz.last_crawled_at).toBeTruthy();
     expect(db.rows('crawl_jobs').map((j) => j.status)).toEqual(['completed']);
 
-    // Signals persisted: AI extraction merged with deterministic parser, robots/sitemap from direct checks
+    // Signals persisted: deterministic parser, robots/sitemap from direct checks
     const sig = db.rows('extracted_signals');
     expect(sig).toHaveLength(1);
     const seo = sig[0].seo as Record<string, unknown>;
@@ -218,7 +219,8 @@ describe('crawlBusinessFunction — action-generation claim', () => {
 
 describe('crawlBusinessFunction — crawl failure', () => {
   it('fails the run when Cloudflare and the direct fetch both fail, and onFailure marks the business', async () => {
-    seedProject();
+    // A known Google gap (3 reviews), so action generation has real data to work from.
+    seedProject({ google_data: buildGoogleData({ reviewCount: 3 }) });
     server.use(
       http.post(`${CF_BASE}/crawl`, () => HttpResponse.text('upstream down', { status: 502 })),
       http.get('https://acme-plumbing.test/', () => HttpResponse.text('', { status: 503 })),
@@ -327,6 +329,24 @@ describe('change detection → confirmation', () => {
       summary: 'Contact form removed from the website',
     });
     expect(row('businesses', BUSINESS_ID).crawl_status).toBe('complete');
+  }, 60_000);
+
+  it('accepts a noise-only diff as the new baseline without a confirmation crawl', async () => {
+    seedProject({ last_crawled_at: '2026-08-20T00:00:00.000Z' });
+    await runCrawl('initial');
+    const baseline = db.rows('extracted_signals')[0];
+    (baseline.engagement as Record<string, unknown>).ctaText = ['Some older CTA wording'];
+    baseline.scanned_at = '2026-08-20T00:00:00.000Z';
+
+    server.use(...cloudflareHandlers({ pollsBeforeDone: 1 }));
+    const second = await runCrawl('incremental');
+    expect(second.error).toBeUndefined();
+    const detection = db.rows('extracted_signals').find((r) => r.id !== baseline.id)!;
+    expect(detection.status).toBe('confirmed');
+    expect(second.ctx.step.sendEvent).not.toHaveBeenCalledWith(
+      'schedule-change-confirmation',
+      expect.anything(),
+    );
   }, 60_000);
 
   // Regression guard: 'confirm-persist-signals' must apply the same direct
@@ -440,4 +460,29 @@ describe('crawlBusinessFunction — disallowed site', () => {
     expect(seo.hasRobotsTxt).toBe(false);
     expect(seo.hasSitemap).toBe(false);
   }, 30_000);
+});
+
+describe('crawlBusinessFunction — crawl never finishes', () => {
+  // Poll backoff (5, 5, 10, 10, 15, then 20s) must still hand over to direct fetch
+  // at the ~3 minute mark the old flat 5s schedule used, not poll for 10 minutes.
+  it('falls back to direct fetch after ~3 minutes of polling', async () => {
+    seedProject();
+    server.use(
+      // Running for the main job's 13 polls, then done so the priority-page crawls finish.
+      ...cloudflareHandlers({ pollsBeforeDone: 13 }),
+      http.get('https://acme-plumbing.test/', () => HttpResponse.text(cfSampleHtml)),
+    );
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const { error } = await runCrawl('initial');
+    expect(error).toBeUndefined();
+
+    const pollLog = db
+      .rows('crawl_logs')
+      .find((r) => r.step === 'poll-status' && r.status === 'warning');
+    expect(pollLog?.message).toBe('Timed out, falling back to direct fetch');
+    // 12 sleeps reach 185s, the first total at or past the 175s fallback threshold.
+    expect((pollLog?.meta as { attempts: number }).attempts).toBe(13);
+    expect(db.rows('extracted_signals')).toHaveLength(1);
+    expect(row('businesses', BUSINESS_ID).crawl_status).toBe('complete');
+  }, 60_000);
 });

@@ -2,7 +2,7 @@
 
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { useRivalRadarStore } from '@/store/rivalradar';
+import { useScoutlyStore } from '@/store/scoutly';
 import { ScoreChip } from '@/components/ScoreChip';
 import type { Business } from '@/types';
 import { ExternalLink } from 'lucide-react';
@@ -109,7 +109,7 @@ const Row = ({ biz, isOwn }: { biz: Business; isOwn?: boolean }) => {
 };
 
 export const BenchmarkTable = () => {
-  const { project } = useRivalRadarStore();
+  const { project } = useScoutlyStore();
   if (!project) return null;
 
   const allBiz = [project.ownBusiness, ...project.competitors];

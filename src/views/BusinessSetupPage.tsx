@@ -1,6 +1,6 @@
 'use client';
 
-import { useRivalRadarStore } from '@/store/rivalradar';
+import { useScoutlyStore } from '@/store/scoutly';
 import { useRouter } from 'next/navigation';
 import { Logo } from '@/components/Logo';
 import { useEffect, useState } from 'react';
@@ -63,7 +63,7 @@ const getDomain = (url: string) => {
 };
 
 const BusinessSetupPage = () => {
-  const { user, project, setProject, setSettings, initAuth } = useRivalRadarStore();
+  const { user, project, setProject, setSettings, initAuth } = useScoutlyStore();
   const router = useRouter();
 
   const [authReady, setAuthReady] = useState(false);

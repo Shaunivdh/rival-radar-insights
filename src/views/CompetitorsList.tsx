@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { motion } from 'framer-motion';
-import { useRivalRadarStore } from '@/store/rivalradar';
+import { useScoutlyStore } from '@/store/scoutly';
 import { addCompetitor, triggerSingleScan } from '@/actions/projects';
 import type { Business, BusinessId } from '@/types';
 import {
@@ -110,7 +110,7 @@ type ArchivedEntry = { biz: Business; archivedAt: string };
 const isDev = process.env.NODE_ENV === 'development';
 
 const CompetitorsList = () => {
-  const { project, addCompetitorToStore, syncBusinesses } = useRivalRadarStore();
+  const { project, addCompetitorToStore, syncBusinesses } = useScoutlyStore();
   const searchParams = useSearchParams();
   const debugMode = isDev && searchParams.get('debug') === 'true';
   const [open, setOpen] = useState(false);

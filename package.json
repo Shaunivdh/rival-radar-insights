@@ -1,5 +1,5 @@
 {
-  "name": "rival-radar-insights",
+  "name": "scoutly",
   "private": true,
   "version": "0.0.0",
   "scripts": {
@@ -21,6 +21,7 @@
     "test:integration": "vitest run src/lib/__tests__/ai.pipeline.test.ts",
     "test:seed": "bun run scripts/create-test-user.ts && bun run scripts/seed-test-project.ts",
     "test:unit": "vitest run",
+    "eval:actions": "bunx tsx --conditions=react-server scripts/eval-action-plan.ts",
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit"
   },

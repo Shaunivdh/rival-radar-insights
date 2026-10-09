@@ -9,8 +9,16 @@ import {
   type JsonSchema,
 } from '../aiSchemas';
 import { logger } from '@/lib/logger';
-import { AIUnavailableError, AI_MODEL_SMART, SKIP_AI, askClaude, errorTypeOf } from './client';
-import { CATEGORY_SCORE_MAP_FULL, summariseBiz } from './businessView';
+import {
+  AIUnavailableError,
+  AI_MODEL_INSIGHT,
+  EFFORTS,
+  SKIP_AI,
+  askClaude,
+  errorTypeOf,
+  type Effort,
+} from './client';
+import { CATEGORY_SCORE_MAP_FULL, summariseForInsight } from './businessView';
 import { SCOUTLY_SYSTEM } from './prompts';
 import { dropUngroundedActions } from './evidence';
 import { validateActionsHybrid } from './validation';
@@ -42,6 +50,14 @@ const FIELD_RULES = `Field rules:
 - timeframe: realistic time-to-result, written without a dash (e.g. "2 to 3 weeks")
 - competitorReference: plain-English note naming a specific competitor and what they have that this business lacks, or null. Must be consistent with whyItMatters.
 - evidence: 1 to 4 data paths you relied on, each written as path=value exactly as it appears in the JSON below. Paths start with "own." or "competitor.<name>." and walk the object keys, e.g. "own.signals.engagement.hasContactForm=false", "own.scores.reputation=70", "competitor.Acme Ltd.reviewCount=140". Every path must exist in the data. Actions whose evidence does not resolve are discarded.`;
+
+const INSIGHT_RULE = `Prefer a gap where a specific named competitor is ahead of this business and that the automatic checks above do not cover. If no competitor is ahead anywhere, pick the single most valuable gap in the data.`;
+
+/** Own and competitor data for the prompt: identical signals are dropped (see summariseForInsight). */
+function insightPayload(own: Business, competitors: Business[]): string {
+  const view = summariseForInsight(own, competitors);
+  return `Own business: ${JSON.stringify(view.own)}\nCompetitors: ${JSON.stringify(view.competitors)}`;
+}
 
 const PRIORITY_SCHEMA_BASE = `{"actions":[{"priority":1,"category":"string","effort":"low"|"medium"|"high","action":"string","reason":"string","whyItMatters":"string","steps":["string"],"outcome":"string","competitorReference":"string|null","estimatedImpact":"high"|"medium","timeframe":"string","evidence":["string"]}]}`;
 
@@ -79,7 +95,7 @@ function ownDataWarnings(own: Business): string {
 function coveredSlotsNote(templateActions: PriorityAction[], remainingSlots: number): string {
   if (templateActions.length === 0) return '';
   const names = templateActions.map((a) => `"${a.action.replace(/"/g, "'")}"`).join(', ');
-  return `\nThese priority slots are already covered by automatic checks: ${names}. Fill the remaining ${remainingSlots} slots with different gaps.\n`;
+  return `\nThese priority slots are already covered by automatic checks: ${names}. Fill the remaining ${remainingSlots} slot${remainingSlots === 1 ? '' : 's'} with different gaps.\n`;
 }
 
 /**
@@ -159,10 +175,10 @@ export function checkCategoryDistribution(
   return { overrepresented, shouldRegenerate: overrepresented.length > 0 };
 }
 
-function sortTop5(raw: PriorityAction[]): PriorityAction[] {
+function sortTopN(raw: PriorityAction[], n: number): PriorityAction[] {
   return raw
     .sort((a, b) => a.priority - b.priority)
-    .slice(0, 5)
+    .slice(0, n)
     .map((action, i) => ({ ...action, priority: (i + 1) as PriorityAction['priority'] }));
 }
 
@@ -170,21 +186,41 @@ function sortTop5(raw: PriorityAction[]): PriorityAction[] {
  * Generate actions via askClaude, then check for over-represented categories
  * on strong scores. If detected, regenerate once with an explicit instruction.
  */
-async function generateWithDistributionCheck(
-  prompt: string,
-  ownScores: NonNullable<Business['aiScore']> | null,
-  label: string,
-  maxTokens: number,
-  schema: JsonSchema,
-): Promise<PriorityAction[]> {
+async function generateWithDistributionCheck({
+  prompt,
+  own,
+  competitors,
+  label,
+  maxTokens,
+  schema,
+  slots,
+}: {
+  prompt: string;
+  own: Business;
+  competitors: Business[];
+  label: string;
+  maxTokens: number;
+  schema: JsonSchema;
+  /** How many actions are kept. Ungrounded ones are dropped first, so a later one can take a slot. */
+  slots: number;
+}): Promise<PriorityAction[]> {
+  const ownScores = own.aiScore;
   const ask = (p: string) =>
     askClaude<{ actions: PriorityAction[] }>(p, schema, {
       maxTokens,
       system: SCOUTLY_SYSTEM,
-      model: AI_MODEL_SMART,
-    }).then((r) => (Array.isArray(r.actions) ? r.actions : []));
+      model: AI_MODEL_INSIGHT,
+      effort: INSIGHT_EFFORT,
+    }).then((r) =>
+      // Grounding and the slot cut happen before the category check, so one kept
+      // insight can never trigger a paid regeneration.
+      sortTopN(
+        dropUngroundedActions(Array.isArray(r.actions) ? r.actions : [], own, competitors),
+        slots,
+      ),
+    );
 
-  let sorted = sortTop5(await ask(prompt));
+  let sorted = await ask(prompt);
 
   const dist = checkCategoryDistribution(sorted, ownScores);
   if (dist.shouldRegenerate) {
@@ -203,7 +239,7 @@ async function generateWithDistributionCheck(
     const retryPrompt =
       prompt +
       `\n\nPREVIOUS ATTEMPT DUPLICATE: Your last attempt returned ${dupeNote}. Spread your actions across at least 2 different categories.`;
-    sorted = sortTop5(await ask(retryPrompt));
+    sorted = await ask(retryPrompt);
 
     const retryDist = checkCategoryDistribution(sorted, ownScores);
     if (retryDist.shouldRegenerate) {
@@ -216,31 +252,81 @@ async function generateWithDistributionCheck(
   return sorted;
 }
 
+/** Integer 0 to 5 from env, else the default (with a warning for a bad value). */
+function envThreshold(raw: string | undefined, fallback: number): number {
+  if (raw == null || raw.trim() === '') return fallback;
+  const n = Number(raw);
+  if (Number.isInteger(n) && n >= 0 && n <= 5) return n;
+  logger.warn('priority', 'Invalid AI_FILL_THRESHOLD, using default', { raw, fallback });
+  return fallback;
+}
+
+/** One of EFFORTS from env, else the default (with a warning for a bad value). */
+function envEffort(raw: string | undefined, fallback: Effort): Effort {
+  const v = raw?.trim();
+  if (!v) return fallback;
+  if ((EFFORTS as readonly string[]).includes(v)) return v as Effort;
+  logger.warn('priority', 'Invalid AI_INSIGHT_EFFORT, using default', { raw, fallback });
+  return fallback;
+}
+
 /**
- * Generate the top 5 priority actions for a business.
+ * Skip the LLM when at least this many fresh templates fire (env AI_FILL_THRESHOLD,
+ * 0 to 5; 0 means never call it).
+ */
+export const AI_FILL_THRESHOLD = envThreshold(process.env.AI_FILL_THRESHOLD, 3);
+/** The LLM adds at most this many actions: a competitor insight templates cannot express. */
+const INSIGHT_SLOTS = 1;
+/**
+ * Output budget for the insight call. Sonnet 5 thinks by default and thinking
+ * counts against max_tokens: one ~400 token action used ~1,950 tokens at the
+ * default effort, so 1500 truncated. Truncation wastes the whole input.
+ */
+const INSIGHT_MAX_TOKENS = 4000;
+/** Thinking depth for the insight (env AI_INSIGHT_EFFORT). Ignored on Haiku. */
+const INSIGHT_EFFORT = envEffort(process.env.AI_INSIGHT_EFFORT, 'low');
+
+export type PriorityActionOptions = {
+  /** Project location, used to personalise template copy. */
+  location?: string | null;
+  /** Template ids already live on the plan, so the next best fresh gaps are chosen instead. */
+  excludeTemplateIds?: readonly string[];
+  /** An AI insight is still open on the plan: skip the LLM rather than add another. */
+  skipInsight?: boolean;
+};
+
+/**
+ * Generate priority actions for a business.
  *
- * **Template-first pipeline:** Before calling the LLM, deterministic Tier-1
- * templates are evaluated against the business signals. Any templates that
- * fire fill priority slots first. If all 5 slots are filled by templates the
- * LLM call is skipped entirely. Otherwise the LLM is told which gaps are
- * already covered and asked to fill the remaining slots.
+ * **Template-first pipeline:** deterministic templates are ranked and the top
+ * fresh ones (not already live) fill the plan. When at least AI_FILL_THRESHOLD
+ * fire, the LLM is skipped entirely. Otherwise it is asked for a single
+ * competitor insight the templates do not cover, from a trimmed payload that
+ * keeps only the signals where the business and its competitors differ.
  */
 export async function generatePriorityActions(
   own: Business,
   competitors: Business[],
   serviceCategory?: ServiceCategory,
+  opts: PriorityActionOptions = {},
 ): Promise<PriorityAction[]> {
   if (SKIP_AI) return [];
 
   // ── Tier-1 templates ────────────────────────────────────────────────
-  const { actions: templateActions, firedIds } = applyTemplates(own);
+  const { actions: templateActions, firedIds } = applyTemplates(own, competitors, {
+    location: opts.location,
+    serviceCategory,
+    excludeTemplateIds: opts.excludeTemplateIds,
+  });
   const templatesUsed = templateActions.length;
 
-  if (templatesUsed >= 5) {
-    logger.info('priority', '5 templates fired, skipping LLM');
+  if (templatesUsed >= AI_FILL_THRESHOLD || opts.skipInsight) {
+    logger.info('priority', `${templatesUsed} fresh templates fired, skipping LLM`, {
+      insightOpen: !!opts.skipInsight,
+    });
     logAIEvent({
       event: 'generation',
-      model: AI_MODEL_SMART,
+      model: AI_MODEL_INSIGHT,
       success: true,
       durationMs: 0,
       serviceCategory,
@@ -250,8 +336,8 @@ export async function generatePriorityActions(
     return await validateActionsHybrid(templateActions.slice(0, 5), own, competitors);
   }
 
-  // ── Build LLM prompt for remaining slots ────────────────────────────
-  const remainingSlots = 5 - templatesUsed;
+  // ── Build LLM prompt for the insight slot ───────────────────────────
+  const remainingSlots = Math.min(INSIGHT_SLOTS, 5 - templatesUsed);
 
   const catConfig = serviceCategory ? SERVICE_CATEGORIES[serviceCategory] : null;
   const industryFocus = catConfig
@@ -272,7 +358,8 @@ ${TONE_RULES}
 ${DATA_INTEGRITY_RULES}
 
 PRIORITISATION RULES:
-- Return exactly ${remainingSlots} action${remainingSlots > 1 ? 's' : ''}, not more. ${remainingSlots < 5 ? `(${templatesUsed} slot${templatesUsed > 1 ? 's are' : ' is'} already filled by automatic checks.)` : 'Five forces real prioritisation.'}
+- Return exactly ${remainingSlots} action${remainingSlots > 1 ? 's' : ''}, not more.${templatesUsed > 0 ? ` (${templatesUsed} slot${templatesUsed > 1 ? 's are' : ' is'} already filled by automatic checks.)` : ''}
+- ${INSIGHT_RULE}
 - Only include an action if it reflects a genuine gap. If the business is already strong in a category (score ≥ 85 and no specific deficit in the data), do not invent a problem there.
 - Every action must have estimatedImpact of "high" or "medium". No "low impact" actions.
 - Each action must address a genuinely different gap. No two from the same root cause unless the gaps are clearly distinct.
@@ -285,25 +372,21 @@ Priority numbering: Unique integers 1 to ${remainingSlots} ordered by impact. No
 Schema (JSON object only, no markdown):
 ${PRIORITY_SCHEMA_BASE}
 
-Own business: ${JSON.stringify(summariseBiz(own, true))}
-Competitors: ${JSON.stringify(competitors.map((b) => summariseBiz(b, false)))}`;
+${insightPayload(own, competitors)}`;
 
-  const tokensPerSlot = 900;
-  const maxTokens = remainingSlots * tokensPerSlot;
+  const maxTokens = INSIGHT_MAX_TOKENS;
 
   const t0 = Date.now();
   try {
-    const llmActions = dropUngroundedActions(
-      await generateWithDistributionCheck(
-        prompt,
-        own.aiScore,
-        'generatePriorityActions',
-        maxTokens,
-        PRIORITY_ACTIONS_SCHEMA,
-      ),
+    const llmActions = await generateWithDistributionCheck({
+      prompt,
       own,
       competitors,
-    );
+      label: 'generatePriorityActions',
+      maxTokens,
+      schema: PRIORITY_ACTIONS_SCHEMA,
+      slots: remainingSlots,
+    });
 
     // Combine: templates first, then LLM actions, renumber 1–5
     const combined = [
@@ -315,7 +398,7 @@ Competitors: ${JSON.stringify(competitors.map((b) => summariseBiz(b, false)))}`;
 
     logAIEvent({
       event: 'generation',
-      model: AI_MODEL_SMART,
+      model: AI_MODEL_INSIGHT,
       success: true,
       durationMs: Date.now() - t0,
       serviceCategory,
@@ -326,7 +409,7 @@ Competitors: ${JSON.stringify(competitors.map((b) => summariseBiz(b, false)))}`;
   } catch (e) {
     logAIEvent({
       event: 'generation',
-      model: AI_MODEL_SMART,
+      model: AI_MODEL_INSIGHT,
       success: false,
       durationMs: Date.now() - t0,
       serviceCategory,
@@ -346,6 +429,7 @@ export async function generatePriorityActionsWithHistory(
   previousSignals: ExtractedSignals | null,
   currentSignals: ExtractedSignals,
   serviceCategory?: ServiceCategory,
+  opts: PriorityActionOptions = {},
 ): Promise<PriorityAction[]> {
   if (SKIP_AI) return [];
 
@@ -354,11 +438,17 @@ export async function generatePriorityActionsWithHistory(
     actions: templateActions,
     firedIds: firedIds2,
     closedFromLastWeek,
-  } = applyTemplatesWithHistory(own, previousActions);
+  } = applyTemplatesWithHistory(own, previousActions, competitors, {
+    location: opts.location,
+    serviceCategory,
+    excludeTemplateIds: opts.excludeTemplateIds,
+  });
   const templatesUsed = templateActions.length;
 
-  if (templatesUsed >= 5) {
-    logger.info('priority', '5 templates fired, skipping LLM (with-history)');
+  if (templatesUsed >= AI_FILL_THRESHOLD || opts.skipInsight) {
+    logger.info('priority', `${templatesUsed} fresh templates fired, skipping LLM (with-history)`, {
+      insightOpen: !!opts.skipInsight,
+    });
     // Acknowledge up to 3 closed items from last week in the first template's whyItMatters
     if (closedFromLastWeek.length > 0) {
       const wins = closedFromLastWeek
@@ -373,7 +463,7 @@ export async function generatePriorityActionsWithHistory(
     }
     logAIEvent({
       event: 'generation',
-      model: AI_MODEL_SMART,
+      model: AI_MODEL_INSIGHT,
       success: true,
       durationMs: 0,
       serviceCategory,
@@ -383,7 +473,7 @@ export async function generatePriorityActionsWithHistory(
     return await validateActionsHybrid(templateActions.slice(0, 5), own, competitors);
   }
 
-  const remainingSlots = 5 - templatesUsed;
+  const remainingSlots = Math.min(INSIGHT_SLOTS, 5 - templatesUsed);
 
   const catConfig = serviceCategory ? SERVICE_CATEGORIES[serviceCategory] : null;
   const industryFocus = catConfig
@@ -430,6 +520,7 @@ INTERNAL COHERENCE CHECK (do this before returning):
 
 PRIORITISATION RULES:
 - Return exactly ${remainingSlots} action${remainingSlots > 1 ? 's' : ''}. ${templatesUsed > 0 ? `(${templatesUsed} slot${templatesUsed > 1 ? 's are' : ' is'} already filled by automatic checks.)` : ''}
+- ${INSIGHT_RULE}
 - Every action must have estimatedImpact "high" or "medium".
 - Each action must address a genuinely different gap. No two from the same root cause unless the gaps are clearly distinct.
 - ${effortNote}
@@ -444,25 +535,21 @@ What changed in this business's signals since last week: ${Object.keys(changedSi
 Schema (JSON object only, no markdown):
 ${PRIORITY_SCHEMA_WITH_CONTINUITY}
 
-Own business: ${JSON.stringify(summariseBiz(own, true))}
-Competitors: ${JSON.stringify(competitors.map((b) => summariseBiz(b, false)))}`;
+${insightPayload(own, competitors)}`;
 
-  const tokensPerSlot = 900;
-  const maxTokens = remainingSlots * tokensPerSlot;
+  const maxTokens = INSIGHT_MAX_TOKENS;
 
   const t0 = Date.now();
   try {
-    const sorted = dropUngroundedActions(
-      await generateWithDistributionCheck(
-        prompt,
-        own.aiScore,
-        'generatePriorityActionsWithHistory',
-        maxTokens,
-        PRIORITY_ACTIONS_WITH_CONTINUITY_SCHEMA,
-      ),
+    const sorted = await generateWithDistributionCheck({
+      prompt,
       own,
       competitors,
-    );
+      label: 'generatePriorityActionsWithHistory',
+      maxTokens,
+      schema: PRIORITY_ACTIONS_WITH_CONTINUITY_SCHEMA,
+      slots: remainingSlots,
+    });
 
     // Combine: templates first, then LLM actions, renumber 1–5
     const combined = [
@@ -474,7 +561,7 @@ Competitors: ${JSON.stringify(competitors.map((b) => summariseBiz(b, false)))}`;
 
     logAIEvent({
       event: 'generation',
-      model: AI_MODEL_SMART,
+      model: AI_MODEL_INSIGHT,
       success: true,
       durationMs: Date.now() - t0,
       serviceCategory,
@@ -485,7 +572,7 @@ Competitors: ${JSON.stringify(competitors.map((b) => summariseBiz(b, false)))}`;
   } catch (e) {
     logAIEvent({
       event: 'generation',
-      model: AI_MODEL_SMART,
+      model: AI_MODEL_INSIGHT,
       success: false,
       durationMs: Date.now() - t0,
       serviceCategory,

@@ -14,7 +14,6 @@ const bool = { type: 'boolean' } as const;
 const int = { type: 'integer' } as const;
 const strArr = { type: 'array', items: str } as const;
 const nullableStr = { anyOf: [{ type: 'string' }, { type: 'null' }] } as const;
-const nullableBool = { anyOf: [{ type: 'boolean' }, { type: 'null' }] } as const;
 
 function obj(properties: Record<string, unknown>): JsonSchema {
   return {
@@ -24,61 +23,6 @@ function obj(properties: Record<string, unknown>): JsonSchema {
     additionalProperties: false,
   };
 }
-
-/** Per-page signal extraction — mirrors the keys requested by EXTRACTION_PROMPT. */
-export const EXTRACTION_SCHEMA: JsonSchema = obj({
-  title: str,
-  metaDescription: str,
-  h1Tags: strArr,
-  hasSitemap: bool,
-  hasRobotsTxt: bool,
-  internalLinkCount: int,
-  schemaMarkupTypes: strArr,
-  canonicalTagsPresent: bool,
-  altTagCoverage: { type: 'string', enum: ['full', 'partial', 'none'] },
-  accreditations: strArr,
-  certifications: strArr,
-  awardsAndMemberships: strArr,
-  reviewPlatformsLinked: strArr,
-  teamPageExists: bool,
-  insuranceMentioned: bool,
-  guaranteesMentioned: strArr,
-  servicesListed: strArr,
-  serviceAreasMentioned: strArr,
-  hasBlog: bool,
-  hasPortfolio: bool,
-  portfolioItemCount: int,
-  hasFAQ: bool,
-  hasContactForm: bool,
-  hasBookingSystem: bool,
-  bookingProvider: nullableStr,
-  hasCallToAction: bool,
-  ctaText: strArr,
-  hasNewsletterSignup: bool,
-  socialLinksPresent: strArr,
-  hasPhoneNumberProminent: bool,
-  newServicesDetected: strArr,
-  removedServicesDetected: strArr,
-  newTechIntegrations: strArr,
-  recentAnnouncementsOrNews: {
-    type: 'array',
-    items: obj({ title: str, date: nullableStr, summary: str }),
-  },
-  recentHiringSignals: strArr,
-  newLocationsOrExpansion: strArr,
-  sectorSpecific: obj({
-    cqcRating: nullableStr,
-    ofstedRating: nullableStr,
-    treatmentsListed: strArr,
-    consultationBookable: nullableBool,
-    gasSafeRegistered: nullableBool,
-    nicEicApproved: nullableBool,
-    trustmarkMember: nullableBool,
-    dvsaApproved: nullableBool,
-    passRates: nullableStr,
-    ageRangesCovered: strArr,
-  }),
-});
 
 export const SENTIMENT_SCHEMA: JsonSchema = obj({
   positiveThemes: strArr,

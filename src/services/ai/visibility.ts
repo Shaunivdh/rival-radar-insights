@@ -194,6 +194,47 @@ function matchWithLocation(
   return { confidence, match: result.match };
 }
 
+/** Approximate searcher location for the web search tool (country is ISO 3166-1 alpha-2). */
+export type SearchPlace = { city?: string; country?: string; timezone?: string };
+
+/** Search settings per category countryModifier, plus names that already imply the country. */
+const COUNTRY_SEARCH: Record<string, { country: string; timezone: string; names: RegExp }> = {
+  UK: {
+    country: 'GB',
+    timezone: 'Europe/London',
+    names: /\b(uk|united kingdom|england|scotland|wales|northern ireland)\b/i,
+  },
+};
+
+/**
+ * One live AI-visibility query: Sonnet with web search, answer text only. `place`
+ * localises the search so "Dulwich" means the London one, not anywhere in the world.
+ */
+export async function runVisibilityQuery(query: string, place?: SearchPlace): Promise<string> {
+  const result = await callLLMRaw(
+    {
+      model: AI_MODEL_SMART,
+      max_tokens: 1000,
+      system:
+        'You are a helpful local business recommendation assistant. When asked about businesses in a specific area, provide specific real business names and brief descriptions. Always include specific names. Only recommend businesses that are located in or close to the area named in the question; ignore businesses in other towns or countries that share a similar place name.',
+      // Current web-search tool (dynamic filtering); requires Sonnet 4.6+ / Sonnet 5.
+      tools: [
+        {
+          type: 'web_search_20260209',
+          name: 'web_search',
+          ...(place ? { user_location: { type: 'approximate' as const, ...place } } : {}),
+        },
+      ],
+      messages: [{ role: 'user', content: query }],
+    },
+    { backoffMs: 10000, label: 'ai-presence' },
+  );
+  return result.content
+    .filter((c) => c.type === 'text')
+    .map((c) => (c as { type: 'text'; text: string }).text)
+    .join('\n');
+}
+
 /**
  * Check how visible a business is in AI recommendation responses.
  *
@@ -208,12 +249,18 @@ function matchWithLocation(
  * 6. Track position, recommended-vs-mentioned context, and which businesses
  *    appear ahead of the target in each response.
  */
+/** Days between AI visibility checks after the first scan. */
+export const AI_VISIBILITY_INTERVAL_DAYS = 14;
+
 export async function checkAIVisibility(
   primaryService: string,
   location: string,
   businessName: string,
   existingVisibility?: AIVisibility | null,
   serviceCategory?: ServiceCategory,
+  /** Source of the raw answer text per query. Defaults to a live web-search call;
+   *  the crawl worker passes a project-cached version so businesses share it. */
+  getResponse: (query: string, place?: SearchPlace) => Promise<string> = runVisibilityQuery,
 ): Promise<AIVisibility | null> {
   if (SKIP_AI) {
     return {
@@ -227,12 +274,15 @@ export async function checkAIVisibility(
     };
   }
 
-  // Skip if already checked within the last 24 hours
+  // Runs on the first scan, then every AI_VISIBILITY_INTERVAL_DAYS. Web-search
+  // queries are ~90% of the Claude bill, and the score is a 3-run average that
+  // moves slowly, so weekly checks cost twice as much for little signal.
   if (existingVisibility?.tested_at) {
-    const lastTested = new Date(existingVisibility.tested_at).getTime();
-    const hoursAgo = (Date.now() - lastTested) / (1000 * 60 * 60);
-    if (hoursAgo < 24) {
-      logger.info('ai-presence', 'Skipping — recently tested', { hoursAgo: hoursAgo.toFixed(1) });
+    const daysAgo = (Date.now() - new Date(existingVisibility.tested_at).getTime()) / 86_400_000;
+    // One day of slack: weekly scans drift by hours, and a strict 14 days would
+    // push every other check out to three weeks.
+    if (daysAgo < AI_VISIBILITY_INTERVAL_DAYS - 1) {
+      logger.info('ai-presence', 'Skipping, checked recently', { daysAgo: daysAgo.toFixed(1) });
       return null;
     }
   }
@@ -245,11 +295,20 @@ export async function checkAIVisibility(
   // business. Falls back to the raw service when no category config exists.
   const serviceTerm = catConfig?.searchTerm ?? primaryService;
 
-  const queries = templates.map((t) => {
-    let q = t.replace(/\{service\}/g, serviceTerm).replace(/\{location\}/g, location);
-    if (countryModifier) q += ` ${countryModifier}`;
-    return q;
-  });
+  // Country goes next to the place ("East Dulwich, UK"), and the search itself is
+  // localised, so a place name shared with towns abroad stays local.
+  const country = COUNTRY_SEARCH[countryModifier];
+  const namesCountry =
+    !countryModifier ||
+    country?.names.test(location) ||
+    location.toLowerCase().includes(countryModifier.toLowerCase());
+  const placeLabel = namesCountry ? location : `${location}, ${countryModifier}`;
+  const place: SearchPlace | undefined = country
+    ? { city: location.split(',')[0].trim(), country: country.country, timezone: country.timezone }
+    : undefined;
+  const queries = templates.map((t) =>
+    t.replace(/\{service\}/g, serviceTerm).replace(/\{location\}/g, placeLabel),
+  );
 
   const t0 = Date.now();
   let mentionCount = 0;
@@ -262,23 +321,7 @@ export async function checkAIVisibility(
 
   for (const query of queries) {
     try {
-      const result = await callLLMRaw(
-        {
-          model: AI_MODEL_SMART,
-          max_tokens: 1000,
-          system:
-            'You are a helpful local business recommendation assistant. When asked about businesses in a specific area, provide specific real business names and brief descriptions. Always include specific names.',
-          // Current web-search tool (dynamic filtering); requires Sonnet 4.6+ / Sonnet 5.
-          tools: [{ type: 'web_search_20260209', name: 'web_search' }],
-          messages: [{ role: 'user', content: query }],
-        },
-        { backoffMs: 10000, label: 'ai-presence' },
-      );
-
-      const aiText = result.content
-        .filter((c) => c.type === 'text')
-        .map((c) => (c as { type: 'text'; text: string }).text)
-        .join('\n');
+      const aiText = await getResponse(query, place);
 
       logger.info('ai-presence', 'Query response', {
         query,
@@ -359,6 +402,12 @@ export async function checkAIVisibility(
     mentionConfidence: bestConfidence,
     cacheHits,
   });
+
+  // Every query failing is an outage, not a score of 0. Throwing keeps the previous
+  // result and its tested_at, so the next scan retries instead of waiting 14 days.
+  if (allFailed && total > 0) {
+    throw new Error(`AI visibility: all ${total} queries failed`);
+  }
 
   return {
     aiPresenceScore,

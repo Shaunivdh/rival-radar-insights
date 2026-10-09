@@ -9,7 +9,7 @@ const postBodySchema = z.object({
 
 /** Derive a token from the password so the raw password is never stored in a cookie. */
 function signUnlockToken(password: string): string {
-  return createHmac('sha256', password).update('rival-radar-site-unlock').digest('hex');
+  return createHmac('sha256', password).update('scoutly-site-unlock').digest('hex');
 }
 
 export async function POST(req: NextRequest) {

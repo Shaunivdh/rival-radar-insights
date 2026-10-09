@@ -14,7 +14,7 @@ interface SyncedBusiness {
   serpData?: Business['serpData'];
 }
 
-interface RivalRadarState {
+interface ScoutlyState {
   user: User | null;
   project: Project | null;
   settings: AppSettings;
@@ -40,7 +40,7 @@ interface RivalRadarState {
   addCompetitorToStore: (business: Business) => void;
 }
 
-export const useRivalRadarStore = create<RivalRadarState>()((set, get) => ({
+export const useScoutlyStore = create<ScoutlyState>()((set, get) => ({
   user: null,
   project: null,
   settings: { primaryService: 'accounting', location: '' },

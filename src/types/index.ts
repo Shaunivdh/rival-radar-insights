@@ -1,4 +1,5 @@
 import type { BusinessId, PriorityActionId, ProjectId } from './ids';
+import type { ReviewGrowth } from '@/lib/reviewGrowth';
 
 export type { BusinessId, PriorityActionId, ProjectId } from './ids';
 export { asBusinessId, asPriorityActionId, asProjectId } from './ids';
@@ -58,6 +59,8 @@ export interface Business {
   } | null;
   previousSignals: ExtractedSignals | null;
   changeEvents: ChangeEvent[];
+  /** Review count growth from google_data history (null = not enough history). Set by the action generator. */
+  reviewGrowth?: ReviewGrowth | null;
 }
 
 export interface ExtractedSignals {
@@ -197,6 +200,15 @@ export interface PriorityAction {
   note?: string | null;
   actionedAt?: string | null;
   continuityNote?: string | null; // e.g. "Still outstanding from last week" or "You completed this"
+  /** Deterministic template that produced this action (null = LLM). Stable across copy edits. */
+  templateId?: string | null;
+  /** When this action was first added to the plan. */
+  generatedAt?: string | null;
+  /** Scan re-check of a completed template action; null = not checked yet. */
+  verification?: 'verified' | 'not_verified' | null;
+  verifiedAt?: string | null;
+  /** Resolved by two scans in a row finding the gap gone, without the user ticking it. */
+  autoResolved?: boolean;
   /** Internal: source of this action for deterministic-check skip logic. Stripped before serving to clients. */
   _source?: 'template' | 'llm';
   /** Internal: data paths the LLM cited ("own.signals.engagement.hasContactForm=false"). Verified then stripped. */
@@ -221,7 +233,6 @@ export interface Change {
 export interface CrawlOptions {
   maxPages?: number;
   render?: boolean;
-  jsonOptions?: { prompt: string };
   modifiedSince?: number;
   gotoOptions?: { waitUntil?: string; timeout?: number };
   waitForSelector?: { selector: string; timeout?: number; visible?: boolean };

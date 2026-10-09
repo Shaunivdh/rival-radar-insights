@@ -5,7 +5,7 @@ import { Logo } from '@/components/Logo';
 const NAV_LINKS = [
   { href: '/#how', label: 'How it works' },
   { href: '/what-we-track', label: 'What we track' },
-  { href: '/#pricing', label: 'Pricing' },
+  { href: '/#beta', label: 'Beta' },
 ];
 
 const Navbar = () => {
@@ -36,7 +36,7 @@ const Navbar = () => {
             Log in
           </Link>
           <Button variant="hero" size="sm" className="rounded-full px-4" asChild>
-            <Link href="/signup">Get started</Link>
+            <Link href="/#beta">Register interest</Link>
           </Button>
         </div>
       </div>

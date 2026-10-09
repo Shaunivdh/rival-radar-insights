@@ -3,7 +3,7 @@ import HeroSection from '@/components/marketing/HeroSection';
 import Manifesto from '@/components/marketing/Manifesto';
 import HowItWorks from '@/components/marketing/HowItWorks';
 import Dimensions from '@/components/marketing/Dimensions';
-import Pricing from '@/components/marketing/Pricing';
+import BetaSignup from '@/components/marketing/BetaSignup';
 import Footer from '@/components/marketing/Footer';
 
 const LandingPage = () => {
@@ -19,8 +19,8 @@ const LandingPage = () => {
         <div id="dimensions" className="scroll-mt-16">
           <Dimensions />
         </div>
-        <div id="pricing" className="scroll-mt-16">
-          <Pricing />
+        <div id="beta" className="scroll-mt-16">
+          <BetaSignup />
         </div>
       </main>
       <Footer />

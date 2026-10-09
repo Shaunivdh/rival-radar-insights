@@ -13,12 +13,12 @@ export const DemoBanner = () => {
   return (
     <div className="bg-primary/10 border border-primary/20 rounded-lg px-4 py-2.5 flex items-center justify-between mb-6">
       <p className="text-sm text-foreground">
-        <span className="font-medium">Demo mode</span> — you're viewing sample data.{' '}
+        <span className="font-medium">Demo mode:</span> you&apos;re viewing sample data.{' '}
         <button
-          onClick={() => router.push('/signup')}
+          onClick={() => router.push('/#beta')}
           className="text-primary font-medium hover:underline"
         >
-          Sign up to track your own business →
+          Register interest to track your own business
         </button>
       </p>
       <button

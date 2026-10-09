@@ -14,14 +14,11 @@ const Footer = () => {
           <Link href="/what-we-track" className="transition-colors hover:text-foreground">
             What we track
           </Link>
-          <Link href="/#pricing" className="transition-colors hover:text-foreground">
-            Pricing
+          <Link href="/#beta" className="transition-colors hover:text-foreground">
+            Beta
           </Link>
           <Link href="/contact" className="transition-colors hover:text-foreground">
             Contact us
-          </Link>
-          <Link href="/signup" className="transition-colors hover:text-foreground">
-            Get started
           </Link>
           <Link href="/privacy" className="transition-colors hover:text-foreground">
             Privacy

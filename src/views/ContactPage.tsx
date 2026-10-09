@@ -28,8 +28,15 @@ const ContactPage = () => {
     if (!email.trim() || !subject.trim() || !message.trim() || sending) return;
 
     setSending(true);
-    const result = await sendContactMessage({ email, subject, message });
-    setSending(false);
+    let result: Awaited<ReturnType<typeof sendContactMessage>>;
+    try {
+      result = await sendContactMessage({ email, subject, message });
+    } catch {
+      // The action itself failed to run (offline, deploy mid request).
+      result = { ok: false, error: 'Something went wrong sending your message. Please try again.' };
+    } finally {
+      setSending(false);
+    }
 
     if (!result.ok) {
       toast({ title: 'Message not sent', description: result.error, variant: 'destructive' });

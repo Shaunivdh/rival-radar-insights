@@ -1,5 +1,5 @@
 /**
- * sendContactMessage validation and failure paths.
+ * sendContactMessage and registerBetaInterest: validation, rate limiting and failure paths.
  *
  * SUPPORT_EMAIL is read at module scope, so each case sets the env then imports
  * the module fresh via vi.resetModules().
@@ -21,6 +21,17 @@ vi.mock('@/emails/ContactMessage', () => ({
 
 vi.mock('next/headers', () => ({
   cookies: async () => ({ getAll: () => [] }),
+  headers: async () => new Headers({ 'x-forwarded-for': '203.0.113.7, 10.0.0.1' }),
+}));
+
+let rateLimited = false;
+const rateLimitKeys: string[] = [];
+
+vi.mock('@/lib/rateLimit', () => ({
+  isRateLimited: async (key: string) => {
+    rateLimitKeys.push(key);
+    return rateLimited;
+  },
 }));
 
 let currentUser: { id: string; email?: string } | null = null;
@@ -49,16 +60,31 @@ describe('sendContactMessage', () => {
     sendEmail.mockReset();
     sendEmail.mockResolvedValue({ id: 'email-1' });
     currentUser = null;
+    rateLimited = false;
+    rateLimitKeys.length = 0;
   });
 
-  it('sends to the support inbox and reports success', async () => {
+  it('sends to the support inbox with replies going to the visitor', async () => {
     const send = await loadAction('support@scoutly.test');
     await expect(send(VALID)).resolves.toEqual({ ok: true });
 
     expect(sendEmail).toHaveBeenCalledOnce();
-    const arg = sendEmail.mock.calls[0][0] as { to: string; subject: string };
+    const arg = sendEmail.mock.calls[0][0] as { to: string; subject: string; replyTo: string };
     expect(arg.to).toBe('support@scoutly.test');
     expect(arg.subject).toBe('[Contact] Question');
+    expect(arg.replyTo).toBe(VALID.email);
+  });
+
+  it('rate limits per visitor IP and refuses without sending', async () => {
+    rateLimited = true;
+    const send = await loadAction('support@scoutly.test');
+
+    expect(await send(VALID)).toEqual({
+      ok: false,
+      error: 'Too many requests. Please try again in a little while.',
+    });
+    expect(rateLimitKeys).toEqual(['contact:203.0.113.7']);
+    expect(sendEmail).not.toHaveBeenCalled();
   });
 
   it('attaches the signed-in account to the email when there is a session', async () => {
@@ -133,5 +159,58 @@ describe('sendContactMessage', () => {
       ok: false,
       error: 'Something went wrong sending your message. Please try again.',
     });
+  });
+});
+
+describe('registerBetaInterest', () => {
+  const BETA = {
+    email: 'owner@example.com',
+    businessName: 'Putney Dental',
+    website: 'putney.co.uk',
+  };
+
+  async function loadBeta(supportEmail: string | undefined) {
+    await loadAction(supportEmail);
+    return (await import('@/actions/contact')).registerBetaInterest;
+  }
+
+  beforeEach(() => {
+    sendEmail.mockReset();
+    sendEmail.mockResolvedValue({ id: 'email-1' });
+    rateLimited = false;
+    rateLimitKeys.length = 0;
+  });
+
+  it('emails the business and website to the support inbox', async () => {
+    const register = await loadBeta('support@scoutly.test');
+    await expect(register(BETA)).resolves.toEqual({ ok: true });
+
+    const arg = sendEmail.mock.calls[0][0] as {
+      to: string;
+      subject: string;
+      replyTo: string;
+      react: { props: Record<string, string> };
+    };
+    expect(arg.to).toBe('support@scoutly.test');
+    expect(arg.subject).toBe('[Beta] Putney Dental');
+    expect(arg.replyTo).toBe(BETA.email);
+    expect(rateLimitKeys).toEqual(['beta-interest:203.0.113.7']);
+    expect(arg.react.props.fromEmail).toBe(BETA.email);
+    expect(arg.react.props.message).toBe('Business: Putney Dental\nWebsite: putney.co.uk');
+  });
+
+  it('rejects a bad email or missing business details without sending', async () => {
+    const register = await loadBeta('support@scoutly.test');
+
+    expect((await register({ ...BETA, email: 'nope' })).ok).toBe(false);
+    expect((await register({ ...BETA, businessName: '  ' })).ok).toBe(false);
+    expect((await register({ ...BETA, website: '' })).ok).toBe(false);
+    expect(sendEmail).not.toHaveBeenCalled();
+  });
+
+  it('fails cleanly when SUPPORT_EMAIL is not configured', async () => {
+    const register = await loadBeta(undefined);
+    expect((await register(BETA)).ok).toBe(false);
+    expect(sendEmail).not.toHaveBeenCalled();
   });
 });

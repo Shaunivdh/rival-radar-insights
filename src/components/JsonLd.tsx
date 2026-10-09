@@ -11,8 +11,8 @@ export function JsonLd() {
     offers: {
       '@type': 'Offer',
       price: '0',
-      priceCurrency: 'USD',
-      description: 'Free trial available',
+      priceCurrency: 'GBP',
+      description: 'Free during the invite only beta',
     },
   };
 

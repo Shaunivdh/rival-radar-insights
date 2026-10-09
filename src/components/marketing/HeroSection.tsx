@@ -1,6 +1,5 @@
 'use client';
 
-import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { ArrowRight, Play } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -51,10 +50,10 @@ const HeroSection = () => {
           className="mt-9 flex flex-wrap items-center justify-center gap-3"
         >
           <Button variant="hero" size="lg" className="h-12 rounded-full px-6 text-base" asChild>
-            <Link href="/signup">
-              Start your free scan
+            <a href="#beta">
+              Register interest
               <ArrowRight className="ml-1 h-4 w-4" />
-            </Link>
+            </a>
           </Button>
           <Button
             variant="ghost"
@@ -75,7 +74,7 @@ const HeroSection = () => {
           transition={{ delay: 0.5 }}
           className="mt-5 text-center text-xs text-muted-foreground"
         >
-          No card · Setup in 5 minutes · Cancel anytime
+          Free beta · Limited places · No card needed
         </motion.p>
 
         <div className="mt-16 md:mt-20">

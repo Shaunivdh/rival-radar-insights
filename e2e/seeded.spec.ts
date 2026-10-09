@@ -103,6 +103,6 @@ test('the public pages keep the app shell for signed-in visitors', async ({ page
     await expect(page).toHaveURL(new RegExp(`${path}$`));
     const nav = page.getByRole('navigation').first();
     await expect(nav.getByRole('link', { name: 'Dashboard' })).toBeVisible();
-    await expect(page.getByRole('link', { name: 'Get started' })).toHaveCount(0);
+    await expect(page.getByRole('link', { name: 'Register interest' })).toHaveCount(0);
   }
 });

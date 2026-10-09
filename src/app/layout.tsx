@@ -20,7 +20,7 @@ const montserrat = Montserrat({
 export const metadata: Metadata = {
   metadataBase: new URL('https://scoutly.io'),
   title: {
-    default: 'Scoutly — Local Competitor Intelligence',
+    default: 'Scoutly: Local Competitor Intelligence',
     template: '%s | Scoutly',
   },
   description:
@@ -37,10 +37,10 @@ export const metadata: Metadata = {
   creator: 'Scoutly',
   openGraph: {
     type: 'website',
-    locale: 'en_US',
+    locale: 'en_GB',
     url: 'https://scoutly.io',
     siteName: 'Scoutly',
-    title: 'Scoutly — Local Competitor Intelligence',
+    title: 'Scoutly: Local Competitor Intelligence',
     description:
       'Track local competitors, monitor Google Business changes, and get actionable SEO insights.',
     images: [
@@ -48,13 +48,13 @@ export const metadata: Metadata = {
         url: '/og-image.png',
         width: 1200,
         height: 630,
-        alt: 'Scoutly — Local Competitor Intelligence',
+        alt: 'Scoutly: Local Competitor Intelligence',
       },
     ],
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Scoutly — Local Competitor Intelligence',
+    title: 'Scoutly: Local Competitor Intelligence',
     description:
       'Track local competitors, monitor Google Business changes, and get actionable SEO insights.',
     images: ['/og-image.png'],
@@ -77,7 +77,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={`${dmSans.variable} ${montserrat.variable} scroll-smooth`}>
+    <html lang="en-GB" className={`${dmSans.variable} ${montserrat.variable} scroll-smooth`}>
       <body>
         <JsonLd />
         <Providers>{children}</Providers>

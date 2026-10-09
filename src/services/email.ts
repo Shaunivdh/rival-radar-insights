@@ -15,12 +15,20 @@ export async function sendEmail({
   to,
   subject,
   react,
+  replyTo,
 }: {
   to: string;
   subject: string;
   react: ReactElement;
+  replyTo?: string;
 }) {
-  const { data, error } = await getResend().emails.send({ from: FROM, to, subject, react });
+  const { data, error } = await getResend().emails.send({
+    from: FROM,
+    to,
+    subject,
+    react,
+    replyTo,
+  });
   if (error) throw new Error(`Email send failed: ${error.message}`);
   return data;
 }

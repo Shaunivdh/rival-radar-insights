@@ -11,21 +11,22 @@ test.describe('landing page', () => {
     await expect(
       page.getByRole('heading', { level: 1, name: /Win your local street/i }),
     ).toBeVisible();
-    await expect(page.getByRole('link', { name: 'Start your free scan' }).first()).toBeVisible();
+    await expect(page.getByRole('link', { name: 'Register interest' }).first()).toBeVisible();
     await expect(page.getByRole('link', { name: 'Log in' })).toBeVisible();
   });
 
-  test('shows the mocked price', async ({ page }) => {
-    // Placeholder until Stripe lands, so pin it: a silent change is a bug.
+  test('shows the beta waitlist instead of a price', async ({ page }) => {
     await page.goto('/');
-    await page.locator('#pricing').scrollIntoViewIfNeeded();
-    await expect(page.getByText('£12.99')).toBeVisible();
+    await page.locator('#beta').scrollIntoViewIfNeeded();
+    await expect(page.getByRole('heading', { name: 'Join the free beta' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Register interest' })).toBeVisible();
+    await expect(page.locator('#beta').getByText('£')).toHaveCount(0);
   });
 
   test('serves /what-we-track and /contact to signed out visitors', async ({ page }) => {
     await page.goto('/what-we-track');
     await expect(page.getByRole('heading', { name: 'What We Track' })).toBeVisible();
-    await expect(page.getByRole('link', { name: 'Get started' }).first()).toBeVisible();
+    await expect(page.getByRole('link', { name: 'Register interest' }).first()).toBeVisible();
 
     await page.goto('/contact');
     await expect(page.getByRole('heading', { name: 'Contact us' })).toBeVisible();

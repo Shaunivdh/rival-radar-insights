@@ -115,9 +115,15 @@ export function diffSignals(previous: ExtractedSignals, current: ExtractedSignal
  */
 export const MATERIAL_CHANGE_PATHS: ReadonlySet<string> = new Set([
   'content.servicesListed',
+  'content.hasBlog',
+  'content.hasPortfolio',
+  'content.hasFAQ',
   'trust.accreditations',
   'trust.certifications',
   'trust.awardsAndMemberships',
+  'trust.teamPageExists',
+  'trust.insuranceMentioned',
+  'trust.guaranteesMentioned',
   'engagement.hasBookingSystem',
   'engagement.bookingProvider',
   'engagement.hasContactForm',

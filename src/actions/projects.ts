@@ -603,6 +603,12 @@ export async function updateProjectBusinessDetails(
   details: { primaryService: string; location: string; postcode: string | null },
 ): Promise<void> {
   const userId = await getSessionUserId();
+  const { data: before } = await supabaseAdmin
+    .from('projects')
+    .select('primary_service, location')
+    .eq('id', projectId)
+    .eq('user_id', userId)
+    .maybeSingle();
   const { error, count } = await supabaseAdmin
     .from('projects')
     .update(
@@ -617,6 +623,20 @@ export async function updateProjectBusinessDetails(
     .eq('user_id', userId);
   if (error) throw new Error(error.message);
   if (count === 0) throw new Error('Project not found');
+
+  // AI visibility is only rechecked every 14 days and averaged over three runs, so a
+  // result for the old service or place would linger for weeks. Clear it so the
+  // next scan checks the new one from scratch.
+  if (
+    before &&
+    (before.primary_service !== details.primaryService || before.location !== details.location)
+  ) {
+    const { error: clearError } = await supabaseAdmin
+      .from('businesses')
+      .update({ ai_visibility: null })
+      .eq('project_id', projectId);
+    if (clearError) throw new Error(clearError.message);
+  }
 }
 
 export async function listProjects(): Promise<Project[]> {

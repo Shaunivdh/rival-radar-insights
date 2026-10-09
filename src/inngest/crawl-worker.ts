@@ -62,7 +62,7 @@ function pollDelaySeconds(attempt: number): number {
 }
 
 /** AI-visibility answers shared across a project's businesses (see projectCache). The
- *  TTL matches checkAIVisibility's own 24h freshness skip. */
+ *  A 24h TTL covers one scan of the whole project; each check is 14 days apart anyway. */
 const AI_VISIBILITY_SHARE = {
   ttlMs: 24 * 60 * 60 * 1000,
   leaseMs: 3 * 60 * 1000,

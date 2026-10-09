@@ -4,6 +4,7 @@ import {
   applyTemplates,
   applyTemplatesWithHistory,
   diagnoseTemplates,
+  checkTemplates,
 } from '@/lib/priorityTemplates';
 import { buildBusiness, buildSignals, buildGoogleData, buildAction } from '@/test/builders';
 import { asBusinessId } from '@/types';
@@ -105,6 +106,7 @@ describe('applyTemplates', () => {
       baselineCount: 96 - gained,
       latestCount: 96,
       since: '2026-08-03T09:00:00Z',
+      unchanged: gained === 0,
     });
     const fires = (overrides: Parameters<typeof buildBusiness>[0]) =>
       applyTemplates(buildBusiness({ googleData: stale, ...overrides })).firedIds.includes(
@@ -146,6 +148,7 @@ describe('applyTemplates', () => {
           baselineCount: 146,
           latestCount: 150,
           since: '2026-09-11T00:00:00Z',
+          unchanged: false,
         },
       });
       const a = applyTemplates(own, [rival]).actions.find(
@@ -385,6 +388,7 @@ describe('competitor comparison and personalisation', () => {
             baselineCount: 96,
             latestCount: 96,
             since: '2026-08-03T00:00:00Z',
+            unchanged: true,
           },
         }),
       ]
@@ -598,6 +602,7 @@ describe('review fixes', () => {
       baselineCount,
       latestCount,
       since: '2026-08-03T09:00:00Z',
+      unchanged: baselineCount === latestCount,
     });
     expect(
       fired(buildBusiness({ googleData: stale, reviewGrowth: growth(100, 96) })),
@@ -642,5 +647,21 @@ describe('review fixes', () => {
         id,
       ).toBe(true);
     }
+  });
+});
+
+describe('checkTemplates with missing data', () => {
+  it('does not evaluate templates whose data is absent, so a gap cannot read as fixed', () => {
+    const { evaluatedIds } = checkTemplates(
+      buildBusiness({ signals: null, pagespeedData: null, aiVisibility: null }),
+    );
+    expect(evaluatedIds.has('no_faq')).toBe(false);
+    expect(evaluatedIds.has('slow_mobile_site')).toBe(false);
+    expect(evaluatedIds.has('low_ai_visibility')).toBe(false);
+    expect(evaluatedIds.has('not_in_local_pack')).toBe(true);
+  });
+
+  it('never scan-checks the Google description, which the owner cannot change', () => {
+    expect(checkTemplates(buildBusiness()).evaluatedIds.has('no_gbp_description')).toBe(false);
   });
 });

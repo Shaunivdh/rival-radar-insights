@@ -21,6 +21,8 @@ export type ReviewGrowth = {
   latestCount: number;
   /** ISO timestamp of the baseline fetch. */
   since: string;
+  /** True when every fetch from the baseline to the latest has the same count. */
+  unchanged: boolean;
 };
 
 /**
@@ -45,5 +47,8 @@ export function reviewGrowth(rows: ReviewHistoryRow[], now = Date.now()): Review
     baselineCount: baseline.review_count,
     latestCount: latest.review_count,
     since: baseline.fetched_at,
+    unchanged: usable
+      .slice(usable.indexOf(baseline))
+      .every((r) => r.review_count === baseline.review_count),
   };
 }

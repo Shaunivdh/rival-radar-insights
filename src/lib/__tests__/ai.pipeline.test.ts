@@ -404,6 +404,15 @@ describe('Priority action pipeline (integration)', () => {
     expect(mockCreate.mock.calls[0][0].max_tokens).toBe(4000);
   });
 
+  it('skips the LLM while an AI insight is still open, even when no templates fire', async () => {
+    const result = await generatePriorityActions(buildBusiness(), competitors, undefined, {
+      skipInsight: true,
+    });
+
+    expect(mockCreate).not.toHaveBeenCalled();
+    expect(result).toHaveLength(0);
+  });
+
   it('skips the LLM entirely when 3 or more fresh templates fire', async () => {
     const s = buildBusiness().signals!;
     const own = buildBusiness({

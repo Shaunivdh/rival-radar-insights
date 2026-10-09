@@ -291,6 +291,8 @@ export type PriorityActionOptions = {
   location?: string | null;
   /** Template ids already live on the plan, so the next best fresh gaps are chosen instead. */
   excludeTemplateIds?: readonly string[];
+  /** An AI insight is still open on the plan: skip the LLM rather than add another. */
+  skipInsight?: boolean;
 };
 
 /**
@@ -318,8 +320,10 @@ export async function generatePriorityActions(
   });
   const templatesUsed = templateActions.length;
 
-  if (templatesUsed >= AI_FILL_THRESHOLD) {
-    logger.info('priority', `${templatesUsed} fresh templates fired, skipping LLM`);
+  if (templatesUsed >= AI_FILL_THRESHOLD || opts.skipInsight) {
+    logger.info('priority', `${templatesUsed} fresh templates fired, skipping LLM`, {
+      insightOpen: !!opts.skipInsight,
+    });
     logAIEvent({
       event: 'generation',
       model: AI_MODEL_INSIGHT,
@@ -441,8 +445,10 @@ export async function generatePriorityActionsWithHistory(
   });
   const templatesUsed = templateActions.length;
 
-  if (templatesUsed >= AI_FILL_THRESHOLD) {
-    logger.info('priority', `${templatesUsed} fresh templates fired, skipping LLM (with-history)`);
+  if (templatesUsed >= AI_FILL_THRESHOLD || opts.skipInsight) {
+    logger.info('priority', `${templatesUsed} fresh templates fired, skipping LLM (with-history)`, {
+      insightOpen: !!opts.skipInsight,
+    });
     // Acknowledge up to 3 closed items from last week in the first template's whyItMatters
     if (closedFromLastWeek.length > 0) {
       const wins = closedFromLastWeek

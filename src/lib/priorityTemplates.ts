@@ -59,6 +59,16 @@ export type PriorityTemplate = {
    */
   dataRefreshedAt?: (b: Business) => string | null;
   /**
+   * For templates that skip site signals: false when the data the trigger reads is
+   * missing. Such templates are not evaluated, so absent data never reads as a fix.
+   */
+  hasData?: (b: Business) => boolean;
+  /**
+   * True when the scan cannot see the owner's fix (e.g. Google's own summary, not the
+   * owner's description). Scan verification never checks such templates.
+   */
+  notScanVerifiable?: boolean;
+  /**
    * Deterministic competitor comparison for `competitorReference`. Returns null
    * unless a named competitor is strictly better on this exact gap. Never phrase
    * our side as "0", "no" or "none": the validator flags those as contradictions.
@@ -207,8 +217,8 @@ export const PRIORITY_TEMPLATES: PriorityTemplate[] = [
       const ninetyDaysAgo = Date.now() - 90 * DAY_MS;
       if (b.googleData?.recentReviews?.some((r) => r.time > ninetyDaysAgo)) return false;
       const g = b.reviewGrowth;
-      // Unchanged, not merely "no growth": a falling count may hide new reviews.
-      return g != null && g.days >= QUIET_REVIEW_MIN_DAYS && g.latestCount === g.baselineCount;
+      // Unchanged at every fetch, not merely "no growth": a count that moved may hide new reviews.
+      return g != null && g.days >= QUIET_REVIEW_MIN_DAYS && g.unchanged;
     },
     category: 'Reviews',
     effort: 'medium',
@@ -318,6 +328,7 @@ export const PRIORITY_TEMPLATES: PriorityTemplate[] = [
     outcome: 'Better visibility in local search results',
     requiresSiteSignals: false,
     requiresGoogleData: true,
+    notScanVerifiable: true,
   },
   {
     id: 'no_website_meta_description',
@@ -606,6 +617,7 @@ export const PRIORITY_TEMPLATES: PriorityTemplate[] = [
           'appear in the Google map results for your area',
         ],
       ),
+    hasData: (b) => b.serpData?.localPackPresent != null,
     trigger: (b) => b.serpData?.localPackPresent === false,
     category: 'Local SEO',
     effort: 'high',
@@ -667,6 +679,7 @@ export const PRIORITY_TEMPLATES: PriorityTemplate[] = [
       if (!s || s.value < 50) return null;
       return `${s.name} scores ${s.value} out of 100 for mobile speed; you score ${s.ownValue}.`;
     },
+    hasData: (b) => b.pagespeedData?.mobile?.performanceScore != null,
     trigger: (b) => {
       const score = b.pagespeedData?.mobile?.performanceScore;
       return score != null && score < 50;
@@ -699,6 +712,7 @@ export const PRIORITY_TEMPLATES: PriorityTemplate[] = [
       if (!s) return null;
       return `${s.name} scores ${s.value} out of 100 for AI visibility; you score ${s.ownValue}.`;
     },
+    hasData: (b) => b.aiVisibility?.aiPresenceScore != null,
     trigger: (b) => {
       const score = b.aiVisibility?.aiPresenceScore;
       return score != null && score < 30;
@@ -1060,7 +1074,8 @@ function evaluateTemplates(
 } {
   // When on-site extraction failed, signal-dependent triggers are unreliable
   // (empty arrays look the same as "missing" vs "truly absent"), so skip them.
-  const extractFailed = Boolean(b.enrichmentErrors?.extract);
+  // No signals at all (unusable page) is treated the same way.
+  const extractFailed = Boolean(b.enrichmentErrors?.extract) || !b.signals;
   const googleMissing = !b.googleData || Boolean(b.enrichmentErrors?.google);
   const evaluatedIds = new Set<string>();
   const fired: { tpl: PriorityTemplate; score: number }[] = [];
@@ -1068,6 +1083,7 @@ function evaluateTemplates(
   for (const tpl of PRIORITY_TEMPLATES) {
     if (extractFailed && tpl.requiresSiteSignals !== false) continue;
     if (googleMissing && tpl.requiresGoogleData) continue;
+    if (tpl.hasData && !tpl.hasData(b)) continue;
     evaluatedIds.add(tpl.id);
     if (tpl.trigger(b, ctx)) fired.push({ tpl, score: rankScore(tpl, b) });
   }
@@ -1215,6 +1231,7 @@ export function checkTemplates(
   const { ranked, evaluatedIds } = evaluateTemplates(b, ctx);
   const refreshedAt = new Map<string, string | null>();
   for (const tpl of PRIORITY_TEMPLATES) {
+    if (tpl.notScanVerifiable) evaluatedIds.delete(tpl.id);
     if (opts.competitorsStale && tpl.readsCompetitors) evaluatedIds.delete(tpl.id);
     if (opts.siteSignalsUnconfirmed && tpl.requiresSiteSignals !== false)
       evaluatedIds.delete(tpl.id);

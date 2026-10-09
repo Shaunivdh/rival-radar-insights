@@ -35,6 +35,7 @@ export type ActionGenerationReason =
   | 'AI temporarily unavailable'
   | 'generation returned 0 actions'
   | 'all generated actions already exist'
+  | 'nothing new, AI insight still open'
   | `${typeof INSERT_FAILED_PREFIX}: ${string}`;
 
 export type ActionGenerationResult = {
@@ -175,9 +176,15 @@ export async function generateAndPersistProjectActions(
   const existingTemplateIds = new Set(
     liveExisting.map((e) => e.template_id).filter((id): id is string => id != null),
   );
+  // AI insights have no template id. One still open means no new one: its wording
+  // changes every run, so text dedup would let a fresh copy in each week.
+  const insightOpen = liveExisting.some(
+    (e) => e.template_id == null && ['active', 'snoozed', 'queued'].includes(e.status as string),
+  );
   const genOpts = {
     location,
     excludeTemplateIds: [...existingTemplateIds],
+    skipInsight: insightOpen,
   };
 
   let rawActions: PriorityAction[];
@@ -208,7 +215,12 @@ export async function generateAndPersistProjectActions(
   }
 
   if (!rawActions.length)
-    return { inserted: 0, reason: 'generation returned 0 actions', ownBusinessId: ownBusiness.id };
+    return {
+      inserted: 0,
+      // Nothing new is expected when every gap is live and the insight is still open.
+      reason: insightOpen ? 'nothing new, AI insight still open' : 'generation returned 0 actions',
+      ownBusinessId: ownBusiness.id,
+    };
 
   const newActions = rawActions.filter(
     (a) => !existingSet.has(a.action) && !(a.templateId && existingTemplateIds.has(a.templateId)),

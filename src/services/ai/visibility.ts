@@ -403,6 +403,12 @@ export async function checkAIVisibility(
     cacheHits,
   });
 
+  // Every query failing is an outage, not a score of 0. Throwing keeps the previous
+  // result and its tested_at, so the next scan retries instead of waiting 14 days.
+  if (allFailed && total > 0) {
+    throw new Error(`AI visibility: all ${total} queries failed`);
+  }
+
   return {
     aiPresenceScore,
     rawPresenceScore,

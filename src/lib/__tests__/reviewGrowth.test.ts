@@ -19,6 +19,7 @@ describe('reviewGrowth', () => {
       baselineCount: 146,
       latestCount: 150,
       since: daysAgo(20),
+      unchanged: false,
     });
   });
 
@@ -30,6 +31,11 @@ describe('reviewGrowth', () => {
 
   it('never reports negative growth when Google removes reviews', () => {
     expect(reviewGrowth([row(70, 100), row(0, 97)], NOW)?.gained).toBe(0);
+  });
+
+  it('is unchanged only when every fetch in between has the same count', () => {
+    expect(reviewGrowth([row(70, 96), row(30, 96), row(0, 96)], NOW)?.unchanged).toBe(true);
+    expect(reviewGrowth([row(70, 96), row(30, 98), row(0, 96)], NOW)?.unchanged).toBe(false);
   });
 
   it('accepts rows in any order', () => {

@@ -53,4 +53,13 @@ describe('AI visibility schedule', () => {
     expect((await run(testedDaysAgo(15))).searched).toBe(true);
     expect((await run(testedDaysAgo(12))).searched).toBe(false);
   });
+
+  it('throws rather than saving a 0 when every query fails, so the next scan retries', async () => {
+    const getResponse = vi.fn(async () => {
+      throw new Error('overloaded');
+    });
+    await expect(
+      checkAIVisibility('trades', 'Bristol', 'Acme Plumbing', null, 'trades', getResponse),
+    ).rejects.toThrow('all');
+  });
 });

@@ -28,7 +28,7 @@ export default function UnlockPage() {
         onSubmit={handleSubmit}
         className="bg-white p-8 rounded-xl shadow-md w-full max-w-sm space-y-4"
       >
-        <h1 className="text-xl font-semibold text-gray-900">RivalRadar</h1>
+        <h1 className="text-xl font-semibold text-gray-900">Scoutly</h1>
         <p className="text-sm text-gray-500">Enter the site password to continue.</p>
         <input
           type="password"

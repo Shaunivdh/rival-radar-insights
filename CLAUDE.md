@@ -1,6 +1,6 @@
-# CLAUDE.md — RivalRadar
+# CLAUDE.md — Scoutly
 
-You are assisting with a Next.js + TypeScript SaaS called **RivalRadar**.
+You are assisting with a Next.js + TypeScript SaaS called **Scoutly**.
 
 Your priority is **correctness, minimal token usage, and small safe diffs**.
 
@@ -166,9 +166,9 @@ Constraints when applying these skills — they OVERRIDE any skill output:
 
 ---
 
-## 8. RivalRadar Context
+## 8. Scoutly Context
 
-RivalRadar is a local competitor intelligence SaaS.
+Scoutly is a local competitor intelligence SaaS.
 
 Each project includes:
 

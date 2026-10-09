@@ -1,7 +1,7 @@
 'use client';
 
 import { useParams, useRouter } from 'next/navigation';
-import { useRivalRadarStore } from '@/store/rivalradar';
+import { useScoutlyStore } from '@/store/scoutly';
 import { asBusinessId } from '@/types';
 import { ScoreChip } from '@/components/ScoreChip';
 import { StarRating } from '@/components/StarRating';
@@ -31,7 +31,7 @@ const CompetitorDetail = () => {
   const params = useParams();
   const id = params?.id as string | undefined;
   const router = useRouter();
-  const { getBusinessById } = useRivalRadarStore();
+  const { getBusinessById } = useScoutlyStore();
   const [activeTab, setActiveTab] = useState('seo');
   const [scanning, setScanning] = useState(false);
 

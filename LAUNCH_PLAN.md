@@ -10,14 +10,14 @@
 | Area                  | Status                  | Detail                                                                                                                            |
 | --------------------- | ----------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
 | Domain                | `scoutly.io` configured | In layout.tsx, robots.ts, sitemap.ts. Not pointed at a host yet                                                                   |
-| Branding              | Nearly done             | 3 user-visible "RivalRadar" strings left (see 2e). Internal names unchanged                                                       |
+| Branding              | Done                    | Renamed to Scoutly everywhere except the Inngest app id (see 2e)                                                                  |
 | Auth                  | Working                 | Supabase email/password, protected routes                                                                                         |
 | Onboarding            | Working                 | Signup → add business → add competitors → auto-scan                                                                               |
 | Crawling              | Working                 | Cloudflare + Inngest queue, fallback to direct fetch                                                                              |
 | Scoring               | Working                 | 6 categories, overall score, trends                                                                                               |
 | AI Actions            | Working                 | 27 rule templates + LLM fallback + validation layer. Accuracy plan phases 1 to 5 implemented, verification still open             |
 | Competitor comparison | Working                 | Side-by-side scores, strengths/weaknesses                                                                                         |
-| GBP monitoring        | Removed                 | OAuth flow, reviews and location deleted. GBP completeness still scored via Places API                                                                                                |
+| GBP monitoring        | Removed                 | OAuth flow, reviews and location deleted. GBP completeness still scored via Places API                                            |
 | AI mention tracking   | Working                 | Multi-prompt presence scoring                                                                                                     |
 | Tests                 | Working                 | vitest + msw contracts, @inngest/test, Playwright e2e                                                                             |
 | Landing page          | **Built**               | `/` renders `src/views/LandingPage.tsx`. Plus `/contact`, `/what-we-track`                                                        |
@@ -146,16 +146,16 @@ Manifesto, Footer, DashboardPreview.
 - [ ] Add unsubscribe link (legal requirement)
 - [ ] Send a test email to yourself and verify it renders correctly
 
-### 2e. Branding Cleanup (Day 9) — NEARLY DONE
+### 2e. Branding Cleanup (Day 9) — DONE
 
-89 `RivalRadar` references remain, but only three are user-visible.
+All old-brand references renamed to Scoutly, except the Inngest app id.
 
 - [x] Public copy, layout, robots and sitemap say Scoutly
-- [ ] `src/app/unlock/page.tsx:31` — h1 still reads "RivalRadar"
-- [ ] `src/emails/WeeklyDigest.tsx:130` and `:203` — header title and footer
-- [ ] Inngest app id is `rival-radar` in `src/inngest/client.ts` (renaming it changes the Inngest app identity, so do it before production traffic or not at all)
-- [ ] Optional, internal only: `useRivalRadarStore` / `@/store/rivalradar`, the `rival-radar-site-unlock` HMAC salt (changing the salt invalidates existing unlock cookies)
-- [ ] Verify no "RivalRadar" appears anywhere in the UI
+- [x] Unlock page h1, WeeklyDigest header and footer
+- [x] Store is `useScoutlyStore` / `@/store/scoutly`; unlock HMAC salt is `scoutly-site-unlock`
+- [x] Crawler User-Agent points at `https://scoutly.io/bot`
+- [ ] Inngest app id stays `rival-radar` in `src/inngest/client.ts` (renaming changes the Inngest app identity; kept on purpose)
+- [ ] Buy `scoutly.io` and serve a `/bot` page for the crawler User-Agent
 
 ### 2f. Trust & Polish (Day 10) — MOSTLY DONE
 

@@ -19,50 +19,50 @@ vi.mock('@/lib/supabase/client', () => ({
 }));
 vi.mock('@/actions/projects', () => ({ getProject: vi.fn(), fetchPriorityActions: vi.fn() }));
 
-import { useRivalRadarStore } from '@/store/rivalradar';
+import { useScoutlyStore } from '@/store/scoutly';
 
-const initial = useRivalRadarStore.getState();
+const initial = useScoutlyStore.getState();
 
 beforeEach(() => {
-  useRivalRadarStore.setState(initial, true);
+  useScoutlyStore.setState(initial, true);
   vi.clearAllMocks();
   (globalThis as { document?: unknown }).document = { cookie: '' };
 });
 
 describe('project state', () => {
   it('setProject stores the project and leaves demo mode', () => {
-    useRivalRadarStore.setState({ isDemoMode: true });
-    useRivalRadarStore.getState().setProject(buildProject());
-    expect(useRivalRadarStore.getState().project?.id).toBe('proj_1');
-    expect(useRivalRadarStore.getState().isDemoMode).toBe(false);
+    useScoutlyStore.setState({ isDemoMode: true });
+    useScoutlyStore.getState().setProject(buildProject());
+    expect(useScoutlyStore.getState().project?.id).toBe('proj_1');
+    expect(useScoutlyStore.getState().isDemoMode).toBe(false);
   });
 
   it('getBusinessById finds own business and competitors', () => {
-    useRivalRadarStore.getState().setProject(buildProject());
-    const s = useRivalRadarStore.getState();
+    useScoutlyStore.getState().setProject(buildProject());
+    const s = useScoutlyStore.getState();
     expect(s.getBusinessById(asBusinessId('biz_own'))?.name).toBe('Acme Plumbing');
     expect(s.getBusinessById(asBusinessId('biz_c1'))?.name).toBe('Bristol Plumbing Co');
     expect(s.getBusinessById(asBusinessId('nope'))).toBeUndefined();
   });
 
   it('addCompetitorToStore appends and is a no-op without a project', () => {
-    useRivalRadarStore.getState().addCompetitorToStore(buildBusiness({ id: asBusinessId('x') }));
-    expect(useRivalRadarStore.getState().project).toBeNull();
-    useRivalRadarStore.getState().setProject(buildProject());
-    useRivalRadarStore
+    useScoutlyStore.getState().addCompetitorToStore(buildBusiness({ id: asBusinessId('x') }));
+    expect(useScoutlyStore.getState().project).toBeNull();
+    useScoutlyStore.getState().setProject(buildProject());
+    useScoutlyStore
       .getState()
       .addCompetitorToStore(buildBusiness({ id: asBusinessId('biz_c2'), name: 'New' }));
-    expect(useRivalRadarStore.getState().project?.competitors.map((c) => c.id)).toEqual([
+    expect(useScoutlyStore.getState().project?.competitors.map((c) => c.id)).toEqual([
       'biz_c1',
       'biz_c2',
     ]);
   });
 
   it('deleteProject clears project state and the demo cookie', () => {
-    useRivalRadarStore.getState().setProject(buildProject());
-    useRivalRadarStore.setState({ demoBannerDismissed: true });
-    useRivalRadarStore.getState().deleteProject();
-    const s = useRivalRadarStore.getState();
+    useScoutlyStore.getState().setProject(buildProject());
+    useScoutlyStore.setState({ demoBannerDismissed: true });
+    useScoutlyStore.getState().deleteProject();
+    const s = useScoutlyStore.getState();
     expect(s.project).toBeNull();
     expect(s.priorityActions).toEqual([]);
     expect(s.demoBannerDismissed).toBe(false);
@@ -72,12 +72,12 @@ describe('project state', () => {
 
 describe('syncBusinesses', () => {
   it('patches matching businesses and preserves fields when an update omits them', () => {
-    useRivalRadarStore.getState().setProject(buildProject());
-    const before = useRivalRadarStore.getState().project!;
-    useRivalRadarStore
+    useScoutlyStore.getState().setProject(buildProject());
+    const before = useScoutlyStore.getState().project!;
+    useScoutlyStore
       .getState()
       .syncBusinesses([{ id: 'biz_c1', crawlStatus: 'running', signals: null, aiScore: null }]);
-    const after = useRivalRadarStore.getState().project!;
+    const after = useScoutlyStore.getState().project!;
     expect(after.ownBusiness).toBe(before.ownBusiness);
     expect(after.competitors[0].crawlStatus).toBe('running');
     expect(after.competitors[0].signals).toBe(before.competitors[0].signals);
@@ -85,25 +85,25 @@ describe('syncBusinesses', () => {
   });
 
   it('applies explicit null googleData and is a no-op without a project', () => {
-    useRivalRadarStore
+    useScoutlyStore
       .getState()
       .syncBusinesses([{ id: 'biz_own', crawlStatus: 'failed', signals: null, aiScore: null }]);
-    expect(useRivalRadarStore.getState().project).toBeNull();
-    useRivalRadarStore.getState().setProject(buildProject());
-    useRivalRadarStore
+    expect(useScoutlyStore.getState().project).toBeNull();
+    useScoutlyStore.getState().setProject(buildProject());
+    useScoutlyStore
       .getState()
       .syncBusinesses([
         { id: 'biz_own', crawlStatus: 'failed', signals: null, aiScore: null, googleData: null },
       ]);
-    expect(useRivalRadarStore.getState().project?.ownBusiness.googleData).toBeNull();
+    expect(useScoutlyStore.getState().project?.ownBusiness.googleData).toBeNull();
   });
 });
 
 describe('setSettings', () => {
   it('merges settings and persists to app_settings when logged in', async () => {
-    useRivalRadarStore.getState().setUser({ id: 'u1', email: 'a@b.c' });
-    useRivalRadarStore.getState().setSettings({ location: 'Bristol', postcode: 'BS1 1AA' });
-    expect(useRivalRadarStore.getState().settings).toMatchObject({
+    useScoutlyStore.getState().setUser({ id: 'u1', email: 'a@b.c' });
+    useScoutlyStore.getState().setSettings({ location: 'Bristol', postcode: 'BS1 1AA' });
+    expect(useScoutlyStore.getState().settings).toMatchObject({
       primaryService: 'accounting',
       location: 'Bristol',
     });
@@ -120,7 +120,7 @@ describe('setSettings', () => {
   });
 
   it('does not persist when logged out', () => {
-    useRivalRadarStore.getState().setSettings({ location: 'Bath' });
+    useScoutlyStore.getState().setSettings({ location: 'Bath' });
     expect(from).not.toHaveBeenCalled();
   });
 });

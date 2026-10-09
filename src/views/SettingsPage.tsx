@@ -23,7 +23,7 @@ import {
   AlertTriangle,
   RefreshCw,
 } from 'lucide-react';
-import { useRivalRadarStore } from '@/store/rivalradar';
+import { useScoutlyStore } from '@/store/scoutly';
 import { isValidUKPostcode } from '@/lib/utils';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
@@ -34,7 +34,7 @@ import type { AppSettings } from '@/types';
 type FieldErrors = Partial<Record<'primaryService' | 'location' | 'postcode', string>>;
 
 const SettingsPage = () => {
-  const { settings, setSettings, deleteProject, project, user } = useRivalRadarStore();
+  const { settings, setSettings, deleteProject, project, user } = useScoutlyStore();
   const router = useRouter();
   // Prefer the project row — it's what the crawl worker reads. Fall back to
   // app_settings only when no project exists yet (first-time setup defaults).
@@ -91,7 +91,7 @@ const SettingsPage = () => {
           location: form.location ?? '',
           postcode,
         });
-        useRivalRadarStore.setState((state) => ({
+        useScoutlyStore.setState((state) => ({
           settings: { ...state.settings, ...form },
           project: state.project
             ? {

@@ -1,6 +1,6 @@
 'use client';
 
-import { useRivalRadarStore } from '@/store/rivalradar';
+import { useScoutlyStore } from '@/store/scoutly';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
@@ -189,7 +189,7 @@ const CoreWebVitalCard = ({
 };
 
 const MyBusiness = () => {
-  const project = useRivalRadarStore((s) => s.project);
+  const project = useScoutlyStore((s) => s.project);
   const biz = project?.ownBusiness;
 
   if (!biz) return <div className="p-8 text-center text-muted-foreground">No business found.</div>;

@@ -9,12 +9,12 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Mail, Send, CheckCircle2, MessageCircle, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { useRivalRadarStore } from '@/store/rivalradar';
+import { useScoutlyStore } from '@/store/scoutly';
 import { sendContactMessage } from '@/actions/contact';
 
 const ContactPage = () => {
   const { toast } = useToast();
-  const { user } = useRivalRadarStore();
+  const { user } = useScoutlyStore();
   const [sent, setSent] = useState(false);
   const [sending, setSending] = useState(false);
   const [emailInput, setEmailInput] = useState<string | null>(null);

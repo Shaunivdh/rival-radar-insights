@@ -32,7 +32,7 @@ import {
 } from '@/components/ui/select';
 import { Logo } from '@/components/Logo';
 import { toast } from '@/hooks/use-toast';
-import { useRivalRadarStore } from '@/store/rivalradar';
+import { useScoutlyStore } from '@/store/scoutly';
 import { createProject, triggerInitialScans } from '@/actions/projects';
 import { SERVICE_CATEGORY_OPTIONS, type ServiceCategory } from '@/lib/serviceCategories';
 import { normalizeUrl, extractDomain, isValidUrl } from '@/lib/url';
@@ -75,7 +75,7 @@ const initialData: FormData = {
 
 const SignUpPage = () => {
   const router = useRouter();
-  const { signup, setSettings, setProject } = useRivalRadarStore();
+  const { signup, setSettings, setProject } = useScoutlyStore();
 
   const [step, setStep] = useState(1);
   const [data, setData] = useState<FormData>(initialData);
@@ -411,8 +411,7 @@ const SignUpPage = () => {
                           </p>
                         </div>
                         <p className="text-xs text-muted-foreground mb-3 leading-relaxed">
-                          RivalRadar works best where there are real local rivals to benchmark
-                          against.
+                          Scoutly works best where there are real local rivals to benchmark against.
                         </p>
                         <div className="flex flex-wrap gap-2">
                           {SUGGESTED_CITIES.map((s) => {
@@ -439,7 +438,7 @@ const SignUpPage = () => {
                       <div className="flex items-start gap-2 pt-2 text-xs text-muted-foreground border-t border-border/60">
                         <Info className="w-3.5 h-3.5 mt-0.5 shrink-0" />
                         <p>
-                          RivalRadar is purpose-built for{' '}
+                          Scoutly is purpose-built for{' '}
                           <strong className="text-foreground">UK local SEO</strong>. Pick the single
                           town or city you most want to win in.
                         </p>

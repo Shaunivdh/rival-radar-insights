@@ -24,8 +24,8 @@ if (!url || !serviceRoleKey) {
   process.exit(1);
 }
 
-const email = process.argv[2] ?? 'dev@rivalradar.test';
-const password = process.argv[3] ?? 'RivalRadarDev1!';
+const email = process.argv[2] ?? 'dev@scoutly.test';
+const password = process.argv[3] ?? 'ScoutlyDev1!';
 
 const admin = createClient(url, serviceRoleKey, {
   auth: { autoRefreshToken: false, persistSession: false },

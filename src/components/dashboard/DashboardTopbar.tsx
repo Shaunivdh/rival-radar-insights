@@ -2,10 +2,10 @@
 
 import { Bell } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { useRivalRadarStore } from '@/store/rivalradar';
+import { useScoutlyStore } from '@/store/scoutly';
 
 const DashboardTopbar = () => {
-  const { user, project, settings } = useRivalRadarStore();
+  const { user, project, settings } = useScoutlyStore();
 
   const businessName = project?.ownBusiness?.name ?? 'My Business';
   const initials = businessName

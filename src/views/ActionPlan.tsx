@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useRivalRadarStore } from '@/store/rivalradar';
+import { useScoutlyStore } from '@/store/scoutly';
 import { fetchPlanHistory, fetchPriorityActions, updateActionStatus } from '@/actions/projects';
 import type { OwnScanState } from '@/actions/projects';
 import { CRAWL_INTERVAL_MS, DAY_MS } from '@/lib/crawl/config';
@@ -592,7 +592,7 @@ const EmptyState = ({ aiError }: { aiError?: string }) => (
 );
 
 const ActionPlan = () => {
-  const { priorityActions, project, setPriorityActions } = useRivalRadarStore();
+  const { priorityActions, project, setPriorityActions } = useScoutlyStore();
   // Local state only for optimistic updates + verification tracking (not persisted)
   const [statuses, setStatuses] = useState<Record<string, ActionStatus>>({});
 

@@ -14,7 +14,7 @@ import {
 } from 'lucide-react';
 import { Logo } from '@/components/Logo';
 import { cn } from '@/lib/utils';
-import { useRivalRadarStore } from '@/store/rivalradar';
+import { useScoutlyStore } from '@/store/scoutly';
 import {
   Sidebar,
   SidebarContent,
@@ -43,7 +43,7 @@ const workspaceNavItems = [
 
 const DashboardSidebar = () => {
   const pathname = usePathname();
-  const { priorityActions } = useRivalRadarStore();
+  const { priorityActions } = useScoutlyStore();
 
   return (
     <Sidebar>

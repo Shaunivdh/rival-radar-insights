@@ -1,6 +1,6 @@
 'use client';
 
-import { useRivalRadarStore } from '@/store/rivalradar';
+import { useScoutlyStore } from '@/store/scoutly';
 import { GreetingIcon, type DayPart } from '@/components/GreetingIcon';
 
 function getDayPart(): DayPart {
@@ -17,7 +17,7 @@ const GREETING: Record<DayPart, string> = {
 };
 
 export function DashboardGreeting() {
-  const { user, project } = useRivalRadarStore();
+  const { user, project } = useScoutlyStore();
 
   const dayPart = getDayPart();
 

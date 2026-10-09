@@ -15,7 +15,7 @@ import { execFileSync } from 'child_process';
 import { randomBytes } from 'crypto';
 import { createClient, type User } from '@supabase/supabase-js';
 
-export const E2E_EMAIL = 'e2e@rivalradar.test';
+export const E2E_EMAIL = 'e2e@scoutly.test';
 const E2E_PASSWORD = `E2e-${randomBytes(9).toString('base64url')}`;
 const STORAGE_STATE = 'e2e/.auth/user.json';
 

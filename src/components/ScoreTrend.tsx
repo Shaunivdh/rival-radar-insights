@@ -2,10 +2,10 @@
 
 import { motion } from 'framer-motion';
 import { Sparkles, CalendarClock } from 'lucide-react';
-import { useRivalRadarStore } from '@/store/rivalradar';
+import { useScoutlyStore } from '@/store/scoutly';
 
 export function ScoreTrend() {
-  const { project } = useRivalRadarStore();
+  const { project } = useScoutlyStore();
   if (!project) return null;
 
   const ownScore = project.ownBusiness.aiScore?.overallScore;

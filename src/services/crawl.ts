@@ -323,7 +323,7 @@ export async function fetchPageDirect(url: string): Promise<string | null> {
   try {
     const res = await fetch(url, {
       headers: {
-        'User-Agent': 'Mozilla/5.0 (compatible; RivalRadar/1.0)',
+        'User-Agent': 'Mozilla/5.0 (compatible; Scoutly/1.0)',
         Accept: 'text/html',
       },
       redirect: 'follow',

@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, Suspense } from 'react';
-import { useRivalRadarStore } from '@/store/rivalradar';
+import { useScoutlyStore } from '@/store/scoutly';
 import { syncProject } from '@/actions/projects';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { DemoBanner } from '@/components/DemoBanner';
@@ -40,7 +40,7 @@ const STATUS_ICON: Record<string, React.ReactNode> = {
 
 const Dashboard = () => {
   const { project, isDemoMode, syncBusinesses, setPriorityActions, addCompetitorToStore } =
-    useRivalRadarStore();
+    useScoutlyStore();
   const router = useRouter();
   const searchParams = useSearchParams();
   const isSetupFlow = searchParams.get('setup') === '1';

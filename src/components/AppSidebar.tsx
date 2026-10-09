@@ -14,7 +14,7 @@ import {
 } from 'lucide-react';
 import { Logo } from '@/components/Logo';
 import { cn } from '@/lib/utils';
-import { useRivalRadarStore } from '@/store/rivalradar';
+import { useScoutlyStore } from '@/store/scoutly';
 
 const mainNavItems = [
   { label: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
@@ -32,7 +32,7 @@ const workspaceNavItems = [
 export const AppSidebar = () => {
   const router = useRouter();
   const pathname = usePathname();
-  const { user, priorityActions, logout } = useRivalRadarStore();
+  const { user, priorityActions, logout } = useScoutlyStore();
 
   const handleLogout = async () => {
     await logout();

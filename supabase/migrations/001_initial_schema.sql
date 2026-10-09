@@ -1,5 +1,5 @@
 -- ============================================================
--- RivalRadar Initial Schema Migration
+-- Scoutly Initial Schema Migration
 -- ============================================================
 
 create extension if not exists "uuid-ossp";

@@ -127,7 +127,7 @@ export default function WeeklyDigest({
       <Body style={styles.body}>
         <Section style={styles.header}>
           <Container style={styles.headerContainer}>
-            <Heading style={styles.headerTitle}>RivalRadar</Heading>
+            <Heading style={styles.headerTitle}>Scoutly</Heading>
             <Text style={styles.headerSubtitle}>Your weekly competitor radar</Text>
           </Container>
         </Section>
@@ -200,7 +200,7 @@ export default function WeeklyDigest({
           <Hr style={styles.hr} />
           <Section style={styles.footer}>
             <Text style={styles.footerText}>
-              RivalRadar · You're receiving this because you signed up for weekly reports.
+              Scoutly · You're receiving this because you signed up for weekly reports.
               <br />
               <a href="#" style={styles.footerLink}>
                 Unsubscribe

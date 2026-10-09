@@ -1,11 +1,11 @@
 'use client';
 
 import { X } from 'lucide-react';
-import { useRivalRadarStore } from '@/store/rivalradar';
+import { useScoutlyStore } from '@/store/scoutly';
 import { useRouter } from 'next/navigation';
 
 export const DemoBanner = () => {
-  const { isDemoMode, demoBannerDismissed, dismissDemoBanner } = useRivalRadarStore();
+  const { isDemoMode, demoBannerDismissed, dismissDemoBanner } = useScoutlyStore();
   const router = useRouter();
 
   if (!isDemoMode || demoBannerDismissed) return null;

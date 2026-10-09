@@ -7,7 +7,7 @@ import {
   resolveTemplateContext,
   type TemplateContext,
 } from '@/lib/templateContext';
-import { DAY_MS } from '@/lib/reviewGrowth';
+import { DAY_MS } from '@/lib/crawl/config';
 
 type ScoreKey = keyof Pick<
   AIHealthScore,

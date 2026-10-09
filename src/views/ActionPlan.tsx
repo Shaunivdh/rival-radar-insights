@@ -4,8 +4,8 @@ import { useState, useMemo, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useRivalRadarStore } from '@/store/rivalradar';
 import { fetchPlanHistory, fetchPriorityActions, updateActionStatus } from '@/actions/projects';
-import { CRAWL_INTERVAL_MS } from '@/lib/crawl/config';
-import { DAY_MS } from '@/lib/reviewGrowth';
+import type { OwnScanState } from '@/actions/projects';
+import { CRAWL_INTERVAL_MS, DAY_MS } from '@/lib/crawl/config';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -175,16 +175,26 @@ const formatDaysAgo = (iso?: string) => {
   return `${days} days ago`;
 };
 
-/** "Last scan 3 days ago · next in about 4 days". The daily cron re-queues a scan once it is due. */
-const scanTimingLabel = (lastScanAt: number) => {
-  const daysToNext = Math.ceil((lastScanAt + CRAWL_INTERVAL_MS - Date.now()) / DAY_MS);
+/**
+ * Scan badge text, from the own business's scan state. "Last scan" is the latest scan
+ * that produced data, so a failed attempt never poses as fresh data. The next scan is
+ * due a crawl interval after the latest attempt (the daily cron re-queues it).
+ */
+const scanTimingLabel = (scan: OwnScanState | null): string => {
+  if (!scan?.lastSuccessAt) return 'Re-checked each scan';
+  const lastFull = formatDaysAgo(scan.lastSuccessAt);
+  if (scan.status === 'pending' || scan.status === 'running')
+    return `Scanning now · last full scan ${lastFull}`;
+  if (scan.status === 'failed') return `Latest scan didn't complete · last full scan ${lastFull}`;
+  const from = new Date(scan.lastAttemptAt ?? scan.lastSuccessAt).getTime();
+  const daysToNext = Math.ceil((from + CRAWL_INTERVAL_MS - Date.now()) / DAY_MS);
   const next =
     daysToNext > 1
       ? `next in about ${daysToNext} days`
       : daysToNext === 1
         ? 'next scan tomorrow'
         : 'next scan due today';
-  return `Last scan ${formatDaysAgo(new Date(lastScanAt).toISOString())} · ${next}`;
+  return `Last scan ${lastFull} · ${next}`;
 };
 
 const VerificationBadge = ({ state }: { state: VerificationState }) => {
@@ -219,12 +229,39 @@ const VerificationBadge = ({ state }: { state: VerificationState }) => {
   );
 };
 
-// Look of the "done" panel per verification state.
-const DONE_PANEL: Record<VerificationState, { className: string; icon: React.ElementType }> = {
-  verified: { className: 'bg-success/10 text-success-strong', icon: CheckCircle2 },
-  not_verified: { className: 'bg-warning/10 text-warning-strong', icon: AlertTriangle },
-  pending: { className: 'bg-muted/50 text-muted-foreground', icon: Hourglass },
-  unchecked: { className: 'bg-muted/50 text-muted-foreground', icon: CheckCircle2 },
+// The "done" panel per verification state: look and message. `when` reads "3 days ago".
+const DONE_PANEL: Record<
+  VerificationState,
+  {
+    className: string;
+    icon: React.ElementType;
+    message: (when: string, autoResolved: boolean) => string;
+  }
+> = {
+  verified: {
+    className: 'bg-success/10 text-success-strong',
+    icon: CheckCircle2,
+    message: (when, autoResolved) =>
+      autoResolved
+        ? "We spotted you'd sorted this: your last two scans both confirm it. Nice work."
+        : `Our latest scan confirms this is sorted. Marked done ${when}.`,
+  },
+  not_verified: {
+    className: 'bg-warning/10 text-warning-strong',
+    icon: AlertTriangle,
+    message: (when) =>
+      `You marked this done ${when}, but our last scan hasn't picked up a change yet. Worth a quick double-check.`,
+  },
+  pending: {
+    className: 'bg-muted/50 text-muted-foreground',
+    icon: Hourglass,
+    message: (when) => `Marked done ${when}. We'll re-check on the next scan.`,
+  },
+  unchecked: {
+    className: 'bg-muted/50 text-muted-foreground',
+    icon: CheckCircle2,
+    message: (when) => `Marked done ${when}. Nice one.`,
+  },
 };
 
 const RecommendationCard = ({
@@ -387,15 +424,7 @@ const RecommendationCard = ({
                   >
                     <DoneIcon className="w-4 h-4 shrink-0 mt-0.5" />
                     <p className="leading-relaxed">
-                      {verification === 'verified' &&
-                        (rec.autoResolved
-                          ? "We spotted you'd sorted this: your last two scans both confirm it. Nice work."
-                          : `Our latest scan confirms this is sorted. Marked done ${doneWhen}.`)}
-                      {verification === 'not_verified' &&
-                        `You marked this done ${doneWhen}, but our last scan hasn't picked up a change yet. Worth a quick double-check.`}
-                      {verification === 'pending' &&
-                        `Marked done ${doneWhen}. We'll re-check on the next weekly scan.`}
-                      {verification === 'unchecked' && `Marked done ${doneWhen}. Nice one.`}
+                      {DONE_PANEL[verification].message(doneWhen, rec.autoResolved)}
                     </p>
                   </div>
                 )}
@@ -571,6 +600,7 @@ const ActionPlan = () => {
   // the sidebar badge and dashboard panel still count live actions only.
   const [completedActions, setCompletedActions] = useState<PriorityAction[]>([]);
   const [queuedCount, setQueuedCount] = useState(0);
+  const [scan, setScan] = useState<OwnScanState | null>(null);
   const projectId = project?.id;
 
   const reload = useCallback(() => {
@@ -580,6 +610,7 @@ const ActionPlan = () => {
         setPriorityActions(live);
         setCompletedActions(history.completed);
         setQueuedCount(history.queuedCount);
+        setScan(history.scan);
       })
       .catch((err) => {
         console.error('[ActionPlan] Failed to fetch priority actions:', err);
@@ -684,7 +715,6 @@ const ActionPlan = () => {
   const waitingForScan = completed.filter((r) => r.verification === 'pending').length;
   // Queued actions are open gaps too, just not shown until a slot frees up.
   const openTotal = active.length + queuedCount;
-  const lastScanAt = project?.ownBusiness.lastCrawledAt ?? null;
   const businessName = project?.ownBusiness.name ?? 'your business';
 
   return (
@@ -740,7 +770,7 @@ const ActionPlan = () => {
                 className="text-[11px] gap-1 bg-accent/10 text-accent-strong border-accent/30"
               >
                 <Clock className="w-3 h-3" />
-                {lastScanAt == null ? 'Re-checked each scan' : scanTimingLabel(lastScanAt)}
+                {scanTimingLabel(scan)}
               </Badge>
             </div>
             {!usingMock && (

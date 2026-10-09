@@ -8,8 +8,7 @@ import { inngest } from '@/inngest/client';
 import { calculateScores } from '@/services/scores';
 import { mapPriorityActionRow } from '@/lib/priorityActionRow';
 import { promoteQueuedActions } from '@/lib/promoteQueuedActions';
-import { DAY_MS } from '@/lib/reviewGrowth';
-import { CRAWL_INTERVAL_MS } from '@/lib/crawl/config';
+import { CRAWL_INTERVAL_MS, DAY_MS } from '@/lib/crawl/config';
 import {
   businessJson,
   rowToBusiness,
@@ -510,16 +509,26 @@ export async function fetchPriorityActions(projectId: ProjectId): Promise<Priori
   return queryPriorityActions(projectId);
 }
 
+/** The own business's scan state, for the plan page's scan badge. */
+export type OwnScanState = {
+  status: Business['crawlStatus'];
+  /** Latest scan that produced site data; a failed attempt never does. */
+  lastSuccessAt: string | null;
+  /** Latest attempt, failed or not; the weekly schedule runs from this. */
+  lastAttemptAt: string | null;
+};
+
 /**
  * What the plan page needs beyond live actions: actions marked done in the last 30 days
- * (newest first, with their scan verification) and how many open gaps wait in the queue.
+ * (newest first, with their scan verification), how many open gaps wait in the queue,
+ * and the own business's scan state.
  */
 export async function fetchPlanHistory(
   projectId: ProjectId,
-): Promise<{ completed: PriorityAction[]; queuedCount: number }> {
+): Promise<{ completed: PriorityAction[]; queuedCount: number; scan: OwnScanState | null }> {
   await requireProjectOwnership(projectId);
   const since = new Date(Date.now() - 30 * DAY_MS).toISOString();
-  const [{ data }, { count }] = await Promise.all([
+  const [{ data }, { count }, { data: own }] = await Promise.all([
     supabaseAdmin
       .from('priority_actions')
       .select('*')
@@ -532,8 +541,31 @@ export async function fetchPlanHistory(
       .select('id', { count: 'exact', head: true })
       .eq('project_id', projectId)
       .eq('status', 'queued'),
+    supabaseAdmin
+      .from('businesses')
+      .select('id, crawl_status, last_crawled_at')
+      .eq('project_id', projectId)
+      .eq('is_own_business', true)
+      .maybeSingle(),
   ]);
-  return { completed: (data ?? []).map(mapPriorityActionRow), queuedCount: count ?? 0 };
+
+  let scan: OwnScanState | null = null;
+  if (own) {
+    const { data: snapshot } = await supabaseAdmin
+      .from('extracted_signals')
+      .select('scanned_at')
+      .eq('business_id', own.id)
+      .order('scanned_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    scan = {
+      status: own.crawl_status as Business['crawlStatus'],
+      lastSuccessAt: snapshot?.scanned_at ?? null,
+      lastAttemptAt: own.last_crawled_at,
+    };
+  }
+
+  return { completed: (data ?? []).map(mapPriorityActionRow), queuedCount: count ?? 0, scan };
 }
 
 // ── Action status management ───────────────────────────────────────────────────
@@ -543,7 +575,7 @@ export async function updateActionStatus(
   projectId: ProjectId,
   status: 'active' | 'snoozed' | 'completed',
   note?: string,
-): Promise<PriorityAction[]> {
+): Promise<void> {
   await requireProjectOwnership(projectId);
   await supabaseAdmin
     .from('priority_actions')
@@ -564,8 +596,6 @@ export async function updateActionStatus(
   if (status === 'completed') {
     await promoteQueuedActions(projectId);
   }
-
-  return queryPriorityActions(projectId);
 }
 
 export async function updateProjectBusinessDetails(

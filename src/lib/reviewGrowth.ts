@@ -6,9 +6,9 @@
  * every Google fetch can: comparing the latest count with a baseline about
  * REVIEW_WINDOW_DAYS ago gives a true "gained N reviews in D days".
  */
+import { DAY_MS } from '@/lib/crawl/config';
+
 export const REVIEW_WINDOW_DAYS = 90;
-/** Milliseconds in a day. */
-export const DAY_MS = 86_400_000;
 
 export type ReviewHistoryRow = { review_count: number | null; fetched_at: string };
 

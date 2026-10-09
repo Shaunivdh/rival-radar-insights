@@ -2,10 +2,9 @@ import { inngest } from './client';
 import { supabaseAdmin } from '@/lib/supabase/server';
 import { logCrawlStep } from '@/lib/crawl/crawl-logger';
 import { markCrawlFailed } from '@/lib/crawl/orchestrator';
-import { CRAWL_INTERVAL_MS, CRAWL_INTERVAL_DAYS } from '@/lib/crawl/config';
+import { CRAWL_INTERVAL_MS, CRAWL_INTERVAL_DAYS, DAY_MS } from '@/lib/crawl/config';
 import { logger } from '@/lib/logger';
 import { runProjectActionGeneration } from './crawl-worker';
-import { DAY_MS } from '@/lib/reviewGrowth';
 
 /**
  * Daily health check cron — runs at 8 AM UTC.

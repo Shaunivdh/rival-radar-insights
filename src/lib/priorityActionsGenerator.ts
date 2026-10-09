@@ -7,7 +7,7 @@ import {
 import { mapPriorityActionRow } from '@/lib/priorityActionRow';
 import { checkTemplates } from '@/lib/priorityTemplates';
 import { MAX_LIVE_ACTIONS, promoteQueuedActions } from '@/lib/promoteQueuedActions';
-import { DAY_MS } from '@/lib/reviewGrowth';
+import { DAY_MS } from '@/lib/crawl/config';
 import { businessJson, rowToSignals } from '@/lib/supabase/mappers';
 import { fetchReviewGrowth } from '@/lib/supabase/reviewHistory';
 import type { Database } from '@/types/database';

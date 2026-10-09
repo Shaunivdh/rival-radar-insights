@@ -8,8 +8,11 @@
  *
  * To change the cadence, edit CRAWL_INTERVAL_DAYS only.
  */
+/** Milliseconds in a day. */
+export const DAY_MS = 86_400_000;
+
 export const CRAWL_INTERVAL_DAYS = 7;
-export const CRAWL_INTERVAL_MS = CRAWL_INTERVAL_DAYS * 24 * 60 * 60 * 1000;
+export const CRAWL_INTERVAL_MS = CRAWL_INTERVAL_DAYS * DAY_MS;
 
 /** Window for deduplicating threat/change events — one crawl interval plus a day of slack. */
 export const THREAT_DEDUP_MS = (CRAWL_INTERVAL_DAYS + 1) * 24 * 60 * 60 * 1000;

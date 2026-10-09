@@ -1,5 +1,6 @@
 import type { TypedSupabaseClient } from './types';
-import { DAY_MS, REVIEW_WINDOW_DAYS, reviewGrowth, type ReviewGrowth } from '@/lib/reviewGrowth';
+import { DAY_MS } from '@/lib/crawl/config';
+import { REVIEW_WINDOW_DAYS, reviewGrowth, type ReviewGrowth } from '@/lib/reviewGrowth';
 
 /**
  * Review growth for one business over the last REVIEW_WINDOW_DAYS, from the

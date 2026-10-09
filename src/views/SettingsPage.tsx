@@ -9,6 +9,15 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import {
+  AlertDialog,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import {
   User,
   CreditCard,
   Shield,
@@ -28,13 +37,14 @@ import { isValidUKPostcode } from '@/lib/utils';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { rescanAll, updateProjectBusinessDetails } from '@/actions/projects';
+import { deleteAccount, exportMyData } from '@/actions/account';
 import { SERVICE_CATEGORY_OPTIONS, type ServiceCategory } from '@/lib/serviceCategories';
 import type { AppSettings } from '@/types';
 
 type FieldErrors = Partial<Record<'primaryService' | 'location' | 'postcode', string>>;
 
 const SettingsPage = () => {
-  const { settings, setSettings, deleteProject, project, user } = useScoutlyStore();
+  const { settings, setSettings, logout, project, user } = useScoutlyStore();
   const router = useRouter();
   // Prefer the project row — it's what the crawl worker reads. Fall back to
   // app_settings only when no project exists yet (first-time setup defaults).
@@ -52,6 +62,12 @@ const SettingsPage = () => {
   const [saved, setSaved] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState('');
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleteConfirm, setDeleteConfirm] = useState('');
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState('');
+  const [exporting, setExporting] = useState(false);
+  const [exportError, setExportError] = useState('');
 
   const biz = project?.ownBusiness;
   const initials = user?.email?.slice(0, 2).toUpperCase() ?? 'MJ';
@@ -116,11 +132,38 @@ const SettingsPage = () => {
     }
   };
 
-  const handleDelete = () => {
-    if (confirm('Are you sure you want to delete the project? This cannot be undone.')) {
-      deleteProject();
-      router.push('/');
+  const handleExport = async () => {
+    setExporting(true);
+    setExportError('');
+    try {
+      const data = await exportMyData();
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `scoutly-export-${new Date().toISOString().slice(0, 10)}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      console.error('[SettingsPage] export failed:', e);
+      setExportError('Could not export your data. Please try again.');
+    } finally {
+      setExporting(false);
     }
+  };
+
+  const handleDelete = async () => {
+    setDeleting(true);
+    setDeleteError('');
+    const result = await deleteAccount();
+    if (!result.ok) {
+      setDeleteError(result.error);
+      setDeleting(false);
+      return;
+    }
+    // The auth user is gone server side; signOut may 4xx but still clears the local session.
+    await logout().catch(() => {});
+    router.push('/');
   };
 
   return (
@@ -452,11 +495,18 @@ const SettingsPage = () => {
                     Download everything we have on your business.
                   </p>
                 </div>
-                <Button variant="outline" size="sm" className="gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="gap-2"
+                  onClick={handleExport}
+                  disabled={exporting}
+                >
                   <Download className="w-4 h-4" />
-                  Export
+                  {exporting ? 'Exporting…' : 'Export'}
                 </Button>
               </div>
+              {exportError && <p className="text-xs text-destructive">{exportError}</p>}
               <Separator />
               <div className="flex items-center justify-between">
                 <div>
@@ -465,11 +515,51 @@ const SettingsPage = () => {
                     Permanently remove your account and all data.
                   </p>
                 </div>
-                <Button variant="destructive" size="sm" className="gap-2" onClick={handleDelete}>
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  className="gap-2"
+                  onClick={() => {
+                    setDeleteConfirm('');
+                    setDeleteError('');
+                    setDeleteOpen(true);
+                  }}
+                >
                   <Trash2 className="w-4 h-4" />
                   Delete
                 </Button>
               </div>
+              <AlertDialog open={deleteOpen} onOpenChange={(o) => !deleting && setDeleteOpen(o)}>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Delete your account?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      This permanently deletes your account, projects, competitor data, scores and
+                      action plans. It cannot be undone. Export your data first if you want a copy.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <div className="space-y-2">
+                    <Label htmlFor="delete-confirm">Type DELETE to confirm</Label>
+                    <Input
+                      id="delete-confirm"
+                      value={deleteConfirm}
+                      onChange={(e) => setDeleteConfirm(e.target.value)}
+                      autoComplete="off"
+                    />
+                    {deleteError && <p className="text-xs text-destructive">{deleteError}</p>}
+                  </div>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
+                    <Button
+                      variant="destructive"
+                      onClick={handleDelete}
+                      disabled={deleteConfirm !== 'DELETE' || deleting}
+                    >
+                      {deleting ? 'Deleting…' : 'Delete account'}
+                    </Button>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
             </CardContent>
           </Card>
         </TabsContent>

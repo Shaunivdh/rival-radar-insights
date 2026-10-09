@@ -500,6 +500,20 @@ const SignUpPage = () => {
 
             {error && <p className="mt-4 text-sm text-destructive text-center">{error}</p>}
 
+            {step === totalSteps && (
+              <p className="mt-6 text-xs text-muted-foreground text-center">
+                By creating an account you agree to our{' '}
+                <Link href="/terms" target="_blank" className="text-primary hover:underline">
+                  Terms of Service
+                </Link>{' '}
+                and{' '}
+                <Link href="/privacy" target="_blank" className="text-primary hover:underline">
+                  Privacy Policy
+                </Link>
+                .
+              </p>
+            )}
+
             {/* Actions */}
             <div className="flex items-center justify-between mt-10 pt-6 border-t border-border/60">
               <Button

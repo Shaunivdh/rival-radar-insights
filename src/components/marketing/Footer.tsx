@@ -23,6 +23,12 @@ const Footer = () => {
           <Link href="/signup" className="transition-colors hover:text-foreground">
             Get started
           </Link>
+          <Link href="/privacy" className="transition-colors hover:text-foreground">
+            Privacy
+          </Link>
+          <Link href="/terms" className="transition-colors hover:text-foreground">
+            Terms
+          </Link>
         </div>
 
         <p>© {new Date().getFullYear()} Scoutly. All rights reserved.</p>
